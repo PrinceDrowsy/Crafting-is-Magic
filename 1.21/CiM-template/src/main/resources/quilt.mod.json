@@ -1,0 +1,36 @@
+{
+    "schema_version": 1,
+    "quilt_loader": {
+        "group": "${group}",
+        "id": "CiM",
+        "version": "${version}",
+        "metadata": {
+            "name": "Crafting is Magic",
+            "description": "An MLP mod for Minecraft",
+            "contributors": {
+                "Evo-lution": "Owner"
+            },
+            "contact": {},
+            "icon": "assets/example_mod/icon.png"
+        },
+        "intermediate_mappings": "net.fabricmc:intermediary",
+        "entrypoints": {
+            "init": "io.github.evo-lution.cim.CiM"
+        },
+        "depends": [
+            {
+                "id": "quilt_loader",
+                "versions": ">=0.19.1"
+            },
+            {
+                "id": "quilted_fabric_api",
+                "versions": ">=7.0.2"
+            },
+            {
+                "id": "minecraft",
+                "versions": ">=1.20"
+            }
+        ]
+    },
+    "mixin": "CiM.mixins.json"
+}
