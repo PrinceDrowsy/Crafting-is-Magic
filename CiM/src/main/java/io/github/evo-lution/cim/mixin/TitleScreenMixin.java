@@ -1,6 +1,6 @@
-package io.github.evo-lution.cim.mixin;
+package io.github.princedrowsy.cim.mixin;
 
-import io.github.evo-lution.cim.CiM;
+import io.github.princedrowsy.cim.CiM;
 import net.minecraft.client.gui.screen.TitleScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
