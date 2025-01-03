@@ -6,9 +6,9 @@
         "version": "${version}",
         "metadata": {
             "name": "Crafting is Magic",
-            "description": "An MLP mod for Minecraft",
+            "description": "Crafting is Magic",
             "contributors": {
-                "Evo-lution": "Owner"
+                "PrinceDrowsy": "Owner"
             },
             "contact": {},
             "icon": "assets/example_mod/icon.png"
