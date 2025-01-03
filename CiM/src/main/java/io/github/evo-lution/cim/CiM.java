@@ -1,4 +1,4 @@
-package io.github.evo-lution.cim;
+package io.github.princedrowsy.cim;
 
 import org.quiltmc.loader.api.ModContainer;
 import org.quiltmc.qsl.base.api.entrypoint.ModInitializer;
