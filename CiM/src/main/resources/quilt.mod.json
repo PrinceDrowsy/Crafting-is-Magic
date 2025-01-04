@@ -2,7 +2,7 @@
     "schema_version": 1,
     "quilt_loader": {
         "group": "${group}",
-        "id": "CraftisMagic",
+        "id": "cim",
         "version": "${version}",
         "metadata": {
             "name": "Crafting is Magic",
@@ -15,7 +15,7 @@
         },
         "intermediate_mappings": "net.fabricmc:intermediary",
         "entrypoints": {
-            "init": "io.github.princedrowsy.craftismagic.CraftisMagic"
+            "init": "io.github.princedrowsy.cim.cim"
         },
         "depends": [
             {
@@ -32,5 +32,5 @@
             }
         ]
     },
-    "mixin": "CraftisMagic.mixins.json"
+    "mixin": "cim.mixins.json"
 }
