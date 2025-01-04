@@ -1,6 +1,6 @@
-package io.github.princedrowsy.cim.mixin;
+package io.github.princedrowsy.craftismagic.mixin;
 
-import io.github.princedrowsy.cim.CiM;
+import io.github.princedrowsy.craftismagic.CraftisMagic;
 import net.minecraft.client.gui.screen.TitleScreen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -11,6 +11,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class TitleScreenMixin {
     @Inject(method = "init", at = @At("TAIL"))
     public void onInit(CallbackInfo ci) {
-        CiM.LOGGER.info("This line is printed by an example mod mixin!");
+        CraftisMagic.LOGGER.info("This line is printed by an example mod mixin!");
     }
 }
