@@ -3,6 +3,8 @@ package craftingismagic.cim;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
+import craftingismagic.cim.client.ability.RadialMenuKeyBinding;
+import craftingismagic.cim.client.ability.RadialMenuOpener;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.species.EarthPonyJumpBarHud;
 import craftingismagic.cim.client.species.EarthPonyJumpHandler;
@@ -18,5 +20,8 @@ public class CimClient implements ClientModInitializer {
 		EarthPonyJumpKeyBinding.register();
 		EarthPonyJumpHandler.register();
 		EarthPonyJumpBarHud.register();
+
+		RadialMenuKeyBinding.register();
+		RadialMenuOpener.register();
 	}
 }
