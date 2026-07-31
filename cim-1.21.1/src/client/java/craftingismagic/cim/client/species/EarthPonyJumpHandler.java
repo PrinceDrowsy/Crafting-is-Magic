@@ -5,16 +5,17 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.util.math.Vec3d;
 
-import craftingismagic.cim.species.Species;
-import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.client.ability.AbilityActivationKeyBinding;
+import craftingismagic.cim.client.ability.AbilityRegistry;
+import craftingismagic.cim.client.ability.SelectedAbility;
 
 /**
- * Earth Pony increased jump height: holding the dedicated charge-jump key
+ * Earth Pony increased jump height: holding the ability-activation key
  * while grounded charges up a jump, released when the key is let go —
- * the vanilla horse-riding jump model. Bound to its own key (see
- * {@link EarthPonyJumpKeyBinding}) rather than vanilla's jump key, so
- * there's no interaction with normal jumping at all: no suppression
- * needed, and no delay or ambiguity on a normal space-bar jump.
+ * the vanilla horse-riding jump model. Only does anything while Charged
+ * Jump is the currently-selected ability (see {@link SelectedAbility}) -
+ * the activation key is shared across all abilities, so this has to check
+ * selection itself rather than assuming every press is meant for it.
  */
 public final class EarthPonyJumpHandler {
 	/** Vanilla's own default jump velocity, used as the uncharged baseline. */
@@ -46,13 +47,12 @@ public final class EarthPonyJumpHandler {
 			return;
 		}
 
-		boolean isEarthPony = SpeciesAttachment.hasChosenSpecies(player)
-				&& SpeciesAttachment.getSpecies(player) == Species.EARTH_PONY;
-		boolean holdingJump = EarthPonyJumpKeyBinding.CHARGE_JUMP.isPressed();
+		boolean isSelected = SelectedAbility.isSelected(AbilityRegistry.CHARGED_JUMP);
+		boolean holdingJump = isSelected && AbilityActivationKeyBinding.ACTIVATE_ABILITY.isPressed();
 		boolean justReleased = wasHoldingJump && !holdingJump;
 		wasHoldingJump = holdingJump;
 
-		if (!isEarthPony || !player.isOnGround()) {
+		if (!isSelected || !player.isOnGround()) {
 			reset();
 			return;
 		}

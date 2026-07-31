@@ -11,12 +11,12 @@ import net.minecraft.util.Identifier;
 
 /**
  * The radial ability menu: opens while {@link RadialMenuKeyBinding#OPEN_RADIAL_MENU}
- * is held, closes and activates whatever's hovered when it's released.
- * Modeled closely on vanilla's own F3+F4 gamemode-switcher wheel
- * ({@code GameModeSelectionScreen}) — same slot/selection sprites, and
- * the same trick of polling the raw key state directly each frame
- * (rather than the KeyBinding's own tracked state) to detect release
- * while this screen has input focus.
+ * is held, closes and *selects* (not activates - see {@link SelectedAbility})
+ * whatever's hovered when it's released. Modeled closely on vanilla's own
+ * F3+F4 gamemode-switcher wheel ({@code GameModeSelectionScreen}) — same
+ * slot/selection sprites, and the same trick of polling the raw key state
+ * directly each frame (rather than the KeyBinding's own tracked state) to
+ * detect release while this screen has input focus.
  */
 public class RadialMenuScreen extends Screen {
 	private static final Identifier SLOT_TEXTURE = Identifier.ofVanilla("gamemode_switcher/slot");
@@ -43,7 +43,7 @@ public class RadialMenuScreen extends Screen {
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		if (isOpenKeyReleased()) {
 			if (hoveredIndex != -1) {
-				abilities.get(hoveredIndex).activate(client);
+				SelectedAbility.set(abilities.get(hoveredIndex));
 			}
 			client.setScreen(null);
 			return;

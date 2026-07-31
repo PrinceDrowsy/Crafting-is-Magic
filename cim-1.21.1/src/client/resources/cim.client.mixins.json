@@ -3,7 +3,8 @@
 	"package": "craftingismagic.cim.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+		"ExampleClientMixin",
+		"MouseScrollMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
