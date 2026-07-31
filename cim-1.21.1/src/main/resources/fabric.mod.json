@@ -1,0 +1,43 @@
+{
+	"schemaVersion": 1,
+	"id": "cim",
+	"version": "${version}",
+	"name": "Crafting is Magic",
+	"description": "An MLP-themed total-conversion Minecraft mod.",
+	"authors": [
+		"PrinceDrowsy"
+	],
+	"contact": {
+		"sources": "https://github.com/PrinceDrowsy/Crafting-is-Magic"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/cim/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"craftingismagic.cim.Cim"
+		],
+		"client": [
+			"craftingismagic.cim.CimClient"
+		],
+		"fabric-datagen": [
+			"craftingismagic.cim.CimDataGenerator"
+		]
+	},
+	"mixins": [
+		"cim.mixins.json",
+		{
+			"config": "cim.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.13",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"suggests": {
+		"another-mod": "*"
+	}
+}
