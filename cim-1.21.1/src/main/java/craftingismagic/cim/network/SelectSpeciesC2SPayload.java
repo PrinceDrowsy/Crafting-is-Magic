@@ -2,7 +2,6 @@ package craftingismagic.cim.network;
 
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
@@ -16,7 +15,7 @@ import craftingismagic.cim.species.Species;
 public record SelectSpeciesC2SPayload(Species species) implements CustomPayload {
 	public static final Id<SelectSpeciesC2SPayload> ID = new Id<>(Identifier.of(Cim.MOD_ID, "select_species"));
 	public static final PacketCodec<RegistryByteBuf, SelectSpeciesC2SPayload> CODEC = PacketCodec.tuple(
-			PacketCodecs.STRING.xmap(Species::valueOf, Species::name).cast(),
+			Species.PACKET_CODEC,
 			SelectSpeciesC2SPayload::species,
 			SelectSpeciesC2SPayload::new);
 
