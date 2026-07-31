@@ -26,11 +26,12 @@ public class RadialMenuScreen extends Screen {
 	private static final int RING_RADIUS = 60;
 	private static final int DEAD_ZONE_RADIUS = 20;
 
-	private final List<Ability> abilities = AbilityRegistry.ABILITIES;
+	private final List<Ability> abilities;
 	private int hoveredIndex = -1;
 
-	public RadialMenuScreen() {
+	public RadialMenuScreen(List<Ability> abilities) {
 		super(Text.empty());
+		this.abilities = abilities;
 	}
 
 	@Override
