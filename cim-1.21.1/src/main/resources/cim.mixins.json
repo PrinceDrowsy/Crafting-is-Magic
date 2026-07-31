@@ -3,7 +3,9 @@
 	"package": "craftingismagic.cim.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"ExampleMixin"
+		"ExampleMixin",
+		"EntitySetFlagAccessor",
+		"PegasusFallFlyingMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

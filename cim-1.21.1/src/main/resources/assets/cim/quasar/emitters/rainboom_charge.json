@@ -1,0 +1,13 @@
+{
+	"max_lifetime": 5,
+	"loop": false,
+	"rate": 1,
+	"count": 1,
+	"max_particles": 1,
+	"emitter_settings": {
+		"shape": "cim:rainboom_charge_point",
+		"particle_settings": "cim:rainboom_charge_particles",
+		"force_spawn": true
+	},
+	"particle_data": "cim:rainboom_charge_particle_data"
+}

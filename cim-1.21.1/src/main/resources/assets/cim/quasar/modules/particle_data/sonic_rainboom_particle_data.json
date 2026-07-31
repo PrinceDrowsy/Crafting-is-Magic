@@ -1,0 +1,47 @@
+{
+	"render_style": "cim:rainbow_ring",
+	"should_collide": false,
+	"face_velocity": false,
+	"additive": false,
+	"modules": [
+		{
+			"module": "size",
+			"size": "0.5 + q.agePercent * 25.0"
+		},
+		{
+			"module": "color",
+			"gradient": {
+				"rgb_points": [
+					{ "percent": 0.0, "color": [255, 255, 255] }
+				],
+				"alpha_points": [
+					{ "percent": 0.0, "alpha": 1.0 },
+					{ "percent": 0.6, "alpha": 1.0 },
+					{ "percent": 1.0, "alpha": 0.0 }
+				]
+			},
+			"interpolant": "q.agePercent"
+		},
+		{
+			"module": "light",
+			"gradient": {
+				"rgb_points": [
+					{ "percent": 0.0, "color": [255, 0, 0] },
+					{ "percent": 0.17, "color": [255, 165, 0] },
+					{ "percent": 0.33, "color": [255, 255, 0] },
+					{ "percent": 0.5, "color": [0, 255, 0] },
+					{ "percent": 0.67, "color": [0, 128, 255] },
+					{ "percent": 0.83, "color": [75, 0, 130] },
+					{ "percent": 1.0, "color": [200, 0, 255] }
+				],
+				"alpha_points": [
+					{ "percent": 0.0, "alpha": 1.0 },
+					{ "percent": 0.6, "alpha": 1.0 },
+					{ "percent": 1.0, "alpha": 0.0 }
+				]
+			},
+			"brightness": "3.0",
+			"radius": "20.0 + q.agePercent * 200.0"
+		}
+	]
+}

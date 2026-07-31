@@ -1,0 +1,13 @@
+{
+	"max_lifetime": 5,
+	"loop": false,
+	"rate": 1,
+	"count": 1,
+	"max_particles": 1,
+	"emitter_settings": {
+		"shape": "cim:sonic_rainboom_ring",
+		"particle_settings": "cim:sonic_rainboom_particles",
+		"force_spawn": true
+	},
+	"particle_data": "cim:sonic_rainboom_particle_data"
+}

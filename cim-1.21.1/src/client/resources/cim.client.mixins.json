@@ -4,7 +4,10 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"ExampleClientMixin",
-		"MouseScrollMixin"
+		"MouseScrollMixin",
+		"PegasusFlightBobMixin",
+		"PegasusFlightCameraBobMixin",
+		"PegasusChargeStretchMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import craftingismagic.cim.client.levitation.LevitationClientState;
 import craftingismagic.cim.network.PlaceLevitatedBlockC2SPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
+import craftingismagic.cim.network.ToggleFlightC2SPayload;
 import craftingismagic.cim.species.Species;
 
 /**
@@ -51,6 +52,10 @@ public final class AbilityRegistry {
 				}
 			});
 
+	/** Toggle: press to take off (small hop to make it visible from a stand), press again to land. */
+	public static final Ability PEGASUS_FLIGHT = new Ability(Text.literal("Flight"), new ItemStack(Items.ELYTRA),
+			client -> ClientPlayNetworking.send(new ToggleFlightC2SPayload()));
+
 	private static final List<Ability> PLACEHOLDER_ABILITIES = List.of(
 			new Ability(Text.literal("Test Ability A"), new ItemStack(Items.DIAMOND),
 					client -> client.player.sendMessage(Text.literal("Test Ability A activated"), true)),
@@ -67,6 +72,9 @@ public final class AbilityRegistry {
 		}
 		if (species == Species.UNICORN) {
 			abilities.add(LEVITATION);
+		}
+		if (species == Species.PEGASUS) {
+			abilities.add(PEGASUS_FLIGHT);
 		}
 		abilities.addAll(PLACEHOLDER_ABILITIES);
 		return abilities;

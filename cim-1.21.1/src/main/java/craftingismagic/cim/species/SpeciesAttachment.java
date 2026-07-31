@@ -13,7 +13,7 @@ public final class SpeciesAttachment {
 			Identifier.of(Cim.MOD_ID, "species"),
 			builder -> builder.persistent(Species.CODEC)
 					.copyOnDeath()
-					.syncWith(Species.PACKET_CODEC, AttachmentSyncPredicate.targetOnly()));
+					.syncWith(Species.PACKET_CODEC, AttachmentSyncPredicate.all()));
 
 	private SpeciesAttachment() {
 	}
