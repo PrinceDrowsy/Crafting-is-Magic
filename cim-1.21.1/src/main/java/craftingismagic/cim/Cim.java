@@ -1,9 +1,16 @@
 package craftingismagic.cim;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
+import craftingismagic.cim.network.SelectSpeciesC2SPayload;
+import craftingismagic.cim.species.SpeciesAttachment;
 
 public class Cim implements ModInitializer {
 	public static final String MOD_ID = "cim";
@@ -15,10 +22,18 @@ public class Cim implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		// This code runs as soon as Minecraft is in a mod-load-ready state.
-		// However, some things (like resources) may still be uninitialized.
-		// Proceed with mild caution.
+		PayloadTypeRegistry.playS2C().register(OpenSpeciesSelectS2CPayload.ID, OpenSpeciesSelectS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SelectSpeciesC2SPayload.ID, SelectSpeciesC2SPayload.CODEC);
 
-		LOGGER.info("Hello Fabric world!");
+		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
+			SpeciesAttachment.setSpecies(context.player(), payload.species());
+			LOGGER.info("{} chose species {}", context.player().getName().getString(), payload.species());
+		});
+
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
+				ServerPlayNetworking.send(handler.getPlayer(), new OpenSpeciesSelectS2CPayload());
+			}
+		});
 	}
 }
