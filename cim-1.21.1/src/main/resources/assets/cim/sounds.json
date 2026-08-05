@@ -1,0 +1,18 @@
+{
+	"levitation.pickup": {
+		"subtitle": "subtitles.cim.levitation.pickup",
+		"sounds": ["cim:levitation/telekinesis_start"]
+	},
+	"levitation.loop_1": {
+		"subtitle": "subtitles.cim.levitation.loop",
+		"sounds": ["cim:levitation/telekinesis_loop_1"]
+	},
+	"levitation.loop_2": {
+		"subtitle": "subtitles.cim.levitation.loop",
+		"sounds": ["cim:levitation/telekinesis_loop_2"]
+	},
+	"levitation.release": {
+		"subtitle": "subtitles.cim.levitation.release",
+		"sounds": ["cim:levitation/telekinesis_stop"]
+	}
+}

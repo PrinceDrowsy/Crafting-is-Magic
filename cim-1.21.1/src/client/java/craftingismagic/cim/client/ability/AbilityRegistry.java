@@ -9,6 +9,7 @@ import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.levitation.LevitationClientState;
+import craftingismagic.cim.network.ConfirmTeleportC2SPayload;
 import craftingismagic.cim.network.PlaceLevitatedBlockC2SPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
 import craftingismagic.cim.network.ToggleFlightC2SPayload;
@@ -56,6 +57,10 @@ public final class AbilityRegistry {
 	public static final Ability PEGASUS_FLIGHT = new Ability(Text.literal("Flight"), new ItemStack(Items.ELYTRA),
 			client -> ClientPlayNetworking.send(new ToggleFlightC2SPayload()));
 
+	/** Instant blink to wherever the player's currently looking - no aim/confirm gesture, a single tap does it all. */
+	public static final Ability TELEPORT = new Ability(Text.literal("Teleport"), new ItemStack(Items.ENDER_EYE),
+			client -> ClientPlayNetworking.send(new ConfirmTeleportC2SPayload()));
+
 	private static final List<Ability> PLACEHOLDER_ABILITIES = List.of(
 			new Ability(Text.literal("Test Ability A"), new ItemStack(Items.DIAMOND),
 					client -> client.player.sendMessage(Text.literal("Test Ability A activated"), true)),
@@ -72,6 +77,7 @@ public final class AbilityRegistry {
 		}
 		if (species == Species.UNICORN) {
 			abilities.add(LEVITATION);
+			abilities.add(TELEPORT);
 		}
 		if (species == Species.PEGASUS) {
 			abilities.add(PEGASUS_FLIGHT);

@@ -24,6 +24,10 @@ repositories {
 		name = 'BlameJared Maven (CrT / Bookshelf)'
 		url = 'https://maven.blamejared.com'
 	}
+	maven { // For Mine Little Pony (optional compatibility dependency)
+		name = 'Modrinth'
+		url = 'https://api.modrinth.com/maven'
+	}
 }
 
 loom {
@@ -59,6 +63,25 @@ dependencies {
 		exclude group: "me.fallenbreath"
 	}
 	modImplementation "foundry.imguimc:imguimc-fabric-${project.minecraft_version}:${project.imguimc_version}"
+
+	// Mine Little Pony - optional compatibility dependency (see the Compatibility section of the
+	// README). Compile-only: the mod is never required at runtime, only used if the player has it
+	// installed themselves, guarded behind FabricLoader.isModLoaded("minelittlepony") checks.
+	modCompileOnly "maven.modrinth:mine-little-pony:${project.minelp_version}"
+	// Mson - MineLP's own JSON-model/entity-renderer library. MineLP bundles it internally (jar-in-jar),
+	// but that isn't visible on our compile classpath, so it needs its own explicit compile-only entry
+	// to resolve MineLP's own API surface (ModelKey, EntityRendererRegistry, etc.).
+	modCompileOnly "maven.modrinth:mson:${project.mson_version}"
+}
+
+// Loom auto-injects fabric-loader and sponge-mixin, but on this Loom version they resolve to a
+// mismatched pair (fabric-loader gets bumped to 0.19.3 by conflict resolution while sponge-mixin
+// stays pinned to an older 0.15.4 build lacking classes 0.19.3's mixin bootstrap expects, causing
+// a NoClassDefFoundError: IAdviceProvider crash on launch). Force a newer, compatible sponge-mixin.
+configurations.all {
+	resolutionStrategy {
+		force "net.fabricmc:sponge-mixin:0.17.3+mixin.0.8.7"
+	}
 }
 
 processResources {

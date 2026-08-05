@@ -28,11 +28,21 @@ void main() {
     float angle = atan(centered.y, centered.x);
     float angleNorm = angle / (2.0 * PI) + 0.5;
 
-    float coreRadius = 0.12;
+    float coreRadius = 0.16;
     float ringInner = 0.42;
     float ringOuter = 0.62;
 
-    float core = 1.0 - smoothstep(coreRadius * 0.5, coreRadius, dist);
+    // Soft white glow, fully faded at the edges rather than cut off - no hard boundary at all.
+    float glow = pow(clamp(1.0 - dist / coreRadius, 0.0, 1.0), 1.6);
+
+    // A real eight-pointed star: abs(cos(4 * angle)) peaks at 8 evenly-spaced angles around the
+    // circle, and a high power turns those peaks into thin sharp spikes rather than broad lobes.
+    float rayReach = 0.55;
+    float spike = pow(abs(cos(angle * 4.0)), 22.0);
+    float rayFalloff = pow(clamp(1.0 - dist / rayReach, 0.0, 1.0), 1.3);
+    float rays = spike * rayFalloff;
+
+    float core = clamp(glow + rays, 0.0, 1.0);
 
     // Sample vanilla's own fire animation (32 frames, 16x16 each, stacked vertically) as the shape
     // and motion for the ring's flame-licked inner edge, instead of a hand-rolled noise function -
@@ -42,17 +52,22 @@ void main() {
     float bandT = clamp((dist - ringInner) / (ringOuter - ringInner), 0.0, 1.0);
     float frameCount = 32.0;
     float frame = floor(mod(GameTime * 4000.0 / 0.3, frameCount));
-    float flameU = fract(angleNorm * 14.0);
     float flameV = (frame + bandT) / frameCount;
-    float flameMask = texture(Sampler0, vec2(flameU, flameV)).a;
+
+    // The vanilla flame texture leaves empty space at each frame's left/right edges, which shows
+    // up as a gap between adjacent flame tongues when tiled once per slot. Rather than stretching
+    // a single flame to fill that gap (which warps its natural shape), sample a second copy
+    // offset by half a tongue-width and take the brighter of the two - this doubles the flame
+    // density with natural overlap instead, so each flame keeps its own proportions.
+    float angleTongues = angleNorm * 14.0;
+    float flameMaskA = texture(Sampler0, vec2(fract(angleTongues), flameV)).a;
+    float flameMaskB = texture(Sampler0, vec2(fract(angleTongues + 0.5), flameV)).a;
+    float flameMask = max(flameMaskA, flameMaskB);
 
     // Much wider falloff on the outer edge than the inner one - a soft, blurred glow fading into
     // the sky rather than a crisp cutoff, matching the softer look of the earlier version.
     float band = flameMask * (1.0 - smoothstep(ringOuter - 0.03, ringOuter + 0.4, dist))
             * smoothstep(ringInner - 0.12, ringInner, dist);
-
-    float rays = 0.6 + 0.4 * cos(angle * 12.0);
-    core *= mix(0.85, 1.0, rays);
 
     // Full rainbow arranged around the circumference (a color wheel), not by radius.
     vec3 rainbow = hsv2rgb(vec3(angleNorm, 1.0, 1.0));

@@ -1,0 +1,13 @@
+{
+	"max_lifetime": 60,
+	"loop": false,
+	"rate": 5,
+	"count": 3,
+	"max_particles": 9,
+	"emitter_settings": {
+		"shape": "cim:rainboom_sparkle_cluster",
+		"particle_settings": "cim:rainboom_trail_sparkle_particles",
+		"force_spawn": true
+	},
+	"particle_data": "cim:rainboom_trail_sparkle_particle_data"
+}

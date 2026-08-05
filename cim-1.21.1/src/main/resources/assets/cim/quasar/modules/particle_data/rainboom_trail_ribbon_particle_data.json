@@ -1,0 +1,41 @@
+{
+	"render_style": "BILLBOARD",
+	"should_collide": false,
+	"face_velocity": false,
+	"additive": false,
+	"modules": [
+		{
+			"module": "trail",
+			"settings": [
+				{
+					"trailFrequency": 1,
+					"trailLength": 1000,
+					"trailColor": [1.0, 1.0, 1.0, 1.0],
+					"trailWidthModifier": 5.0,
+					"trailTexture": "cim:textures/particle/rainboom_trail_gradient.png",
+					"trailPointModifier": 1.0,
+					"billboard": true,
+					"additive": false
+				}
+			]
+		},
+		{
+			"module": "size",
+			"size": "0.01"
+		},
+		{
+			"module": "color",
+			"gradient": {
+				"rgb_points": [
+					{ "percent": 0.0, "color": [255, 255, 255] }
+				],
+				"alpha_points": [
+					{ "percent": 0.0, "alpha": 1.0 },
+					{ "percent": 0.8, "alpha": 1.0 },
+					{ "percent": 1.0, "alpha": 0.0 }
+				]
+			},
+			"interpolant": "q.agePercent"
+		}
+	]
+}

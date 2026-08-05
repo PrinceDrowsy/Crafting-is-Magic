@@ -7,8 +7,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Mouse;
+import net.minecraft.client.gui.screen.Screen;
 
 import craftingismagic.cim.client.levitation.LevitationClientState;
+import craftingismagic.cim.levitation.LevitationSelectionAxis;
 import craftingismagic.cim.network.AdjustLevitationDistanceC2SPayload;
 import craftingismagic.cim.network.AdjustLevitationSelectionCountC2SPayload;
 
@@ -30,7 +32,10 @@ public class MouseScrollMixin {
 		}
 
 		if (LevitationClientState.isSelecting()) {
-			ClientPlayNetworking.send(new AdjustLevitationSelectionCountC2SPayload((float) vertical));
+			LevitationSelectionAxis axis = Screen.hasShiftDown() ? LevitationSelectionAxis.X
+					: Screen.hasAltDown() ? LevitationSelectionAxis.Z
+					: LevitationSelectionAxis.ANY;
+			ClientPlayNetworking.send(new AdjustLevitationSelectionCountC2SPayload((float) vertical, axis));
 			ci.cancel();
 		} else if (LevitationClientState.isHolding()) {
 			ClientPlayNetworking.send(new AdjustLevitationDistanceC2SPayload((float) vertical));

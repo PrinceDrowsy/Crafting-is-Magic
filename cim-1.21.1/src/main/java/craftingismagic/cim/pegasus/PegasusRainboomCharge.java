@@ -11,8 +11,6 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Vec3d;
 
 import craftingismagic.cim.network.PegasusChargeEndS2CPayload;
@@ -36,8 +34,6 @@ public final class PegasusRainboomCharge {
 	private static final int CHARGE_DURATION_TICKS = 60;
 	/** Speed of the slingshot burst released on a completed charge. */
 	private static final double SLINGSHOT_SPEED = 2.6;
-	/** How often (in ticks) the looping charge-up sound retriggers - a placeholder "static crackle" until real SFX are sourced. */
-	private static final int CRACKLE_SOUND_INTERVAL_TICKS = 3;
 
 	private static final Map<UUID, Integer> chargeTicks = new HashMap<>();
 
@@ -93,14 +89,6 @@ public final class PegasusRainboomCharge {
 		}
 
 		int ticks = entry.getValue() + 1;
-		if (ticks % CRACKLE_SOUND_INTERVAL_TICKS == 0) {
-			// TEMPORARY placeholder sound (same as the Rainboom's own sound - see memory note on
-			// that) - vanilla has no dedicated "electric crackle" sound, this is the closest
-			// "building energy" texture available, retriggered to build a continuous swell.
-			Vec3d pos = player.getPos();
-			player.getServerWorld().playSound(null, pos.x, pos.y, pos.z, SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE,
-					SoundCategory.PLAYERS, 1.0F, 1.3F);
-		}
 
 		if (ticks >= CHARGE_DURATION_TICKS) {
 			iterator.remove();
@@ -118,6 +106,7 @@ public final class PegasusRainboomCharge {
 
 		broadcast(player, new PegasusChargeEndS2CPayload(player.getId()));
 		SonicRainboomEffect.trigger(player.getServerWorld(), player.getPos());
+		PegasusRainboomTrail.start(player);
 	}
 
 	private static void broadcast(ServerPlayerEntity player, CustomPayload payload) {

@@ -1,11 +1,9 @@
 package craftingismagic.cim.client.gui;
 
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
-import craftingismagic.cim.network.SelectSpeciesC2SPayload;
 import craftingismagic.cim.species.Species;
 
 /**
@@ -38,8 +36,7 @@ public class SpeciesSelectScreen extends Screen {
 	}
 
 	private void selectSpecies(Species species) {
-		ClientPlayNetworking.send(new SelectSpeciesC2SPayload(species));
-		this.close();
+		this.client.setScreen(new SpeciesLoreScreen(species));
 	}
 
 	@Override

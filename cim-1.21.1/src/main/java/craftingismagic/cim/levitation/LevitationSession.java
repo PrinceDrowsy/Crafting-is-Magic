@@ -27,12 +27,17 @@ final class LevitationSession {
 
 	Phase phase;
 	int selectionCount = 1;
+	/** Which directions to prefer when growing the selection - set by whichever modifier was held on the most recent scroll. */
+	LevitationSelectionAxis selectionAxis = LevitationSelectionAxis.ANY;
 
 	List<LevitationBlock> blocks = List.of();
 	double distance;
 	double scrollVelocity = 0.0;
 	Vec3d velocity = Vec3d.ZERO;
 	int ticksThrown = 0;
+	int heldTicks = 0;
+	/** Alternates which of the two loop clips plays next, so one leads into the other and back rather than picking randomly. */
+	boolean nextLoopIsSecond = false;
 
 	LevitationSession(BlockPos anchorPos, ServerWorld world, UUID throwerUuid) {
 		this.anchorPos = anchorPos;

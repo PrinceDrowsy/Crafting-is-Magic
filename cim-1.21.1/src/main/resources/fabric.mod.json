@@ -40,5 +40,8 @@
 	},
 	"suggests": {
 		"another-mod": "*"
-	}
+	},
+	"loadAfter": [
+		"minelp"
+	]
 }

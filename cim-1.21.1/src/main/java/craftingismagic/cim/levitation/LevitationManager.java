@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -21,6 +22,8 @@ import net.minecraft.entity.decoration.DisplayEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -31,7 +34,10 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.WorldEvents;
 
+import craftingismagic.cim.network.LevitationAuraS2CPayload;
+import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
+import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 
@@ -61,7 +67,6 @@ public final class LevitationManager {
 	private static final double MAX_REACH = 20.0;
 	private static final double MIN_DISTANCE = 2.0;
 	private static final double MAX_DISTANCE = 20.0;
-	private static final double DEFAULT_DISTANCE = 4.0;
 	private static final double SCROLL_STEP = 0.5;
 
 	/** 4x4 worth of blocks. */
@@ -76,11 +81,19 @@ public final class LevitationManager {
 	private static final float MAX_THROW_DAMAGE = 20.0F;
 
 	/** Per-tick decay of {@link LevitationSession#scrollVelocity} - how quickly a scroll "goes stale". */
-	private static final double SCROLL_VELOCITY_DECAY = 0.85;
+	private static final double SCROLL_VELOCITY_DECAY = 0.75;
 	private static final double MAX_SCROLL_VELOCITY = 4.0;
-	/** Below this, releasing just places gently instead of throwing, and a throw is a plain forward one. */
-	private static final double SCROLL_VELOCITY_DEAD_ZONE = 0.1;
+	/**
+	 * Below this, releasing just places gently instead of throwing, and a throw is a plain forward
+	 * one. A single scroll notch is worth exactly 1.0, so this needs to sit clearly above that -
+	 * otherwise any incidental distance nudge right before releasing (a single notch takes ~0.7s to
+	 * decay past a 0.1 dead zone at the old decay rate) reads as deliberate throw momentum.
+	 */
+	private static final double SCROLL_VELOCITY_DEAD_ZONE = 1.2;
 	private static final double SCROLL_THROW_SPEED_MULTIPLIER = 1.0;
+
+	/** Roughly matches the loop clips' own length (~2.3-2.4s) so retriggers land close to seamlessly. */
+	private static final int LOOP_INTERVAL_TICKS = 48;
 
 	private static final Map<UUID, LevitationSession> SESSIONS = new HashMap<>();
 
@@ -113,7 +126,7 @@ public final class LevitationManager {
 		sendSelectionFeedback(player, session);
 	}
 
-	public static void adjustSelectionCount(ServerPlayerEntity player, float scrollDelta) {
+	public static void adjustSelectionCount(ServerPlayerEntity player, float scrollDelta, LevitationSelectionAxis axis) {
 		LevitationSession session = SESSIONS.get(player.getUuid());
 		if (session == null || session.phase != LevitationSession.Phase.SELECTING) {
 			return;
@@ -121,12 +134,22 @@ public final class LevitationManager {
 
 		int direction = (int) Math.signum(scrollDelta);
 		session.selectionCount = MathHelper.clamp(session.selectionCount + direction, 1, MAX_SELECTION_COUNT);
+		session.selectionAxis = axis;
 		sendSelectionFeedback(player, session);
 	}
 
 	private static void sendSelectionFeedback(ServerPlayerEntity player, LevitationSession session) {
-		int selected = computeSelection(session.world, session.anchorPos, session.selectionCount).size();
+		List<BlockPos> positions = computeSelection(session.world, session.anchorPos, session.selectionCount, session.selectionAxis);
+		int selected = positions.size();
 		player.sendMessage(Text.literal("Levitation: " + selected + " block" + (selected == 1 ? "" : "s") + " selected"), true);
+
+		BlockPos min = session.anchorPos;
+		BlockPos max = session.anchorPos;
+		for (BlockPos pos : positions) {
+			min = new BlockPos(Math.min(min.getX(), pos.getX()), Math.min(min.getY(), pos.getY()), Math.min(min.getZ(), pos.getZ()));
+			max = new BlockPos(Math.max(max.getX(), pos.getX()), Math.max(max.getY(), pos.getY()), Math.max(max.getZ(), pos.getZ()));
+		}
+		ServerPlayNetworking.send(player, new LevitationSelectionBoxS2CPayload(min, max));
 	}
 
 	public static void confirmSelection(ServerPlayerEntity player) {
@@ -136,7 +159,7 @@ public final class LevitationManager {
 		}
 
 		ServerWorld world = session.world;
-		List<BlockPos> positions = computeSelection(world, session.anchorPos, session.selectionCount);
+		List<BlockPos> positions = computeSelection(world, session.anchorPos, session.selectionCount, session.selectionAxis);
 		if (positions.isEmpty()) {
 			SESSIONS.remove(player.getUuid());
 			ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
@@ -157,25 +180,47 @@ public final class LevitationManager {
 		}
 
 		session.blocks = blocks;
-		session.distance = DEFAULT_DISTANCE;
+		// Start at the distance the group actually was when picked up, rather than snapping it to
+		// a fixed default - a block that was far away shouldn't visually teleport toward the
+		// player the instant it's confirmed; scrolling closer/farther is the player's own choice.
+		double actualDistance = player.getEyePos().distanceTo(Vec3d.ofCenter(session.anchorPos));
+		session.distance = MathHelper.clamp(actualDistance, MIN_DISTANCE, MAX_DISTANCE);
 		session.phase = LevitationSession.Phase.HELD;
 		updateHeldPositions(player, session);
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.HOLDING));
+		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_PICKUP);
+		broadcastAura(world, player.getPos(), blocks, true);
 	}
 
-	/** Breadth-first from the anchor through directly-adjacent selectable blocks, up to {@code count} of them. */
-	private static List<BlockPos> computeSelection(ServerWorld world, BlockPos anchor, int count) {
+	private static void broadcastAura(ServerWorld world, Vec3d pos, List<LevitationBlock> blocks, boolean active) {
+		List<Integer> entityIds = blocks.stream().map(block -> block.displayEntity().getId()).toList();
+		LevitationAuraS2CPayload payload = new LevitationAuraS2CPayload(entityIds, active);
+		for (ServerPlayerEntity nearby : PlayerLookup.around(world, pos, 128.0)) {
+			ServerPlayNetworking.send(nearby, payload);
+		}
+	}
+
+	/**
+	 * Breadth-first from the anchor through directly-adjacent selectable blocks, up to {@code
+	 * count} of them. {@code axis} hard-restricts which directions may be explored at all - X
+	 * limits growth to east/west, Z to north/south, so scrolling with Shift or Alt held shapes the
+	 * selection strictly along one line rather than merely biasing which of the six directions
+	 * gets picked first (that softer bias-only approach didn't produce a clearly different result
+	 * for most selections, which read as "not working").
+	 */
+	private static List<BlockPos> computeSelection(ServerWorld world, BlockPos anchor, int count, LevitationSelectionAxis axis) {
 		List<BlockPos> ordered = new ArrayList<>();
 		Set<BlockPos> visited = new HashSet<>();
 		Deque<BlockPos> queue = new ArrayDeque<>();
 		queue.add(anchor);
 		visited.add(anchor);
 
+		Direction[] directions = allowedDirections(axis);
 		while (!queue.isEmpty() && ordered.size() < count) {
 			BlockPos current = queue.poll();
 			ordered.add(current);
 
-			for (Direction direction : Direction.values()) {
+			for (Direction direction : directions) {
 				BlockPos neighbor = current.offset(direction);
 				if (visited.add(neighbor) && isSelectable(world, neighbor)) {
 					queue.add(neighbor);
@@ -189,6 +234,17 @@ public final class LevitationManager {
 	private static boolean isSelectable(ServerWorld world, BlockPos pos) {
 		BlockState state = world.getBlockState(pos);
 		return !state.isAir() && !state.hasBlockEntity() && state.getHardness(world, pos) >= 0;
+	}
+
+	private static final Direction[] X_AXIS_ONLY = { Direction.EAST, Direction.WEST };
+	private static final Direction[] Z_AXIS_ONLY = { Direction.NORTH, Direction.SOUTH };
+
+	private static Direction[] allowedDirections(LevitationSelectionAxis axis) {
+		return switch (axis) {
+			case X -> X_AXIS_ONLY;
+			case Z -> Z_AXIS_ONLY;
+			case ANY -> Direction.values();
+		};
 	}
 
 	public static void adjustDistance(ServerPlayerEntity player, float scrollDelta) {
@@ -233,6 +289,8 @@ public final class LevitationManager {
 		}
 
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
+		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_RELEASE);
+		broadcastAura(world, player.getPos(), session.blocks, false);
 	}
 
 	private static void throwGroup(ServerPlayerEntity player, LevitationSession session) {
@@ -245,6 +303,8 @@ public final class LevitationManager {
 		session.velocity = direction.multiply(speed);
 
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
+		playLevitationSound(session.world, player.getPos(), ModSounds.LEVITATION_RELEASE);
+		broadcastAura(session.world, player.getPos(), session.blocks, false);
 	}
 
 	/** Ends a session without a deliberate placement - e.g. on disconnect. Restores any held blocks where they came from. */
@@ -259,6 +319,7 @@ public final class LevitationManager {
 				session.world.setBlockState(block.originalPos(), block.state());
 				block.displayEntity().discard();
 			}
+			broadcastAura(session.world, player.getPos(), session.blocks, false);
 		}
 	}
 
@@ -287,7 +348,17 @@ public final class LevitationManager {
 			}
 
 			updateHeldPositions(player, session);
+
+			if (session.heldTicks++ % LOOP_INTERVAL_TICKS == 0) {
+				SoundEvent loopSound = session.nextLoopIsSecond ? ModSounds.LEVITATION_LOOP_2 : ModSounds.LEVITATION_LOOP_1;
+				session.nextLoopIsSecond = !session.nextLoopIsSecond;
+				playLevitationSound(session.world, player.getPos(), loopSound);
+			}
 		}
+	}
+
+	private static void playLevitationSound(ServerWorld world, Vec3d pos, SoundEvent sound) {
+		world.playSound(null, pos.x, pos.y, pos.z, sound, SoundCategory.PLAYERS, 1.0F, 1.0F);
 	}
 
 	private static void updateHeldPositions(ServerPlayerEntity player, LevitationSession session) {

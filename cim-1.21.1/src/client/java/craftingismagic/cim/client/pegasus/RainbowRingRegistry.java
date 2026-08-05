@@ -4,6 +4,7 @@ import foundry.veil.api.quasar.registry.RenderStyleRegistry;
 import foundry.veil.platform.registry.RegistrationProvider;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.client.levitation.LevitationAuraRenderStyle;
 
 /** Registers our custom Quasar render styles into Veil's render style registry - must run before Veil's own client bootstrap calls its render styles' init(). */
 public final class RainbowRingRegistry {
@@ -15,5 +16,6 @@ public final class RainbowRingRegistry {
 				RegistrationProvider.get(RenderStyleRegistry.REGISTRY, Cim.MOD_ID);
 		provider.register("rainbow_ring", RainbowRingRenderStyle::new);
 		provider.register("charge_cone", ChargeConeRenderStyle::new);
+		provider.register("levitation_aura", LevitationAuraRenderStyle::new);
 	}
 }
