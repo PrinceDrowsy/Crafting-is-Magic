@@ -15,9 +15,12 @@ import craftingismagic.cim.network.AdjustLevitationDistanceC2SPayload;
 import craftingismagic.cim.network.AdjustLevitationSelectionCountC2SPayload;
 import craftingismagic.cim.network.ConfirmLevitationSelectionC2SPayload;
 import craftingismagic.cim.network.ConfirmTeleportC2SPayload;
+import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
+import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
+import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.network.PegasusChargeEndS2CPayload;
@@ -40,6 +43,12 @@ import craftingismagic.cim.pegasus.PegasusRainboomCharge;
 import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.unicorn.TeleportManager;
+import craftingismagic.cim.villager.FavoriteGiftAttachment;
+import craftingismagic.cim.villager.FriendshipAttachment;
+import craftingismagic.cim.villager.PersonalityAttachment;
+import craftingismagic.cim.villager.PonyFamilyAttachment;
+import craftingismagic.cim.villager.PonyGeneticsAttachment;
+import craftingismagic.cim.villager.VillagerFamilyHandler;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.VillagerSpeciesHandler;
 
@@ -55,7 +64,9 @@ public class Cim implements ModInitializer {
 	public void onInitialize() {
 		ModSounds.bootstrap();
 		CimItems.register();
+		preloadAttachmentTypes();
 		VillagerSpeciesHandler.register();
+		VillagerFamilyHandler.register();
 		VillagerInteractionHandler.register();
 
 		PayloadTypeRegistry.playS2C().register(OpenSpeciesSelectS2CPayload.ID, OpenSpeciesSelectS2CPayload.CODEC);
@@ -80,7 +91,10 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(VillagerOfferTradeC2SPayload.ID, VillagerOfferTradeC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(VillagerGiveGiftC2SPayload.ID, VillagerGiveGiftC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(StopVillagerInteractionC2SPayload.ID, StopVillagerInteractionC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(IdleChatterReplyC2SPayload.ID, IdleChatterReplyC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OpenVillagerMenuS2CPayload.ID, OpenVillagerMenuS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(OpenIdleChatterS2CPayload.ID, OpenIdleChatterS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(IdleChatterReactionS2CPayload.ID, IdleChatterReactionS2CPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
@@ -110,6 +124,8 @@ public class Cim implements ModInitializer {
 				(payload, context) -> PegasusRainboomCharge.cancelFromRelease(context.player()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerIdleChatterC2SPayload.ID,
 				(payload, context) -> VillagerInteractionHandler.idleChatter(context.player(), payload.villagerEntityId()));
+		ServerPlayNetworking.registerGlobalReceiver(IdleChatterReplyC2SPayload.ID, (payload, context) ->
+				VillagerInteractionHandler.replyToIdleChatter(context.player(), payload.villagerEntityId(), payload.tone()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerOfferTradeC2SPayload.ID,
 				(payload, context) -> VillagerInteractionHandler.offerTrade(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerGiveGiftC2SPayload.ID,
@@ -135,5 +151,30 @@ public class Cim implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PegasusDashManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusRainboomCharge::tick);
 		ServerTickEvents.END_SERVER_TICK.register(VillagerInteractionHandler::tick);
+	}
+
+	/**
+	 * Every {@code *Attachment} class registers its {@code AttachmentType} in a static initializer,
+	 * which the JVM only actually runs the first time something touches that class - normally the
+	 * first time a handler's {@code ENTITY_LOAD} lambda body executes for some entity. That's too
+	 * late: Fabric deserializes an entity's saved attachment NBT (matching it against a global
+	 * registry of known type ids) before firing {@code ENTITY_LOAD} for that same entity, so
+	 * whichever villagers happen to be in the very first chunks loaded this session raced ahead of
+	 * their own attachment classes ever being touched, and their real saved data got logged as
+	 * "Unknown attachment type ... skipping" and silently dropped - visible in-game as those
+	 * villagers' genetics/family/etc. reverting to a default/re-rolled look after a world reload.
+	 * Referencing each type's field here forces registration during mod init, well before any world
+	 * or chunk can possibly load.
+	 */
+	private static void preloadAttachmentTypes() {
+		Object[] forceClassLoad = {
+				SpeciesAttachment.SPECIES,
+				PonyGeneticsAttachment.GENETICS,
+				PonyFamilyAttachment.FAMILY,
+				FavoriteGiftAttachment.FAVORITE_GIFT,
+				FriendshipAttachment.AFFECTION,
+				PersonalityAttachment.PERSONALITY,
+		};
+		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}
 }

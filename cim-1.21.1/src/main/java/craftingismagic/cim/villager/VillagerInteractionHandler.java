@@ -15,9 +15,15 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.random.Random;
 import net.minecraft.village.VillagerProfession;
 
+import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
+import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
+import craftingismagic.cim.species.Species;
+import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 
 /**
  * Right-clicking a villager opens our own Interact menu directly, instead of vanilla's trade
@@ -40,6 +46,7 @@ import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
  */
 public final class VillagerInteractionHandler {
 	private static final int IDLE_CHATTER_AFFECTION_BOOST = 5;
+	private static final int IDLE_CHATTER_TONE_MATCH_BONUS = 3;
 	private static final int FAVORITE_GIFT_AFFECTION_BOOST = 20;
 	private static final int GENERIC_GIFT_AFFECTION_BOOST = 5;
 	/** Sanity check on the client-supplied entity id - the player must actually be near it. */
@@ -85,17 +92,56 @@ public final class VillagerInteractionHandler {
 		});
 	}
 
+	/**
+	 * Opens the conversation with a topic pick + opening line only - no affection change yet, that
+	 * moves to {@link #replyToIdleChatter} once the player actually picks a reply tone, so no pick is
+	 * ever penalized (README: "No pick is ever penalized; a mismatch just doesn't earn the bonus.").
+	 */
 	public static void idleChatter(ServerPlayerEntity player, int villagerEntityId) {
 		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
 		if (villager == null) {
 			return;
 		}
 
-		FriendshipAttachment.addAffection(villager, player.getUuid(), IDLE_CHATTER_AFFECTION_BOOST);
-		Text favorite = FavoriteGiftAttachment.hasFavorite(villager)
-				? FavoriteGiftAttachment.getFavorite(villager).getName()
-				: Text.literal("?");
-		player.sendMessage(Text.translatable("message.cim.idle_chatter", favorite), true);
+		Species species = SpeciesAttachment.hasChosenSpecies(villager) ? SpeciesAttachment.getSpecies(villager) : Species.EARTH_PONY;
+		Personality personality = resolvePersonality(villager);
+		Random random = villager.getRandom();
+
+		IdleChatterTopic topic = IdleChatterDialogue.pickTopic(species, personality, random);
+		String openingLine = IdleChatterDialogue.openingLine(villager, topic, species, player.getServerWorld(), random);
+		ServerPlayNetworking.send(player,
+				new OpenIdleChatterS2CPayload(villagerEntityId, villager.getName().getString(), openingLine));
+	}
+
+	/**
+	 * Grants the base affection boost, plus a match bonus if the picked tone lines up with the
+	 * pony's {@link PersonalityType#toneAffinity()} - the concrete mechanical hook behind the
+	 * Personality system (README: Personality system, Mechanical hook).
+	 */
+	public static void replyToIdleChatter(ServerPlayerEntity player, int villagerEntityId, ReplyTone tone) {
+		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
+		if (villager == null) {
+			return;
+		}
+
+		Personality personality = resolvePersonality(villager);
+		boolean matched = personality.baseType().toneAffinity().map(affinity -> affinity == tone).orElse(false);
+		int boost = IDLE_CHATTER_AFFECTION_BOOST + (matched ? IDLE_CHATTER_TONE_MATCH_BONUS : 0);
+		FriendshipAttachment.addAffection(villager, player.getUuid(), boost);
+
+		Random random = villager.getRandom();
+		String reactionLine = IdleChatterDialogue.reactionLine(personality, tone, matched, random);
+		String closingLine = IdleChatterDialogue.closingLine(villager);
+		ServerPlayNetworking.send(player, new IdleChatterReactionS2CPayload(reactionLine, closingLine));
+	}
+
+	/** Falls back to a fresh uniform roll for a pre-existing villager that predates this system,
+	 * same "needs a fresh villager to see the real thing" caveat as genetics - not persisted here,
+	 * just keeps a stale/missing attachment from throwing. */
+	private static Personality resolvePersonality(VillagerEntity villager) {
+		return PersonalityAttachment.hasPersonality(villager)
+				? PersonalityAttachment.getPersonality(villager)
+				: PersonalityAttachment.randomize(villager.getRandom());
 	}
 
 	public static void offerTrade(ServerPlayerEntity player, int villagerEntityId) {

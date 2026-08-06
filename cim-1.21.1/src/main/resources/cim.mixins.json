@@ -5,7 +5,8 @@
 	"mixins": [
 		"ExampleMixin",
 		"EntitySetFlagAccessor",
-		"PegasusFallFlyingMixin"
+		"PegasusFallFlyingMixin",
+		"VillagerGrowthMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

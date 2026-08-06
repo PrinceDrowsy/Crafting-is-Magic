@@ -8,6 +8,7 @@ import craftingismagic.cim.client.ability.AbilityActivationHandler;
 import craftingismagic.cim.client.ability.AbilityActivationKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuOpener;
+import craftingismagic.cim.client.gui.IdleChatterScreen;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.gui.VillagerMenuScreen;
 import craftingismagic.cim.client.journal.JournalKeyBinding;
@@ -24,8 +25,11 @@ import craftingismagic.cim.client.pegasus.SonicRainboomEffectHandler;
 import craftingismagic.cim.client.species.EarthPonyJumpBarHud;
 import craftingismagic.cim.client.species.EarthPonyJumpHandler;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
+import craftingismagic.cim.client.villager.PonyGeneticsSkins;
+import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
+import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 
@@ -44,6 +48,15 @@ public class CimClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerMenuS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(
 						new VillagerMenuScreen(payload.villagerEntityId(), payload.affection(), payload.canTrade(), payload.villagerName()))));
+		ClientPlayNetworking.registerGlobalReceiver(OpenIdleChatterS2CPayload.ID, (payload, context) -> context.client()
+				.execute(() -> context.client().setScreen(
+						new IdleChatterScreen(payload.villagerEntityId(), payload.villagerName(), payload.openingLine()))));
+		ClientPlayNetworking.registerGlobalReceiver(IdleChatterReactionS2CPayload.ID, (payload, context) -> context.client()
+				.execute(() -> {
+					if (context.client().currentScreen instanceof IdleChatterScreen chatterScreen) {
+						chatterScreen.showReaction(payload.reactionLine(), payload.closingLine());
+					}
+				}));
 
 		EarthPonyJumpHandler.register();
 		EarthPonyJumpBarHud.register();
@@ -68,6 +81,7 @@ public class CimClient implements ClientModInitializer {
 
 		if (FabricLoader.getInstance().isModLoaded("minelp")) {
 			MineLpVillagerSkins.register();
+			PonyGeneticsSkins.register();
 		}
 	}
 }
