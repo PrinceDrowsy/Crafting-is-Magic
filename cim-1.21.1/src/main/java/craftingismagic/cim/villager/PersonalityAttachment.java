@@ -40,15 +40,15 @@ public final class PersonalityAttachment {
 	private static final float PROFESSION_BIAS_MULTIPLIER = 1.5f;
 
 	/**
-	 * README: "Pegasi skew Daring/Peppy, Earth Ponies skew Steadfast/Lazy, Unicorns skew
+	 * README: "Pegasi skew Daring/Lazy, Earth Ponies skew Steadfast/Peppy, Unicorns skew
 	 * Bookish/Refined, guards skew Steadfast/Cranky, librarians skew Bookish." No {@code GUARD}
 	 * profession exists anywhere in vanilla or this mod - only the Librarian half of that sentence
 	 * is actually implementable today (see {@link #applyProfessionBias}). Bat Pony/Kirin get no
 	 * species bias (not mentioned in the README's examples).
 	 */
 	private static final Map<Species, PersonalityType[]> SPECIES_BIAS = Map.of(
-			Species.PEGASUS, new PersonalityType[] {PersonalityType.DARING, PersonalityType.PEPPY},
-			Species.EARTH_PONY, new PersonalityType[] {PersonalityType.STEADFAST, PersonalityType.LAZY},
+			Species.PEGASUS, new PersonalityType[] {PersonalityType.DARING, PersonalityType.LAZY},
+			Species.EARTH_PONY, new PersonalityType[] {PersonalityType.STEADFAST, PersonalityType.PEPPY},
 			Species.UNICORN, new PersonalityType[] {PersonalityType.BOOKISH, PersonalityType.REFINED});
 
 	private static final AttachmentSyncPredicate SYNC_TO_TRACKERS = (target, player) ->
