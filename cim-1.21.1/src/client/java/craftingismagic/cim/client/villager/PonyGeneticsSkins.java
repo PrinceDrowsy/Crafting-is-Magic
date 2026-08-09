@@ -10,11 +10,13 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.ColorHelper;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.rogue.RoguePonyEntity;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
 
@@ -104,8 +106,8 @@ public final class PonyGeneticsSkins {
 
 	public static void register() {
 		ClientEntityEvents.ENTITY_UNLOAD.register((entity, world) -> {
-			if (entity instanceof VillagerEntity villager) {
-				Identifier cached = TEXTURE_BY_VILLAGER.remove(villager.getUuid());
+			if (entity instanceof VillagerEntity || entity instanceof RoguePonyEntity) {
+				Identifier cached = TEXTURE_BY_VILLAGER.remove(entity.getUuid());
 				if (cached != null) {
 					MinecraftClient.getInstance().getTextureManager().destroyTexture(cached);
 				}
@@ -113,14 +115,14 @@ public final class PonyGeneticsSkins {
 		});
 	}
 
-	public static Identifier resolveTexture(VillagerEntity villager) {
-		return TEXTURE_BY_VILLAGER.computeIfAbsent(villager.getUuid(), uuid -> buildAndRegister(villager));
+	public static Identifier resolveTexture(Entity entity) {
+		return TEXTURE_BY_VILLAGER.computeIfAbsent(entity.getUuid(), uuid -> buildAndRegister(entity));
 	}
 
-	private static Identifier buildAndRegister(VillagerEntity villager) {
-		PonyGenetics genetics = PonyGeneticsAttachment.getGenetics(villager);
+	private static Identifier buildAndRegister(Entity entity) {
+		PonyGenetics genetics = PonyGeneticsAttachment.getGenetics(entity);
 		NativeImage composited = composite(genetics);
-		Identifier id = Identifier.of(Cim.MOD_ID, "dynamic/pony_genetics/" + villager.getUuidAsString());
+		Identifier id = Identifier.of(Cim.MOD_ID, "dynamic/pony_genetics/" + entity.getUuidAsString());
 		MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(composited));
 		return id;
 	}

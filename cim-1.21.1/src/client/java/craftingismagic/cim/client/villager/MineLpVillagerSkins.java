@@ -43,7 +43,9 @@ public final class MineLpVillagerSkins {
 	/** A few seconds' worth of ticks - comfortably past the observed ~39-tick dispatcher-ready point. */
 	private static final int RETRY_TICKS = 100;
 
-	static final Map<Species, Identifier> SKIN_BY_SPECIES = Map.of(
+	/** Public since {@code CimRoguePonyRenderer} (a different package) also uses this as its own
+	 * pre-genetics-assignment fallback. */
+	public static final Map<Species, Identifier> SKIN_BY_SPECIES = Map.of(
 			Species.EARTH_PONY, cimSkin("applejack"),
 			Species.UNICORN, cimSkin("twilight_sparkle"),
 			Species.PEGASUS, cimSkin("rainbow_dash"),

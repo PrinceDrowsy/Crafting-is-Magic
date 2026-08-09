@@ -13,6 +13,12 @@ public final class CimItems {
 			Identifier.of(Cim.MOD_ID, "sonic_rainboom_debug_stick"),
 			new SonicRainboomDebugStickItem(new Item.Settings().maxCount(1)));
 
+	/** Dev-only: `/give @s cim:villager_debug_wand` - right-click a villager in Creative to open
+	 * the full debug editor (see {@code VillagerDebugEditorHandler}). Not meant for normal play. */
+	public static final Item VILLAGER_DEBUG_WAND = Registry.register(Registries.ITEM,
+			Identifier.of(Cim.MOD_ID, "villager_debug_wand"),
+			new VillagerDebugWandItem(new Item.Settings().maxCount(1)));
+
 	private CimItems() {
 	}
 

@@ -1,5 +1,7 @@
 package craftingismagic.cim.villager;
 
+import java.util.List;
+
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
@@ -42,6 +44,12 @@ public final class FavoriteGiftAttachment {
 
 	public static Item randomGift(Random random) {
 		return GIFT_POOL[random.nextInt(GIFT_POOL.length)];
+	}
+
+	/** Exposed for the Creative-only villager debug editor's Favorite Gift cycling control -
+	 * normal gameplay only ever needs {@link #randomGift}. */
+	public static List<Item> giftPool() {
+		return List.of(GIFT_POOL);
 	}
 
 	public static boolean hasFavorite(Entity entity) {

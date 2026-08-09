@@ -7,6 +7,7 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
@@ -18,9 +19,11 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.village.VillagerProfession;
 
+import craftingismagic.cim.item.CimItems;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
+import craftingismagic.cim.rogue.RoguePonyEntity;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
@@ -31,18 +34,22 @@ import craftingismagic.cim.villager.PersonalityAttachment.Personality;
  * Only intercepts {@code Hand.MAIN_HAND} since Minecraft dispatches this callback for both hands
  * on a single right-click, which would otherwise open the menu twice.
  * <p>
- * {@code frozenVillagers} tracks every villager-id/player-uuid pair currently "in conversation";
- * a {@code ServerTickEvents} listener actively re-stops navigation and zeroes horizontal velocity
- * on them every tick, unconditionally effective regardless of which internal AI mechanism would
- * otherwise move it (a single {@code setAiDisabled}/{@code hasCustomer()} flag alone wasn't
- * sufficient - disabling AI stops new goals being picked but doesn't cancel an in-progress path).
- * {@code setCustomer} is set too, both because it's harmless and because "Offer Trade" needs it for
- * the hand-off into vanilla's own trade-session lifecycle. The actual root cause of several failed
- * attempts here turned out to be unrelated to the freeze mechanism at all: {@code
- * VillagerMenuScreen} originally released the freeze from {@code Screen#removed()}, which also
- * fires on routine screen re-initialization (e.g. a window resize/focus event) - releasing the
- * villager seconds into what still looked like an open menu. It now releases from {@code close()}
- * instead, which only fires on an intentional close.
+ * {@code frozenVillagers} tracks every entity-id/player-uuid pair currently "in conversation" -
+ * {@code MobEntity}-typed (not {@code VillagerEntity}) so the same freeze also covers a Rogue Pony
+ * held still by the debug editor (see {@link VillagerDebugEditorHandler#open}); a {@code
+ * ServerTickEvents} listener actively re-stops navigation and zeroes horizontal velocity on them
+ * every tick, unconditionally effective regardless of which internal AI mechanism would otherwise
+ * move it (a single {@code setAiDisabled}/{@code hasCustomer()} flag alone wasn't sufficient -
+ * disabling AI stops new goals being picked but doesn't cancel an in-progress path). {@code
+ * setCustomer} is set too on a {@code VillagerEntity} specifically (that method doesn't exist on a
+ * Rogue Pony), both because it's harmless and because "Offer Trade" needs it for the hand-off into
+ * vanilla's own trade-session lifecycle. The actual root cause of several failed attempts here
+ * turned out to be unrelated to the freeze mechanism at all: {@code VillagerMenuScreen} originally
+ * released the freeze from {@code Screen#removed()}, which also fires on routine screen
+ * re-initialization (e.g. a window resize/focus event) - releasing the villager seconds into what
+ * still looked like an open menu. It now releases from {@code close()} instead (every screen that
+ * freezes something follows this same rule - see {@code VillagerDebugEditorScreen} too), which
+ * only fires on an intentional close.
  */
 public final class VillagerInteractionHandler {
 	private static final int IDLE_CHATTER_AFFECTION_BOOST = 5;
@@ -52,7 +59,8 @@ public final class VillagerInteractionHandler {
 	/** Sanity check on the client-supplied entity id - the player must actually be near it. */
 	private static final double MAX_INTERACT_DISTANCE_SQUARED = 8.0 * 8.0;
 
-	/** Villager entity id -> the player currently interacting with it. */
+	/** Frozen entity id -> the player currently interacting with it (villager menu/idle chatter, or
+	 * the debug editor - see the class doc comment). */
 	private static final Map<Integer, UUID> frozenVillagers = new HashMap<>();
 
 	private VillagerInteractionHandler() {
@@ -60,8 +68,24 @@ public final class VillagerInteractionHandler {
 
 	public static void register() {
 		UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
-			if (hand == Hand.MAIN_HAND && !world.isClient && entity instanceof VillagerEntity villager
-					&& player instanceof ServerPlayerEntity serverPlayer) {
+			if (hand != Hand.MAIN_HAND || world.isClient || !(player instanceof ServerPlayerEntity serverPlayer)) {
+				return ActionResult.PASS;
+			}
+
+			// Creative-only debug wand takes over the interaction entirely, bypassing the normal
+			// Interact menu/freeze - see VillagerDebugWandItem for why this has to be checked here
+			// rather than in an Item#useOnEntity override (this callback would otherwise always
+			// intercept first regardless of held item). Widened to RoguePonyEntity too, since the
+			// debug editor's Genetics/Personality/Relationship tabs work on it just as well - a
+			// normal (non-Creative) right-click on a Rogue Pony intentionally falls through to
+			// ActionResult.PASS below instead, since it should never open a peaceful menu.
+			if ((entity instanceof VillagerEntity || entity instanceof RoguePonyEntity)
+					&& serverPlayer.isCreative() && serverPlayer.getStackInHand(hand).isOf(CimItems.VILLAGER_DEBUG_WAND)) {
+				VillagerDebugEditorHandler.open(serverPlayer, entity.getId());
+				return ActionResult.SUCCESS;
+			}
+
+			if (entity instanceof VillagerEntity villager) {
 				int affection = FriendshipAttachment.getAffection(villager, player.getUuid());
 				boolean canTrade = villager.getVillagerData().getProfession() != VillagerProfession.NONE;
 				freeze(villager, serverPlayer);
@@ -82,10 +106,10 @@ public final class VillagerInteractionHandler {
 			if (player == null) {
 				return true;
 			}
-			if (player.getServerWorld().getEntityById(entry.getKey()) instanceof VillagerEntity villager) {
-				Vec3d velocity = villager.getVelocity();
-				villager.getNavigation().stop();
-				villager.setVelocity(0, velocity.y, 0);
+			if (player.getServerWorld().getEntityById(entry.getKey()) instanceof MobEntity mob) {
+				Vec3d velocity = mob.getVelocity();
+				mob.getNavigation().stop();
+				mob.setVelocity(0, velocity.y, 0);
 				return false;
 			}
 			return true;
@@ -185,42 +209,51 @@ public final class VillagerInteractionHandler {
 	}
 
 	/**
-	 * Deliberately not distance-gated like the other actions: this only releases a hold the
-	 * villager is already under, so it needs to work even if the player moved far away in the
-	 * meantime (e.g. via Teleport) before closing the menu - otherwise the villager would be stuck
-	 * facing them forever.
+	 * Deliberately not distance-gated like the other actions: this only releases a hold the entity
+	 * is already under, so it needs to work even if the player moved far away in the meantime (e.g.
+	 * via Teleport) before closing the menu/editor - otherwise it would be stuck facing them
+	 * forever. Checks {@code frozenVillagers} itself (who's actually holding it) rather than {@code
+	 * VillagerEntity#getCustomer()}, since that method doesn't exist on a Rogue Pony at all.
 	 */
 	public static void stopInteracting(ServerPlayerEntity player, int villagerEntityId) {
-		Entity entity = player.getServerWorld().getEntityById(villagerEntityId);
-		if (entity instanceof VillagerEntity villager && villager.getCustomer() == player) {
-			unfreeze(villager);
+		if (player.getUuid().equals(frozenVillagers.get(villagerEntityId))
+				&& player.getServerWorld().getEntityById(villagerEntityId) instanceof MobEntity mob) {
+			unfreeze(mob);
 		}
 	}
 
-	/** Releases every villager a disconnecting player was holding still, so none stay frozen forever. */
+	/** Releases every entity a disconnecting player was holding still, so none stay frozen forever. */
 	public static void cancel(ServerPlayerEntity player) {
 		frozenVillagers.entrySet().removeIf(entry -> {
 			if (!entry.getValue().equals(player.getUuid())) {
 				return false;
 			}
-			if (player.getServerWorld().getEntityById(entry.getKey()) instanceof VillagerEntity villager) {
-				villager.setCustomer(null);
-				villager.setAiDisabled(false);
+			if (player.getServerWorld().getEntityById(entry.getKey()) instanceof MobEntity mob) {
+				if (mob instanceof VillagerEntity villager) {
+					villager.setCustomer(null);
+				}
+				mob.setAiDisabled(false);
 			}
 			return true;
 		});
 	}
 
-	private static void freeze(VillagerEntity villager, ServerPlayerEntity player) {
-		villager.setCustomer(player);
-		villager.setAiDisabled(true);
-		frozenVillagers.put(villager.getId(), player.getUuid());
+	/** Package-visible so {@link VillagerDebugEditorHandler#open} can hold a Rogue Pony/villager
+	 * still the same way the normal Interact menu does. */
+	static void freeze(MobEntity mob, ServerPlayerEntity player) {
+		if (mob instanceof VillagerEntity villager) {
+			villager.setCustomer(player);
+		}
+		mob.setAiDisabled(true);
+		frozenVillagers.put(mob.getId(), player.getUuid());
 	}
 
-	private static void unfreeze(VillagerEntity villager) {
-		villager.setCustomer(null);
-		villager.setAiDisabled(false);
-		frozenVillagers.remove(villager.getId());
+	private static void unfreeze(MobEntity mob) {
+		if (mob instanceof VillagerEntity villager) {
+			villager.setCustomer(null);
+		}
+		mob.setAiDisabled(false);
+		frozenVillagers.remove(mob.getId());
 	}
 
 	private static VillagerEntity resolveNearbyVillager(ServerPlayerEntity player, int villagerEntityId) {

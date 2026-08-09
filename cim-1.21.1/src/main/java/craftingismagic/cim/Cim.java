@@ -1,20 +1,34 @@
 package craftingismagic.cim;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
+import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
+import net.minecraft.entity.SpawnGroup;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import craftingismagic.cim.entity.CimEntities;
+import craftingismagic.cim.item.CimItemGroups;
 import craftingismagic.cim.item.CimItems;
 import craftingismagic.cim.levitation.LevitationManager;
 import craftingismagic.cim.network.AdjustLevitationDistanceC2SPayload;
 import craftingismagic.cim.network.AdjustLevitationSelectionCountC2SPayload;
 import craftingismagic.cim.network.ConfirmLevitationSelectionC2SPayload;
 import craftingismagic.cim.network.ConfirmTeleportC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerAffectionC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerFavoriteGiftC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerGeneticsC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerLifeStageC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerNameC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
@@ -22,6 +36,7 @@ import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
 import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
+import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.network.PegasusChargeEndS2CPayload;
 import craftingismagic.cim.network.PegasusChargeReleaseC2SPayload;
@@ -41,14 +56,18 @@ import craftingismagic.cim.pegasus.PegasusDashManager;
 import craftingismagic.cim.pegasus.PegasusFlightManager;
 import craftingismagic.cim.pegasus.PegasusRainboomCharge;
 import craftingismagic.cim.sound.ModSounds;
+import craftingismagic.cim.spawn.VillageSpawnHandler;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.villager.FavoriteGiftAttachment;
+import craftingismagic.cim.villager.FriendGroupAttachment;
 import craftingismagic.cim.villager.FriendshipAttachment;
 import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
+import craftingismagic.cim.villager.VillagerDebugEditorHandler;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
+import craftingismagic.cim.villager.VillagerFriendGroupHandler;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.VillagerSpeciesHandler;
 
@@ -64,10 +83,18 @@ public class Cim implements ModInitializer {
 	public void onInitialize() {
 		ModSounds.bootstrap();
 		CimItems.register();
+		CimItemGroups.register();
+		CimEntities.register();
 		preloadAttachmentTypes();
 		VillagerSpeciesHandler.register();
 		VillagerFamilyHandler.register();
+		VillagerFriendGroupHandler.register();
 		VillagerInteractionHandler.register();
+		VillageSpawnHandler.register();
+
+		// Rare, wandering natural spawn - roughly "occasional Pillager sighting" commonality, not
+		// zombie-tier common. Weight/group-size are tunable, not load-bearing.
+		BiomeModifications.addSpawn(BiomeSelectors.foundInOverworld(), SpawnGroup.MONSTER, CimEntities.ROGUE_PONY, 5, 1, 2);
 
 		PayloadTypeRegistry.playS2C().register(OpenSpeciesSelectS2CPayload.ID, OpenSpeciesSelectS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SelectSpeciesC2SPayload.ID, SelectSpeciesC2SPayload.CODEC);
@@ -95,6 +122,15 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(OpenVillagerMenuS2CPayload.ID, OpenVillagerMenuS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OpenIdleChatterS2CPayload.ID, OpenIdleChatterS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(IdleChatterReactionS2CPayload.ID, IdleChatterReactionS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(OpenVillagerDebugEditorS2CPayload.ID, OpenVillagerDebugEditorS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerNameC2SPayload.ID, DebugSetVillagerNameC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerSpeciesC2SPayload.ID, DebugSetVillagerSpeciesC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerLifeStageC2SPayload.ID, DebugSetVillagerLifeStageC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerGeneticsC2SPayload.ID, DebugSetVillagerGeneticsC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerPersonalityC2SPayload.ID, DebugSetVillagerPersonalityC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerAffectionC2SPayload.ID, DebugSetVillagerAffectionC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerRelationshipTypeC2SPayload.ID, DebugSetVillagerRelationshipTypeC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerFavoriteGiftC2SPayload.ID, DebugSetVillagerFavoriteGiftC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
@@ -132,6 +168,22 @@ public class Cim implements ModInitializer {
 				(payload, context) -> VillagerInteractionHandler.giveGift(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(StopVillagerInteractionC2SPayload.ID,
 				(payload, context) -> VillagerInteractionHandler.stopInteracting(context.player(), payload.villagerEntityId()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerNameC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setName(context.player(), payload.villagerEntityId(), payload.name()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerSpeciesC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setSpecies(context.player(), payload.villagerEntityId(), payload.species()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerLifeStageC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setLifeStage(context.player(), payload.villagerEntityId(), payload.lifeStage(), payload.growthTicks()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerGeneticsC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setGenetics(context.player(), payload.villagerEntityId(), payload.genetics()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerPersonalityC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setPersonality(context.player(), payload.villagerEntityId(), payload.personality()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerAffectionC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setAffection(context.player(), payload.villagerEntityId(), payload.affection()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerRelationshipTypeC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setRelationshipType(context.player(), payload.villagerEntityId(), payload.relationshipType()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerFavoriteGiftC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setFavoriteGift(context.player(), payload.villagerEntityId(), payload.favoriteGift()));
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
@@ -171,6 +223,7 @@ public class Cim implements ModInitializer {
 				SpeciesAttachment.SPECIES,
 				PonyGeneticsAttachment.GENETICS,
 				PonyFamilyAttachment.FAMILY,
+				FriendGroupAttachment.FRIEND_GROUP,
 				FavoriteGiftAttachment.FAVORITE_GIFT,
 				FriendshipAttachment.AFFECTION,
 				PersonalityAttachment.PERSONALITY,
