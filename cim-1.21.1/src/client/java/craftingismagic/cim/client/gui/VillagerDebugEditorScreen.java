@@ -25,6 +25,7 @@ import craftingismagic.cim.network.DebugSetVillagerNameC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
+import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
 import craftingismagic.cim.species.Species;
@@ -97,6 +98,7 @@ public class VillagerDebugEditorScreen extends Screen {
 		state.species = payload.identity().species();
 		state.lifeStage = payload.identity().lifeStage();
 		state.growthTicks = payload.identity().growthTicks();
+		state.changelingInfo = payload.identity().changeling();
 		state.genetics = payload.genetics();
 		state.personality = payload.personality();
 		state.affection = payload.relationship().affection();
@@ -188,6 +190,28 @@ public class VillagerDebugEditorScreen extends Screen {
 		});
 		this.addDrawableChild(growthField);
 		labeledFields.add(new LabeledField("screen.cim.villager_debug_editor.growth_ticks", y));
+		y += ROW_HEIGHT;
+
+		// Only a real Changeling ever has a non-empty trueName - everyone else (including a
+		// Changeling that somehow hasn't been assigned a disguise yet) gets ChangelingInfo.NONE.
+		if (!state.changelingInfo.trueName().isEmpty()) {
+			ButtonWidget disguiseButton = ButtonWidget.builder(disguiseButtonLabel(state.changelingInfo.disguised()), b -> {
+				boolean nowDisguised = !state.changelingInfo.disguised();
+				state.changelingInfo = new OpenVillagerDebugEditorS2CPayload.ChangelingInfo(
+						nowDisguised, state.changelingInfo.trueName(), state.changelingInfo.disguiseName());
+				state.name = nowDisguised ? state.changelingInfo.disguiseName() : state.changelingInfo.trueName();
+				nameField.setText(state.name);
+				b.setMessage(disguiseButtonLabel(nowDisguised));
+				ClientPlayNetworking.send(new DebugToggleChangelingDisguiseC2SPayload(villagerEntityId));
+			}).dimensions(x, y, CONTENT_WIDTH, FIELD_HEIGHT).build();
+			this.addDrawableChild(disguiseButton);
+		}
+	}
+
+	private static Text disguiseButtonLabel(boolean disguised) {
+		return Text.translatable(disguised
+				? "screen.cim.villager_debug_editor.dispel_disguise"
+				: "screen.cim.villager_debug_editor.return_disguise");
 	}
 
 	// ---- Genetics tab (two columns to keep the tab a manageable height) ----
@@ -660,6 +684,7 @@ public class VillagerDebugEditorScreen extends Screen {
 		Item favoriteGift;
 		List<String> friendGroup;
 		OpenVillagerDebugEditorS2CPayload.Family family;
+		OpenVillagerDebugEditorS2CPayload.ChangelingInfo changelingInfo;
 	}
 
 	/** A {@link SliderWidget} that shows a translated label + the current value (formatted to 2

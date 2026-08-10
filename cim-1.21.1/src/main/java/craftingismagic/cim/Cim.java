@@ -29,6 +29,7 @@ import craftingismagic.cim.network.DebugSetVillagerNameC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
+import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
@@ -59,6 +60,9 @@ import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.spawn.VillageSpawnHandler;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.unicorn.TeleportManager;
+import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
+import craftingismagic.cim.villager.ChangelingDisguiseAttachment;
+import craftingismagic.cim.villager.ChangelingDisguiseHandler;
 import craftingismagic.cim.villager.FavoriteGiftAttachment;
 import craftingismagic.cim.villager.FriendGroupAttachment;
 import craftingismagic.cim.villager.FriendshipAttachment;
@@ -87,6 +91,7 @@ public class Cim implements ModInitializer {
 		CimEntities.register();
 		preloadAttachmentTypes();
 		VillagerSpeciesHandler.register();
+		ChangelingDisguiseHandler.register();
 		VillagerFamilyHandler.register();
 		VillagerFriendGroupHandler.register();
 		VillagerInteractionHandler.register();
@@ -131,6 +136,7 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerAffectionC2SPayload.ID, DebugSetVillagerAffectionC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerRelationshipTypeC2SPayload.ID, DebugSetVillagerRelationshipTypeC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerFavoriteGiftC2SPayload.ID, DebugSetVillagerFavoriteGiftC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugToggleChangelingDisguiseC2SPayload.ID, DebugToggleChangelingDisguiseC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
@@ -184,6 +190,8 @@ public class Cim implements ModInitializer {
 				VillagerDebugEditorHandler.setRelationshipType(context.player(), payload.villagerEntityId(), payload.relationshipType()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerFavoriteGiftC2SPayload.ID, (payload, context) ->
 				VillagerDebugEditorHandler.setFavoriteGift(context.player(), payload.villagerEntityId(), payload.favoriteGift()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugToggleChangelingDisguiseC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.toggleDisguise(context.player(), payload.villagerEntityId()));
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
@@ -224,6 +232,8 @@ public class Cim implements ModInitializer {
 				PonyGeneticsAttachment.GENETICS,
 				PonyFamilyAttachment.FAMILY,
 				FriendGroupAttachment.FRIEND_GROUP,
+				ChangelingDisguiseAttachment.DISGUISE,
+				ChangelingAppearanceAttachment.APPEARANCE,
 				FavoriteGiftAttachment.FAVORITE_GIFT,
 				FriendshipAttachment.AFFECTION,
 				PersonalityAttachment.PERSONALITY,

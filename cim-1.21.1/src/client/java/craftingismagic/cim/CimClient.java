@@ -26,6 +26,7 @@ import craftingismagic.cim.client.pegasus.SonicRainboomEffectHandler;
 import craftingismagic.cim.client.rogue.CimRoguePonyRenderer;
 import craftingismagic.cim.client.species.EarthPonyJumpBarHud;
 import craftingismagic.cim.client.species.EarthPonyJumpHandler;
+import craftingismagic.cim.client.villager.ChangelingTrueFormSkins;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
@@ -87,6 +88,7 @@ public class CimClient implements ClientModInitializer {
 		if (FabricLoader.getInstance().isModLoaded("minelp")) {
 			MineLpVillagerSkins.register();
 			PonyGeneticsSkins.register();
+			ChangelingTrueFormSkins.register();
 			CimRoguePonyRenderer.register();
 		}
 	}

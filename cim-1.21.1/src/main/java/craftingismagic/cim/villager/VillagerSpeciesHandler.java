@@ -50,6 +50,12 @@ public final class VillagerSpeciesHandler {
 				Item favorite = FavoriteGiftAttachment.randomGift(villager.getRandom());
 				FavoriteGiftAttachment.setFavorite(villager, favorite);
 			}
+
+			// Covers the one real gap BatPonyScheduleMixin's own initBrain hook can't - a brand-new
+			// villager's species isn't rolled yet the first time initBrain runs (that happens before
+			// this very listener assigns one), so the mixin sees no species and skips. Harmless no-op
+			// here otherwise (species already Bat Pony and the mixin already handled it correctly).
+			BatPonyScheduleHandler.applyIfNocturnal(villager, villager.getBrain());
 		});
 	}
 }

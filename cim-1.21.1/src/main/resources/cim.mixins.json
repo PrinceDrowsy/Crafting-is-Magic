@@ -6,7 +6,8 @@
 		"ExampleMixin",
 		"EntitySetFlagAccessor",
 		"PegasusFallFlyingMixin",
-		"VillagerGrowthMixin"
+		"VillagerGrowthMixin",
+		"BatPonyScheduleMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

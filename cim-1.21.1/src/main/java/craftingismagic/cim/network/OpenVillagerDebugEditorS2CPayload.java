@@ -45,13 +45,30 @@ public record OpenVillagerDebugEditorS2CPayload(
 		return ID;
 	}
 
-	public record Identity(String name, Species species, LifeStage lifeStage, int growthTicks) {
+	public record Identity(String name, Species species, LifeStage lifeStage, int growthTicks, ChangelingInfo changeling) {
 		public static final PacketCodec<RegistryByteBuf, Identity> PACKET_CODEC = PacketCodec.tuple(
 				PacketCodecs.STRING.cast(), Identity::name,
 				Species.PACKET_CODEC, Identity::species,
 				LifeStage.PACKET_CODEC.cast(), Identity::lifeStage,
 				PacketCodecs.INTEGER.cast(), Identity::growthTicks,
+				ChangelingInfo.PACKET_CODEC, Identity::changeling,
 				Identity::new);
+	}
+
+	/**
+	 * Empty/{@link #NONE} for every non-Changeling. The debug tool is deliberately omniscient - it
+	 * already shows the true species via the Identity tab's own Species dropdown regardless of
+	 * disguise state, so sending both names up front (not just whichever is currently active) lets
+	 * the client's Dispel/Return button toggle either direction without a round trip.
+	 */
+	public record ChangelingInfo(boolean disguised, String trueName, String disguiseName) {
+		public static final ChangelingInfo NONE = new ChangelingInfo(false, "", "");
+
+		public static final PacketCodec<RegistryByteBuf, ChangelingInfo> PACKET_CODEC = PacketCodec.tuple(
+				PacketCodecs.BOOL.cast(), ChangelingInfo::disguised,
+				PacketCodecs.STRING.cast(), ChangelingInfo::trueName,
+				PacketCodecs.STRING.cast(), ChangelingInfo::disguiseName,
+				ChangelingInfo::new);
 	}
 
 	public record Relationship(int affection, RelationshipType relationshipType, Item favoriteGift, List<String> friendGroupNames) {

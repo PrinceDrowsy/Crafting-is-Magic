@@ -24,6 +24,7 @@ import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.villager.ChangelingDisguiseAttachment;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PonyBodyType;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
@@ -75,6 +76,9 @@ public class CimVillagerPonyRenderer extends PonyRenderer<VillagerEntity, Client
 	}
 
 	private static Identifier resolveTexture(VillagerEntity villager) {
+		if (isTrueFormChangeling(villager)) {
+			return ChangelingTrueFormSkins.resolveTexture(villager);
+		}
 		if (PonyGeneticsAttachment.hasGenetics(villager)) {
 			return PonyGeneticsSkins.resolveTexture(villager);
 		}
@@ -83,8 +87,29 @@ public class CimVillagerPonyRenderer extends PonyRenderer<VillagerEntity, Client
 		return MineLpVillagerSkins.SKIN_BY_SPECIES.get(speciesFor(villager));
 	}
 
+	/**
+	 * Returns the DISGUISE species while a Changeling's disguise is active, the real species
+	 * otherwise (including a Changeling in its true form, or any non-Changeling) - the one funnel
+	 * point every render decision (model race, texture) goes through, so a disguise only ever needs
+	 * changing here. See {@link ChangelingDisguiseAttachment} - it's a purely additive layer on top
+	 * of {@link SpeciesAttachment}, which stays the real species regardless of disguise state.
+	 */
 	private static Species speciesFor(VillagerEntity villager) {
-		return SpeciesAttachment.hasChosenSpecies(villager) ? SpeciesAttachment.getSpecies(villager) : Species.EARTH_PONY;
+		Species trueSpecies = SpeciesAttachment.hasChosenSpecies(villager) ? SpeciesAttachment.getSpecies(villager) : Species.EARTH_PONY;
+		if (trueSpecies == Species.CHANGELING && ChangelingDisguiseAttachment.hasDisguise(villager)) {
+			ChangelingDisguiseAttachment.ChangelingDisguise disguise = ChangelingDisguiseAttachment.getDisguise(villager);
+			if (disguise.disguised()) {
+				return disguise.disguiseSpecies();
+			}
+		}
+		return trueSpecies;
+	}
+
+	private static boolean isTrueFormChangeling(VillagerEntity villager) {
+		if (!SpeciesAttachment.hasChosenSpecies(villager) || SpeciesAttachment.getSpecies(villager) != Species.CHANGELING) {
+			return false;
+		}
+		return ChangelingDisguiseAttachment.hasDisguise(villager) && !ChangelingDisguiseAttachment.getDisguise(villager).disguised();
 	}
 
 	/**

@@ -29,7 +29,7 @@ public final class VillagerNames {
 			"Frosty Muzzle", "Ginger Snap", "Glory", "Golden Withers",
 			"Gusty", "Hazelnut Praline", "Heather", "Honeycomb Twist",
 			"Iris Waltz", "Ivy Bridle", "Jasmine Canter", "Juniper",
-			"Kimono", "Larkspur Chime", "Lavender Sachet", "Lemon Hearts",
+			"Larkspur Chime", "Lavender Sachet", "Lemon Hearts",
 			"Lily Valley", "Lyra Heartstrings", "Majesty", "Maple",
 			"Maple Canter", "Marigold", "Marigold Petal", "Marmalade",
 			"Marmalade Toast", "Meadow", "Medley", "Minty",

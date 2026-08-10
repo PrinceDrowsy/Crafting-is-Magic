@@ -99,7 +99,14 @@ public final class PonyGeneticsSkins {
 	 * (primary hue), matching Apple Bloom's real Gradient Top/Bottom split. */
 	private static final int EYE_SECOND_HUE_GRAY_THRESHOLD = 125;
 
-	private static final Map<UUID, Identifier> TEXTURE_BY_VILLAGER = new HashMap<>();
+	/** Caches the built texture alongside the exact {@link PonyGenetics} it was built from, so a
+	 * change (e.g. from the Villager Debug Editor's Genetics tab sliders) gets noticed and rebuilt -
+	 * a plain "build once per UUID, never again" cache silently kept showing the old skin forever
+	 * after any live genetics edit, since nothing else ever invalidated it. */
+	private record CachedSkin(Identifier textureId, PonyGenetics genetics) {
+	}
+
+	private static final Map<UUID, CachedSkin> TEXTURE_BY_VILLAGER = new HashMap<>();
 
 	private PonyGeneticsSkins() {
 	}
@@ -107,20 +114,31 @@ public final class PonyGeneticsSkins {
 	public static void register() {
 		ClientEntityEvents.ENTITY_UNLOAD.register((entity, world) -> {
 			if (entity instanceof VillagerEntity || entity instanceof RoguePonyEntity) {
-				Identifier cached = TEXTURE_BY_VILLAGER.remove(entity.getUuid());
+				CachedSkin cached = TEXTURE_BY_VILLAGER.remove(entity.getUuid());
 				if (cached != null) {
-					MinecraftClient.getInstance().getTextureManager().destroyTexture(cached);
+					MinecraftClient.getInstance().getTextureManager().destroyTexture(cached.textureId());
 				}
 			}
 		});
 	}
 
+	/** Called every frame for every visible villager, so the genetics-equality check (cheap - no
+	 * image work) has to stay in the fast path; only a real change pays for a full rebuild. */
 	public static Identifier resolveTexture(Entity entity) {
-		return TEXTURE_BY_VILLAGER.computeIfAbsent(entity.getUuid(), uuid -> buildAndRegister(entity));
+		PonyGenetics genetics = PonyGeneticsAttachment.getGenetics(entity);
+		CachedSkin cached = TEXTURE_BY_VILLAGER.get(entity.getUuid());
+		if (cached != null && cached.genetics().equals(genetics)) {
+			return cached.textureId();
+		}
+		if (cached != null) {
+			MinecraftClient.getInstance().getTextureManager().destroyTexture(cached.textureId());
+		}
+		Identifier id = buildAndRegister(entity, genetics);
+		TEXTURE_BY_VILLAGER.put(entity.getUuid(), new CachedSkin(id, genetics));
+		return id;
 	}
 
-	private static Identifier buildAndRegister(Entity entity) {
-		PonyGenetics genetics = PonyGeneticsAttachment.getGenetics(entity);
+	private static Identifier buildAndRegister(Entity entity, PonyGenetics genetics) {
 		NativeImage composited = composite(genetics);
 		Identifier id = Identifier.of(Cim.MOD_ID, "dynamic/pony_genetics/" + entity.getUuidAsString());
 		MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(composited));

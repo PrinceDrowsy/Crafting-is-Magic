@@ -73,9 +73,25 @@ public final class VillagerDebugEditorHandler {
 		}
 
 		ServerWorld world = player.getServerWorld();
+		// Self-healing: a villager whose species was switched to CHANGELING or BAT_PONY after it
+		// already loaded (e.g. via this same editor's Species field, or - the bug actually hit -
+		// before this same self-heal was added to setSpecies below) never gets initBrain/ENTITY_LOAD
+		// fired again, so it would otherwise stay stuck with no disguise or the wrong sleep schedule
+		// indefinitely. Catch both here too, so simply reopening the editor on an already-broken
+		// villager fixes it without needing to re-toggle its species.
+		if (entity instanceof VillagerEntity villager) {
+			ChangelingDisguiseHandler.assignDisguiseIfNeeded(villager, world);
+			// Only force a brain rebuild (which stops whatever the villager is currently doing,
+			// including an active sleep) when the schedule is actually wrong - simply opening the
+			// editor on an already-correct, possibly-sleeping Bat Pony shouldn't kick it awake.
+			if (BatPonyScheduleHandler.needsNocturnalFix(villager)) {
+				villager.reinitializeBrain(world);
+			}
+			BatPonyScheduleHandler.applyIfNocturnal(villager, villager.getBrain());
+		}
 		Species species = SpeciesAttachment.hasChosenSpecies(entity) ? SpeciesAttachment.getSpecies(entity) : Species.EARTH_PONY;
 		OpenVillagerDebugEditorS2CPayload.Identity identity = new OpenVillagerDebugEditorS2CPayload.Identity(
-				entity.getName().getString(), species, lifeStageOf(entity), growthTicksOf(entity));
+				entity.getName().getString(), species, lifeStageOf(entity), growthTicksOf(entity), changelingInfoOf(entity));
 		OpenVillagerDebugEditorS2CPayload.Relationship relationship = new OpenVillagerDebugEditorS2CPayload.Relationship(
 				FriendshipAttachment.getAffection(entity, player.getUuid()),
 				FriendshipAttachment.getRelationshipType(entity, player.getUuid()),
@@ -166,6 +182,18 @@ public final class VillagerDebugEditorHandler {
 		return 0;
 	}
 
+	private static OpenVillagerDebugEditorS2CPayload.ChangelingInfo changelingInfoOf(Entity entity) {
+		// Guards on current species too, not just presence of the attachment - a villager
+		// re-species'd AWAY from Changeling would otherwise keep showing a stale disguise button
+		// from whenever it last was one.
+		if (!SpeciesAttachment.hasChosenSpecies(entity) || SpeciesAttachment.getSpecies(entity) != Species.CHANGELING
+				|| !ChangelingDisguiseAttachment.hasDisguise(entity)) {
+			return OpenVillagerDebugEditorS2CPayload.ChangelingInfo.NONE;
+		}
+		ChangelingDisguiseAttachment.ChangelingDisguise disguise = ChangelingDisguiseAttachment.getDisguise(entity);
+		return new OpenVillagerDebugEditorS2CPayload.ChangelingInfo(disguise.disguised(), disguise.trueName(), disguise.disguiseName());
+	}
+
 	public static void setName(ServerPlayerEntity player, int villagerEntityId, String name) {
 		Entity entity = resolveEntity(player, villagerEntityId);
 		if (entity != null && !name.isBlank()) {
@@ -176,8 +204,28 @@ public final class VillagerDebugEditorHandler {
 
 	public static void setSpecies(ServerPlayerEntity player, int villagerEntityId, Species species) {
 		Entity entity = resolveEntity(player, villagerEntityId);
-		if (entity != null) {
-			SpeciesAttachment.setSpecies(entity, species);
+		if (entity == null) {
+			return;
+		}
+		SpeciesAttachment.setSpecies(entity, species);
+		// initBrain (where a Bat Pony's nocturnal Schedule and a Changeling's disguise both get
+		// assigned) only ever runs at spawn/chunk-load/grow-up - never again for an already-loaded
+		// villager - so switching species here needs to trigger both directly, or a mid-game
+		// species change silently leaves the old behavior in place despite the attachment saying
+		// otherwise. Both calls are no-ops for the wrong species/already-correct state.
+		if (entity instanceof VillagerEntity villager) {
+			if (species == Species.CHANGELING) {
+				ChangelingDisguiseHandler.assignDisguiseIfNeeded(villager, player.getServerWorld());
+			}
+			if (BatPonyScheduleHandler.needsNocturnalFix(villager)) {
+				// setSchedule alone doesn't stop whatever task the villager was already mid-way
+				// through (a long WORK/wander task can legitimately run up to a full minute before
+				// yielding) - force-stop and rebuild the brain so the flip actually takes effect
+				// immediately. Resets the schedule back to vanilla as a side effect, hence the
+				// unconditional applyIfNocturnal call right after it.
+				villager.reinitializeBrain(player.getServerWorld());
+			}
+			BatPonyScheduleHandler.applyIfNocturnal(villager, villager.getBrain());
 		}
 	}
 
@@ -232,6 +280,23 @@ public final class VillagerDebugEditorHandler {
 		if (entity instanceof VillagerEntity villager) {
 			FavoriteGiftAttachment.setFavorite(villager, favoriteGift);
 		}
+	}
+
+	/** Two-way toggle, not a one-shot reveal - lets a developer flip back and forth between a
+	 * Changeling's disguise and true form for testing. No-op on anything that isn't a Changeling
+	 * with an assigned disguise (e.g. a Rogue Pony, which rolls its own species independently and
+	 * never gets a {@link ChangelingDisguiseAttachment}). */
+	public static void toggleDisguise(ServerPlayerEntity player, int villagerEntityId) {
+		Entity entity = resolveEntity(player, villagerEntityId);
+		if (!(entity instanceof VillagerEntity villager) || !ChangelingDisguiseAttachment.hasDisguise(villager)) {
+			return;
+		}
+		ChangelingDisguiseAttachment.ChangelingDisguise disguise = ChangelingDisguiseAttachment.getDisguise(villager);
+		boolean nowDisguised = !disguise.disguised();
+		ChangelingDisguiseAttachment.setDisguise(villager,
+				new ChangelingDisguiseAttachment.ChangelingDisguise(disguise.disguiseSpecies(), disguise.trueName(), disguise.disguiseName(), nowDisguised));
+		villager.setCustomName(Text.literal(nowDisguised ? disguise.disguiseName() : disguise.trueName()));
+		villager.setCustomNameVisible(true);
 	}
 
 	private static MobEntity resolveEntity(ServerPlayerEntity player, int entityId) {

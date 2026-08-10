@@ -37,6 +37,15 @@ public final class VillagerFriendGroupHandler {
 	private static final int MAX_GROUP_SIZE = 6;
 	private static final double FRIEND_GROUP_SEARCH_RADIUS = 28.0;
 
+	/** Below this size, joining a candidate circle is unconditional. Once a candidate already has
+	 * at least this many members, a newcomer only joins it with {@link #JOIN_BEYOND_PREFERRED_CHANCE}
+	 * probability - otherwise it founds its own circle instead. This compounds per join (reaching
+	 * five members needs the roll to succeed twice, six needs it three times), so three-pony circles
+	 * end up the most common landing size and five/six-pony circles end up only slightly rarer, not
+	 * a hard cutoff. */
+	private static final int PREFERRED_GROUP_SIZE = 3;
+	private static final float JOIN_BEYOND_PREFERRED_CHANCE = 0.85f;
+
 	private VillagerFriendGroupHandler() {
 	}
 
@@ -70,6 +79,11 @@ public final class VillagerFriendGroupHandler {
 	private static boolean tryJoinFriendGroup(VillagerEntity self, ServerWorld world) {
 		VillagerEntity anchor = findOpenGroupMember(self, world);
 		if (anchor == null) {
+			return false;
+		}
+
+		int anchorSize = FriendGroupAttachment.getGroup(anchor).members().size() + 1;
+		if (anchorSize >= PREFERRED_GROUP_SIZE && self.getRandom().nextFloat() > JOIN_BEYOND_PREFERRED_CHANCE) {
 			return false;
 		}
 

@@ -70,6 +70,8 @@
   "screen.cim.villager_debug_editor.species": "Species",
   "screen.cim.villager_debug_editor.life_stage": "Life Stage",
   "screen.cim.villager_debug_editor.growth_ticks": "Growth Ticks",
+  "screen.cim.villager_debug_editor.dispel_disguise": "Dispel Disguise",
+  "screen.cim.villager_debug_editor.return_disguise": "Return to Disguise",
   "screen.cim.villager_debug_editor.coat_hue": "Coat Hue",
   "screen.cim.villager_debug_editor.coat_vividness": "Coat Vivid",
   "screen.cim.villager_debug_editor.coat_white": "Coat White",
