@@ -28,6 +28,13 @@ repositories {
 		name = 'Modrinth'
 		url = 'https://api.modrinth.com/maven'
 	}
+	maven { // For GeckoLib
+		name = 'GeckoLib'
+		url = 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+		content {
+			includeGroup('software.bernie.geckolib')
+		}
+	}
 }
 
 loom {
@@ -72,6 +79,11 @@ dependencies {
 	// but that isn't visible on our compile classpath, so it needs its own explicit compile-only entry
 	// to resolve MineLP's own API surface (ModelKey, EntityRendererRegistry, etc.).
 	modCompileOnly "maven.modrinth:mson:${project.mson_version}"
+
+	// GeckoLib - required (not compile-only like MineLP/Mson above), since this is meant to become
+	// the mod's own native pony model/animation library rather than an optional integration with
+	// someone else's mod.
+	modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
 }
 
 // Loom auto-injects fabric-loader and sponge-mixin, but on this Loom version they resolve to a

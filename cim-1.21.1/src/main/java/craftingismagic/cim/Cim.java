@@ -3,12 +3,14 @@ package craftingismagic.cim;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
+import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.entity.SpawnGroup;
+import net.minecraft.server.network.ServerPlayerEntity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +31,7 @@ import craftingismagic.cim.network.DebugSetVillagerNameC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
+import craftingismagic.cim.network.DebugDrainStaminaC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
@@ -46,6 +49,7 @@ import craftingismagic.cim.network.PegasusDashC2SPayload;
 import craftingismagic.cim.network.PegasusRainboomTrailS2CPayload;
 import craftingismagic.cim.network.PlaceLevitatedBlockC2SPayload;
 import craftingismagic.cim.network.SelectSpeciesC2SPayload;
+import craftingismagic.cim.network.SetStaminaColorC2SPayload;
 import craftingismagic.cim.network.SonicRainboomS2CPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
@@ -59,6 +63,11 @@ import craftingismagic.cim.pegasus.PegasusRainboomCharge;
 import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.spawn.VillageSpawnHandler;
 import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.stamina.CimStatusEffects;
+import craftingismagic.cim.stamina.StaminaAttachment;
+import craftingismagic.cim.stamina.StaminaColorAttachment;
+import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
+import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
 import craftingismagic.cim.villager.ChangelingDisguiseAttachment;
@@ -89,6 +98,7 @@ public class Cim implements ModInitializer {
 		CimItems.register();
 		CimItemGroups.register();
 		CimEntities.register();
+		CimStatusEffects.register();
 		preloadAttachmentTypes();
 		VillagerSpeciesHandler.register();
 		ChangelingDisguiseHandler.register();
@@ -137,6 +147,8 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerRelationshipTypeC2SPayload.ID, DebugSetVillagerRelationshipTypeC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerFavoriteGiftC2SPayload.ID, DebugSetVillagerFavoriteGiftC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugToggleChangelingDisguiseC2SPayload.ID, DebugToggleChangelingDisguiseC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugDrainStaminaC2SPayload.ID, DebugDrainStaminaC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SetStaminaColorC2SPayload.ID, SetStaminaColorC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
@@ -192,11 +204,21 @@ public class Cim implements ModInitializer {
 				VillagerDebugEditorHandler.setFavoriteGift(context.player(), payload.villagerEntityId(), payload.favoriteGift()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugToggleChangelingDisguiseC2SPayload.ID, (payload, context) ->
 				VillagerDebugEditorHandler.toggleDisguise(context.player(), payload.villagerEntityId()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugDrainStaminaC2SPayload.ID, (payload, context) -> {
+			// Creative-only test lever for the Stamina system (see DebugDrainStaminaC2SPayload's own
+			// doc comment) - re-checks Creative mode server-side, not just the client's own gating.
+			if (context.player().isCreative()) {
+				StaminaManager.drain(context.player(), 10.0f);
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(SetStaminaColorC2SPayload.ID, (payload, context) ->
+				StaminaColorAttachment.setColors(context.player(), new StaminaColors(payload.fillColor(), payload.backgroundColor())));
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
 				ServerPlayNetworking.send(handler.getPlayer(), new OpenSpeciesSelectS2CPayload());
 			}
+			StaminaManager.restoreExhaustionEffectIfPending(handler.getPlayer());
 		});
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
@@ -211,6 +233,20 @@ public class Cim implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PegasusDashManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusRainboomCharge::tick);
 		ServerTickEvents.END_SERVER_TICK.register(VillagerInteractionHandler::tick);
+		// Registered last deliberately - any future Stamina-spending ability's own tick handler
+		// (Herding, etc.) needs to register BEFORE this one so its drain always wins over regen
+		// within the same tick, rather than the two partially canceling out. See StaminaManager's
+		// own doc comment.
+		ServerTickEvents.END_SERVER_TICK.register(StaminaManager::tick);
+
+		// 100 ticks is vanilla's own threshold for "slept enough to count" (the same one that
+		// triggers the night skip and the spawn-point-setting/advancement rewards) - reused here so
+		// a player can't cheese the wait by hopping in and out of bed early.
+		EntitySleepEvents.STOP_SLEEPING.register((entity, pos) -> {
+			if (entity instanceof ServerPlayerEntity player && player.getSleepTimer() >= 100) {
+				StaminaManager.onWokeUp(player);
+			}
+		});
 	}
 
 	/**
@@ -229,6 +265,8 @@ public class Cim implements ModInitializer {
 	private static void preloadAttachmentTypes() {
 		Object[] forceClassLoad = {
 				SpeciesAttachment.SPECIES,
+				StaminaAttachment.STAMINA,
+				StaminaColorAttachment.STAMINA_COLORS,
 				PonyGeneticsAttachment.GENETICS,
 				PonyFamilyAttachment.FAMILY,
 				FriendGroupAttachment.FRIEND_GROUP,

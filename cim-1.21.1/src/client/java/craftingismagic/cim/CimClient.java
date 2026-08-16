@@ -24,8 +24,12 @@ import craftingismagic.cim.client.pegasus.PegasusRainboomTrailEffectHandler;
 import craftingismagic.cim.client.pegasus.RainbowRingRegistry;
 import craftingismagic.cim.client.pegasus.SonicRainboomEffectHandler;
 import craftingismagic.cim.client.rogue.CimRoguePonyRenderer;
+import craftingismagic.cim.client.rogue.RoguePonyFallbackRenderer;
 import craftingismagic.cim.client.species.EarthPonyJumpBarHud;
 import craftingismagic.cim.client.species.EarthPonyJumpHandler;
+import craftingismagic.cim.client.stamina.DebugStaminaDrainKeyHandler;
+import craftingismagic.cim.client.stamina.StaminaBarHud;
+import craftingismagic.cim.client.stamina.StaminaColorKeyHandler;
 import craftingismagic.cim.client.villager.ChangelingTrueFormSkins;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
@@ -67,6 +71,10 @@ public class CimClient implements ClientModInitializer {
 		EarthPonyJumpHandler.register();
 		EarthPonyJumpBarHud.register();
 
+		StaminaBarHud.register();
+		DebugStaminaDrainKeyHandler.register();
+		StaminaColorKeyHandler.register();
+
 		RadialMenuKeyBinding.register();
 		RadialMenuOpener.register();
 
@@ -90,6 +98,12 @@ public class CimClient implements ClientModInitializer {
 			PonyGeneticsSkins.register();
 			ChangelingTrueFormSkins.register();
 			CimRoguePonyRenderer.register();
+		} else {
+			// Villagers still fall back to vanilla's own renderer untouched (Mson only ever adds to
+			// the dispatcher, never removes it) - but Rogue Ponies are a wholly custom entity type
+			// with no vanilla renderer to fall back to, so they need an explicit stand-in or the
+			// client crashes the moment one enters view.
+			RoguePonyFallbackRenderer.register();
 		}
 	}
 }
