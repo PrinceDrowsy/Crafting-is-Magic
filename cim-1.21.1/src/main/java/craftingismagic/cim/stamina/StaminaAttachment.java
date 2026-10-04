@@ -27,7 +27,9 @@ import craftingismagic.cim.Cim;
  * else needs to see another player's bar.
  */
 public final class StaminaAttachment {
-	private static final float BASE_MAX_STAMINA = 200.0f;
+	/** Public so other systems (e.g. Levitation's Stamina-scaled throw power) have a stable
+	 * reference point for "a fresh, un-grown pool" rather than duplicating the magic number. */
+	public static final float BASE_MAX_STAMINA = 100.0f;
 
 	private static final AttachmentSyncPredicate SYNC_TO_OWNER = (target, player) -> target == player;
 

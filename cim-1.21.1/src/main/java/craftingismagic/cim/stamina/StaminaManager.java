@@ -37,6 +37,17 @@ public final class StaminaManager {
 	}
 
 	/**
+	 * Check-only affordability test for costs that can't "partially" happen - a flat/burst ability
+	 * (a dash, an unaffordable Levitation pickup) should refuse outright rather than calling {@link
+	 * #drain} and discovering after the fact that it only got part of what it needed. Continuous
+	 * costs (a held object, active flight, a charging spell) should keep calling {@link #drain}
+	 * directly instead and react to it returning {@code false}, not use this first.
+	 */
+	public static boolean hasEnough(ServerPlayerEntity player, float amount) {
+		return StaminaAttachment.getStamina(player).current() >= amount;
+	}
+
+	/**
 	 * Drains up to {@code amount} Stamina, partially draining down to exactly 0 rather than refusing
 	 * outright when the request exceeds what's left - a flat refuse-if-insufficient design would let
 	 * a caller bounce off "not enough" without the player ever actually landing on exactly 0, which

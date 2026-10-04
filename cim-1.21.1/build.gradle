@@ -35,6 +35,10 @@ repositories {
 			includeGroup('software.bernie.geckolib')
 		}
 	}
+	maven { // For Simple Voice Chat's API (optional compatibility dependency)
+		name = 'Simple Voice Chat Maven'
+		url = 'https://maven.maxhenkel.de/repository/public'
+	}
 }
 
 loom {
@@ -84,6 +88,13 @@ dependencies {
 	// the mod's own native pony model/animation library rather than an optional integration with
 	// someone else's mod.
 	modImplementation "software.bernie.geckolib:geckolib-fabric-${project.minecraft_version}:${project.geckolib_version}"
+
+	// Simple Voice Chat - optional compatibility dependency (Changeling voice mimicry). Compile-only,
+	// same shape as MineLP above: never required at runtime, only used if the player has it installed,
+	// guarded behind FabricLoader.isModLoaded("voicechat") checks. The plugin entrypoint itself
+	// (fabric.mod.json's "voicechat" key) is inherently safe with no such check needed - Simple Voice
+	// Chat is the only thing that ever queries that entrypoint, so it simply never fires without it.
+	compileOnly "de.maxhenkel.voicechat:voicechat-api:${project.voicechat_api_version}"
 }
 
 // Loom auto-injects fabric-loader and sponge-mixin, but on this Loom version they resolve to a

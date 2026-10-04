@@ -3,6 +3,7 @@ package craftingismagic.cim;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -11,18 +12,22 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import craftingismagic.cim.changeling.ChangelingCommand;
+import craftingismagic.cim.changeling.DisguiseTargetAttachment;
+import craftingismagic.cim.changeling.VoiceMimicryConsentAttachment;
 import craftingismagic.cim.entity.CimEntities;
 import craftingismagic.cim.item.CimItemGroups;
 import craftingismagic.cim.item.CimItems;
 import craftingismagic.cim.levitation.LevitationManager;
 import craftingismagic.cim.network.AdjustLevitationDistanceC2SPayload;
 import craftingismagic.cim.network.AdjustLevitationSelectionCountC2SPayload;
+import craftingismagic.cim.network.CancelTeleportChargeC2SPayload;
 import craftingismagic.cim.network.ConfirmLevitationSelectionC2SPayload;
-import craftingismagic.cim.network.ConfirmTeleportC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerAffectionC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerFavoriteGiftC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerGeneticsC2SPayload;
@@ -48,12 +53,18 @@ import craftingismagic.cim.network.PegasusChargeStartS2CPayload;
 import craftingismagic.cim.network.PegasusDashC2SPayload;
 import craftingismagic.cim.network.PegasusRainboomTrailS2CPayload;
 import craftingismagic.cim.network.PlaceLevitatedBlockC2SPayload;
+import craftingismagic.cim.network.SaveTeleportShortcutC2SPayload;
 import craftingismagic.cim.network.SelectSpeciesC2SPayload;
 import craftingismagic.cim.network.SetStaminaColorC2SPayload;
 import craftingismagic.cim.network.SonicRainboomS2CPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
+import craftingismagic.cim.network.StartTeleportChargeC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
+import craftingismagic.cim.network.TeleportChargeEndS2CPayload;
+import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
 import craftingismagic.cim.network.ToggleFlightC2SPayload;
+import craftingismagic.cim.network.ToggleVoiceMimicryConsentC2SPayload;
+import craftingismagic.cim.network.UseTeleportShortcutC2SPayload;
 import craftingismagic.cim.network.VillagerGiveGiftC2SPayload;
 import craftingismagic.cim.network.VillagerIdleChatterC2SPayload;
 import craftingismagic.cim.network.VillagerOfferTradeC2SPayload;
@@ -69,6 +80,7 @@ import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.unicorn.TeleportManager;
+import craftingismagic.cim.unicorn.TeleportShortcutAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
 import craftingismagic.cim.villager.ChangelingDisguiseAttachment;
 import craftingismagic.cim.villager.ChangelingDisguiseHandler;
@@ -106,6 +118,7 @@ public class Cim implements ModInitializer {
 		VillagerFriendGroupHandler.register();
 		VillagerInteractionHandler.register();
 		VillageSpawnHandler.register();
+		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 
 		// Rare, wandering natural spawn - roughly "occasional Pillager sighting" commonality, not
 		// zombie-tier common. Weight/group-size are tunable, not load-bearing.
@@ -116,7 +129,12 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(StartLevitationC2SPayload.ID, StartLevitationC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AdjustLevitationSelectionCountC2SPayload.ID, AdjustLevitationSelectionCountC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ConfirmLevitationSelectionC2SPayload.ID, ConfirmLevitationSelectionC2SPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(ConfirmTeleportC2SPayload.ID, ConfirmTeleportC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(StartTeleportChargeC2SPayload.ID, StartTeleportChargeC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(CancelTeleportChargeC2SPayload.ID, CancelTeleportChargeC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(SaveTeleportShortcutC2SPayload.ID, SaveTeleportShortcutC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(UseTeleportShortcutC2SPayload.ID, UseTeleportShortcutC2SPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TeleportChargeStartS2CPayload.ID, TeleportChargeStartS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(TeleportChargeEndS2CPayload.ID, TeleportChargeEndS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AdjustLevitationDistanceC2SPayload.ID, AdjustLevitationDistanceC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PlaceLevitatedBlockC2SPayload.ID, PlaceLevitatedBlockC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ToggleFlightC2SPayload.ID, ToggleFlightC2SPayload.CODEC);
@@ -149,6 +167,7 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DebugToggleChangelingDisguiseC2SPayload.ID, DebugToggleChangelingDisguiseC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugDrainStaminaC2SPayload.ID, DebugDrainStaminaC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SetStaminaColorC2SPayload.ID, SetStaminaColorC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(ToggleVoiceMimicryConsentC2SPayload.ID, ToggleVoiceMimicryConsentC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
@@ -161,8 +180,14 @@ public class Cim implements ModInitializer {
 				(payload, context) -> LevitationManager.adjustSelectionCount(context.player(), payload.delta(), payload.axis()));
 		ServerPlayNetworking.registerGlobalReceiver(ConfirmLevitationSelectionC2SPayload.ID,
 				(payload, context) -> LevitationManager.confirmSelection(context.player()));
-		ServerPlayNetworking.registerGlobalReceiver(ConfirmTeleportC2SPayload.ID,
-				(payload, context) -> TeleportManager.tryTeleport(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(StartTeleportChargeC2SPayload.ID,
+				(payload, context) -> TeleportManager.startCharge(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(CancelTeleportChargeC2SPayload.ID,
+				(payload, context) -> TeleportManager.cancelCharge(context.player()));
+		ServerPlayNetworking.registerGlobalReceiver(SaveTeleportShortcutC2SPayload.ID,
+				(payload, context) -> TeleportManager.saveShortcut(context.player(), payload.slot()));
+		ServerPlayNetworking.registerGlobalReceiver(UseTeleportShortcutC2SPayload.ID,
+				(payload, context) -> TeleportManager.useShortcut(context.player(), payload.slot()));
 		ServerPlayNetworking.registerGlobalReceiver(AdjustLevitationDistanceC2SPayload.ID,
 				(payload, context) -> LevitationManager.adjustDistance(context.player(), payload.delta()));
 		ServerPlayNetworking.registerGlobalReceiver(PlaceLevitatedBlockC2SPayload.ID,
@@ -213,6 +238,12 @@ public class Cim implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(SetStaminaColorC2SPayload.ID, (payload, context) ->
 				StaminaColorAttachment.setColors(context.player(), new StaminaColors(payload.fillColor(), payload.backgroundColor())));
+		ServerPlayNetworking.registerGlobalReceiver(ToggleVoiceMimicryConsentC2SPayload.ID, (payload, context) -> {
+			ServerPlayerEntity player = context.player();
+			boolean newConsent = !VoiceMimicryConsentAttachment.hasConsented(player);
+			VoiceMimicryConsentAttachment.setConsent(player, newConsent);
+			player.sendMessage(Text.literal("Voice mimicry: " + (newConsent ? "ON" : "OFF")), true);
+		});
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
@@ -225,6 +256,7 @@ public class Cim implements ModInitializer {
 			LevitationManager.cancel(handler.getPlayer());
 			PegasusDashManager.cancel(handler.getPlayer());
 			PegasusRainboomCharge.cancel(handler.getPlayer());
+			TeleportManager.cancel(handler.getPlayer());
 			VillagerInteractionHandler.cancel(handler.getPlayer());
 		});
 
@@ -232,6 +264,7 @@ public class Cim implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PegasusFlightManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusDashManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusRainboomCharge::tick);
+		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(VillagerInteractionHandler::tick);
 		// Registered last deliberately - any future Stamina-spending ability's own tick handler
 		// (Herding, etc.) needs to register BEFORE this one so its drain always wins over regen
@@ -275,6 +308,9 @@ public class Cim implements ModInitializer {
 				FavoriteGiftAttachment.FAVORITE_GIFT,
 				FriendshipAttachment.AFFECTION,
 				PersonalityAttachment.PERSONALITY,
+				TeleportShortcutAttachment.TELEPORT_SHORTCUTS,
+				VoiceMimicryConsentAttachment.VOICE_MIMICRY_CONSENT,
+				DisguiseTargetAttachment.DISGUISE_TARGET,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

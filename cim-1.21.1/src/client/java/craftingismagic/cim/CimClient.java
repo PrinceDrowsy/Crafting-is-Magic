@@ -8,6 +8,9 @@ import craftingismagic.cim.client.ability.AbilityActivationHandler;
 import craftingismagic.cim.client.ability.AbilityActivationKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuOpener;
+import craftingismagic.cim.client.changeling.ChangelingInfiltratorFallbackRenderer;
+import craftingismagic.cim.client.changeling.ChangelingInfiltratorRenderer;
+import craftingismagic.cim.client.changeling.VoiceMimicryConsentKeyHandler;
 import craftingismagic.cim.client.gui.IdleChatterScreen;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.gui.VillagerDebugEditorScreen;
@@ -30,6 +33,9 @@ import craftingismagic.cim.client.species.EarthPonyJumpHandler;
 import craftingismagic.cim.client.stamina.DebugStaminaDrainKeyHandler;
 import craftingismagic.cim.client.stamina.StaminaBarHud;
 import craftingismagic.cim.client.stamina.StaminaColorKeyHandler;
+import craftingismagic.cim.client.unicorn.TeleportChargeBarHud;
+import craftingismagic.cim.client.unicorn.TeleportChargeHandler;
+import craftingismagic.cim.client.unicorn.TeleportChargeState;
 import craftingismagic.cim.client.villager.ChangelingTrueFormSkins;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
@@ -40,6 +46,8 @@ import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
+import craftingismagic.cim.network.TeleportChargeEndS2CPayload;
+import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
 
 public class CimClient implements ClientModInitializer {
 	@Override
@@ -68,12 +76,20 @@ public class CimClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(VillagerDebugEditorScreen.fromPayload(payload))));
 
+		ClientPlayNetworking.registerGlobalReceiver(TeleportChargeStartS2CPayload.ID,
+				(payload, context) -> TeleportChargeState.start(payload.durationTicks()));
+		ClientPlayNetworking.registerGlobalReceiver(TeleportChargeEndS2CPayload.ID,
+				(payload, context) -> TeleportChargeState.end());
+		TeleportChargeHandler.register();
+		TeleportChargeBarHud.register();
+
 		EarthPonyJumpHandler.register();
 		EarthPonyJumpBarHud.register();
 
 		StaminaBarHud.register();
 		DebugStaminaDrainKeyHandler.register();
 		StaminaColorKeyHandler.register();
+		VoiceMimicryConsentKeyHandler.register();
 
 		RadialMenuKeyBinding.register();
 		RadialMenuOpener.register();
@@ -98,12 +114,14 @@ public class CimClient implements ClientModInitializer {
 			PonyGeneticsSkins.register();
 			ChangelingTrueFormSkins.register();
 			CimRoguePonyRenderer.register();
+			ChangelingInfiltratorRenderer.register();
 		} else {
 			// Villagers still fall back to vanilla's own renderer untouched (Mson only ever adds to
-			// the dispatcher, never removes it) - but Rogue Ponies are a wholly custom entity type
-			// with no vanilla renderer to fall back to, so they need an explicit stand-in or the
-			// client crashes the moment one enters view.
+			// the dispatcher, never removes it) - but Rogue Ponies (and the test Changeling) are
+			// wholly custom entity types with no vanilla renderer to fall back to, so they need an
+			// explicit stand-in or the client crashes the moment one enters view.
 			RoguePonyFallbackRenderer.register();
+			ChangelingInfiltratorFallbackRenderer.register();
 		}
 	}
 }

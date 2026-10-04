@@ -9,7 +9,6 @@ import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.levitation.LevitationClientState;
-import craftingismagic.cim.network.ConfirmTeleportC2SPayload;
 import craftingismagic.cim.network.PlaceLevitatedBlockC2SPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
 import craftingismagic.cim.network.ToggleFlightC2SPayload;
@@ -57,9 +56,15 @@ public final class AbilityRegistry {
 	public static final Ability PEGASUS_FLIGHT = new Ability(Text.literal("Flight"), new ItemStack(Items.ELYTRA),
 			client -> ClientPlayNetworking.send(new ToggleFlightC2SPayload()));
 
-	/** Instant blink to wherever the player's currently looking - no aim/confirm gesture, a single tap does it all. */
+	/**
+	 * onActivate is a no-op here on purpose, same reason as {@link #CHARGED_JUMP}: Teleport is now a
+	 * hold-to-charge ability, so its whole behavior lives in {@code TeleportChargeHandler}'s own
+	 * tick-based poll of {@link SelectedAbility#isSelected} and
+	 * {@link AbilityActivationKeyBinding#ACTIVATE_ABILITY} instead.
+	 */
 	public static final Ability TELEPORT = new Ability(Text.literal("Teleport"), new ItemStack(Items.ENDER_EYE),
-			client -> ClientPlayNetworking.send(new ConfirmTeleportC2SPayload()));
+			client -> {
+			});
 
 	private static final List<Ability> PLACEHOLDER_ABILITIES = List.of(
 			new Ability(Text.literal("Test Ability A"), new ItemStack(Items.DIAMOND),

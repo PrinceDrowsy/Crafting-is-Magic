@@ -10,9 +10,10 @@ import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.changeling.ChangelingInfiltratorEntity;
 import craftingismagic.cim.rogue.RoguePonyEntity;
 
-/** This mod's custom {@code EntityType}s - just {@link #ROGUE_PONY} so far. Same shape as {@code
+/** This mod's custom {@code EntityType}s. Same shape as {@code
  * CimItems}/{@code ModSounds}: a no-op {@link #register()} exists purely to force this class's
  * static initializer (and therefore the {@code Registry.register} call below) to run early and
  * explicitly from {@code Cim.onInitialize()}, rather than whenever something else first happens to
@@ -31,6 +32,17 @@ public final class CimEntities {
 					.spawnGroup(SpawnGroup.MONSTER)
 					.dimensions(EntityDimensions.fixed(0.6f, 1.95f))
 					.defaultAttributes(RoguePonyEntity::createRoguePonyAttributes)
+					.build());
+
+	/** Test-only standalone Changeling for the voice-mimicry pass (see the Changeling Voice
+	 * Mimicry plan) - spawned via {@code /changeling <target>}, not naturally. */
+	public static final EntityType<ChangelingInfiltratorEntity> CHANGELING_INFILTRATOR = Registry.register(Registries.ENTITY_TYPE,
+			Identifier.of(Cim.MOD_ID, "changeling_infiltrator"),
+			FabricEntityTypeBuilder.createMob()
+					.entityFactory(ChangelingInfiltratorEntity::new)
+					.spawnGroup(SpawnGroup.MONSTER)
+					.dimensions(EntityDimensions.fixed(0.6f, 1.95f))
+					.defaultAttributes(ChangelingInfiltratorEntity::createChangelingInfiltratorAttributes)
 					.build());
 
 	private CimEntities() {

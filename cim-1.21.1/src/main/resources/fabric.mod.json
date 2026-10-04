@@ -22,6 +22,9 @@
 		],
 		"fabric-datagen": [
 			"craftingismagic.cim.CimDataGenerator"
+		],
+		"voicechat": [
+			"craftingismagic.cim.changeling.ChangelingVoicechatPlugin"
 		]
 	},
 	"mixins": [
@@ -42,6 +45,7 @@
 		"another-mod": "*"
 	},
 	"loadAfter": [
-		"minelp"
+		"minelp",
+		"voicechat"
 	]
 }
