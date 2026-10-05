@@ -674,7 +674,7 @@ public final class LevitationManager {
 			BlockPos finalPos = allReplaceable
 					? targetAnchor.add(block.originalPos().subtract(session.anchorPos))
 					: block.originalPos();
-			world.setBlockState(finalPos, block.state());
+			setOrDrop(world, finalPos, block.state());
 			block.displayEntity().discard();
 		}
 
@@ -894,37 +894,72 @@ public final class LevitationManager {
 
 	/** Ends a session without a deliberate placement - e.g. on disconnect. Restores any held blocks
 	 * where they came from, drops a held item in place, or releases a held mob in place (undoing
-	 * the gravity/AI override). */
+	 * the gravity/AI override). A group that's already been thrown is left alone - it's out of the
+	 * player's hands, and stays in {@link #SESSIONS} so {@link #tick} still lands it rather than
+	 * leaving it frozen mid-air with its blocks gone. The aura-off broadcast is sent around the held
+	 * thing itself, not the player, who may already be in another dimension (see {@link #interrupt}). */
 	public static void cancel(ServerPlayerEntity player) {
-		LevitationSession session = SESSIONS.remove(player.getUuid());
-		if (session == null) {
+		LevitationSession session = SESSIONS.get(player.getUuid());
+		if (session == null || session.phase == LevitationSession.Phase.THROWN) {
 			return;
 		}
+		SESSIONS.remove(player.getUuid());
 
 		if (session.phase != LevitationSession.Phase.HELD) {
 			return;
 		}
+
+		Vec3d auraPos = session.followPos != null ? session.followPos : player.getPos();
 
 		if (session.heldItemStack != null) {
 			Vec3d pos = session.itemDisplay.getPos();
 			ItemEntity item = new ItemEntity(session.world, pos.x, pos.y, pos.z, session.heldItemStack);
 			session.world.spawnEntity(item);
 			session.itemDisplay.discard();
-			broadcastAura(session.world, player.getPos(), List.of(item.getId()), false);
+			broadcastAura(session.world, auraPos, List.of(item.getId()), false);
 			return;
 		}
 
 		if (session.heldEntity != null) {
 			session.heldEntity.setNoGravity(false);
-			broadcastAura(session.world, player.getPos(), List.of(session.heldEntity.getId()), false);
+			broadcastAura(session.world, auraPos, List.of(session.heldEntity.getId()), false);
 			return;
 		}
 
 		for (LevitationBlock block : session.blocks) {
-			session.world.setBlockState(block.originalPos(), block.state());
+			setOrDrop(session.world, block.originalPos(), block.state());
 			block.displayEntity().discard();
 		}
-		broadcastAura(session.world, player.getPos(), blockDisplayIds(session.blocks), false);
+		broadcastAura(session.world, auraPos, blockDisplayIds(session.blocks), false);
+	}
+
+	/**
+	 * {@link #cancel}, plus telling the client its hold is over - for interruptions where the player
+	 * is still connected (death, changing dimension), unlike a disconnect. Without this, a death or
+	 * portal trip mid-hold left the server steering the held thing around its old dimension using the
+	 * player's coordinates in the new one.
+	 */
+	public static void interrupt(ServerPlayerEntity player) {
+		LevitationSession session = SESSIONS.get(player.getUuid());
+		if (session == null || session.phase == LevitationSession.Phase.THROWN) {
+			return;
+		}
+		cancel(player);
+		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
+	}
+
+	/**
+	 * Puts a levitated block back into the world at {@code pos}, or - if something else has moved
+	 * into that spot since it was picked up - drops it as items there instead. Every fallback
+	 * placement goes through this, so returning a block "home" can never overwrite (and silently
+	 * delete) whatever is standing there now.
+	 */
+	private static void setOrDrop(ServerWorld world, BlockPos pos, BlockState state) {
+		if (world.getBlockState(pos).isReplaceable()) {
+			world.setBlockState(pos, state);
+		} else {
+			Block.dropStacks(state, world, pos);
+		}
 	}
 
 	public static void tick(MinecraftServer server) {
@@ -948,6 +983,17 @@ public final class LevitationManager {
 
 			ServerPlayerEntity player = server.getPlayerManager().getPlayer(entry.getKey());
 			if (player == null) {
+				continue;
+			}
+
+			// Killed, despawned, or picked off mid-hold - there's nothing left to hold, so stop
+			// draining Stamina for it instead of steering (and paying for) a dead entity forever.
+			if (session.heldEntity != null && !session.heldEntity.isAlive()) {
+				iterator.remove();
+				session.heldEntity.setNoGravity(false);
+				ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
+				Vec3d auraPos = session.followPos != null ? session.followPos : player.getPos();
+				broadcastAura(session.world, auraPos, List.of(session.heldEntity.getId()), false);
 				continue;
 			}
 
@@ -1124,7 +1170,7 @@ public final class LevitationManager {
 	private static boolean tickThrown(LevitationSession session) {
 		session.ticksThrown++;
 		if (session.ticksThrown > MAX_THROWN_TICKS) {
-			discardAll(session);
+			shatter(session);
 			return true;
 		}
 
@@ -1145,7 +1191,7 @@ public final class LevitationManager {
 					MIN_THROW_DAMAGE, MAX_THROW_DAMAGE);
 			target.damage(world.getDamageSources().fallingBlock(anchorBlock.displayEntity()), damage);
 			world.syncWorldEvent(WorldEvents.BLOCK_BROKEN, BlockPos.ofFloored(currentAnchorPos), Block.getRawIdFromState(anchorBlock.state()));
-			discardAll(session);
+			shatter(session);
 			return true;
 		}
 
@@ -1173,13 +1219,16 @@ public final class LevitationManager {
 			BlockPos finalPos = allReplaceable
 					? anchorTarget.add(block.originalPos().subtract(session.anchorPos))
 					: block.originalPos();
-			world.setBlockState(finalPos, block.state());
+			setOrDrop(world, finalPos, block.state());
 			block.displayEntity().discard();
 		}
 	}
 
-	private static void discardAll(LevitationSession session) {
+	/** A thrown group that smashes into a mob, or flies too long without landing, breaks apart -
+	 * each block drops its normal loot where it was, rather than the blocks simply ceasing to exist. */
+	private static void shatter(LevitationSession session) {
 		for (LevitationBlock block : session.blocks) {
+			Block.dropStacks(block.state(), session.world, BlockPos.ofFloored(block.displayEntity().getPos().add(0.5, 0.5, 0.5)));
 			block.displayEntity().discard();
 		}
 	}

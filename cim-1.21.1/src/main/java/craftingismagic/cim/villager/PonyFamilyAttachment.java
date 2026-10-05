@@ -37,6 +37,9 @@ public final class PonyFamilyAttachment {
 	public static final AttachmentType<PonyFamily> FAMILY = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "pony_family"),
 			builder -> builder.persistent(PonyFamily.CODEC)
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(PonyFamily.PACKET_CODEC, SYNC_TO_TRACKERS));
 
 	private PonyFamilyAttachment() {

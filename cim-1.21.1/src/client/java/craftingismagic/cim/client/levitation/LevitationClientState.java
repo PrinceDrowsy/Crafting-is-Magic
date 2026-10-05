@@ -23,6 +23,15 @@ public final class LevitationClientState {
 		state = value;
 	}
 
+	/** On leaving a world - the server ends any hold on disconnect but can no longer tell us so, and
+	 * a stale HOLDING here would make the next world's first Levitation press send "place" instead
+	 * of "start", leaving the ability dead until a restart. */
+	public static void reset() {
+		state = LevitationState.NONE;
+		selectionMin = null;
+		selectionMax = null;
+	}
+
 	public static boolean isSelecting() {
 		return state == LevitationState.SELECTING;
 	}

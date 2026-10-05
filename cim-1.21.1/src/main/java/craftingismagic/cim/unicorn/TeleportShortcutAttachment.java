@@ -38,6 +38,8 @@ public final class TeleportShortcutAttachment {
 	public static final AttachmentType<TeleportShortcuts> TELEPORT_SHORTCUTS = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "teleport_shortcuts"),
 			builder -> builder.persistent(TeleportShortcuts.CODEC)
+					// Survives respawn - otherwise dying would wipe this player state.
+					.copyOnDeath()
 					.syncWith(TeleportShortcuts.PACKET_CODEC, (target, player) -> target == player));
 
 	private TeleportShortcutAttachment() {

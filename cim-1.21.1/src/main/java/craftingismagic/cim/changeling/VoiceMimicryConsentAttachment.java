@@ -24,6 +24,8 @@ public final class VoiceMimicryConsentAttachment {
 	public static final AttachmentType<Boolean> VOICE_MIMICRY_CONSENT = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "voice_mimicry_consent"),
 			builder -> builder.persistent(Codec.BOOL)
+					// Survives respawn - otherwise dying would wipe this player state.
+					.copyOnDeath()
 					.syncWith(PacketCodecs.BOOL.cast(), (target, player) -> target == player));
 
 	private VoiceMimicryConsentAttachment() {

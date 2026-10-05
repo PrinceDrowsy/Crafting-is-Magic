@@ -5,6 +5,9 @@ import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityWorldChangeEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -170,6 +173,14 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(ToggleVoiceMimicryConsentC2SPayload.ID, ToggleVoiceMimicryConsentC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
+			// Species is a one-time, game-start choice - the selection screen is only ever opened for
+			// a player who hasn't picked yet, so a repeat packet is never legitimate. Without this
+			// check a modified client could swap species at will (and a Pegasus switching away kept
+			// creative-style flight, since flight ticking just stops for non-Pegasi).
+			if (SpeciesAttachment.hasChosenSpecies(context.player())) {
+				LOGGER.warn("{} tried to change species after already choosing one - ignored", context.player().getName().getString());
+				return;
+			}
 			SpeciesAttachment.setSpecies(context.player(), payload.species());
 			LOGGER.info("{} chose species {}", context.player().getName().getString(), payload.species());
 		});
@@ -260,6 +271,21 @@ public class Cim implements ModInitializer {
 			VillagerInteractionHandler.cancel(handler.getPlayer());
 		});
 
+		// Disconnect isn't the only way an in-progress ability gets cut off - dying, or changing
+		// dimension (portal, or the End's exit, which goes through respawn instead), used to leave
+		// a Levitation hold or Teleport/Rainboom charge running against the wrong world.
+		ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
+			if (entity instanceof ServerPlayerEntity player) {
+				interruptAbilities(player);
+			}
+		});
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> interruptAbilities(player));
+		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+			interruptAbilities(newPlayer);
+			// Status effects don't survive respawn the way the (copyOnDeath) Stamina attachment does.
+			StaminaManager.restoreExhaustionEffectIfPending(newPlayer);
+		});
+
 		ServerTickEvents.END_SERVER_TICK.register(LevitationManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusFlightManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(PegasusDashManager::tick);
@@ -280,6 +306,14 @@ public class Cim implements ModInitializer {
 				StaminaManager.onWokeUp(player);
 			}
 		});
+	}
+
+	/** Like the disconnect cleanup, but for a player who's still connected - so each ability also
+	 * tells their client it ended, rather than leaving a charge bar or held-object state stuck. */
+	private static void interruptAbilities(ServerPlayerEntity player) {
+		LevitationManager.interrupt(player);
+		PegasusRainboomCharge.cancelFromRelease(player);
+		TeleportManager.cancelCharge(player);
 	}
 
 	/**

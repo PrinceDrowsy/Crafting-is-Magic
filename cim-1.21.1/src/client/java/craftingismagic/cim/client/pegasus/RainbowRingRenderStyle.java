@@ -16,7 +16,6 @@ import net.minecraft.client.render.BuiltBuffer;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexFormat;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 
 import foundry.veil.api.client.render.vertex.VeilVertexFormat;
@@ -123,11 +122,9 @@ public final class RainbowRingRenderStyle extends RenderStyle {
 		buffer.putShort((short) ((packedLight >> 16 & 65535)));
 	}
 
-	/** Vanilla's own fire animation - sampled as a shape/motion mask for the ring's flame-licked inner edge, tinted with our own rainbow hue rather than shown in its native orange. */
-	private static final Identifier FIRE_TEXTURE = Identifier.of("minecraft", "textures/block/fire_0.png");
-
+	/** Vanilla's own fire animation - sampled as a shape/motion mask for the ring's flame-licked inner edge, tinted with our own rainbow hue rather than shown in its native orange. Our own non-animated copy of the full strip, not {@code fire_0.png} itself - see {@link RainboomFlameTexture}. */
 	@Override
 	public RenderLayer getRenderType(QuasarParticle particle, RenderData renderData) {
-		return RainbowRingRenderType.get(FIRE_TEXTURE, renderData.isAdditive());
+		return RainbowRingRenderType.get(RainboomFlameTexture.ID, renderData.isAdditive());
 	}
 }

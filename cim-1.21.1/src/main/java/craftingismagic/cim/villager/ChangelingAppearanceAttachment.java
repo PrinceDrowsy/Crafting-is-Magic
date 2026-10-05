@@ -33,6 +33,9 @@ public final class ChangelingAppearanceAttachment {
 	public static final AttachmentType<ChangelingAppearance> APPEARANCE = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "changeling_appearance"),
 			builder -> builder.persistent(ChangelingAppearance.CODEC)
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(ChangelingAppearance.PACKET_CODEC, SYNC_TO_TRACKERS));
 
 	private ChangelingAppearanceAttachment() {

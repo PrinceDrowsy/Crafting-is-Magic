@@ -31,6 +31,11 @@ public final class PegasusChargeVisualState {
 		charges.remove(entityId);
 	}
 
+	/** On leaving a world - entity ids are reused in the next one, so a leftover entry could stretch an unrelated player. */
+	public static void reset() {
+		charges.clear();
+	}
+
 	/** @return progress from 0 to 1, or a negative value if this entity isn't currently charging. */
 	public static float getProgress(int entityId) {
 		Charge charge = charges.get(entityId);

@@ -1,6 +1,7 @@
 package craftingismagic.cim;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -8,6 +9,7 @@ import craftingismagic.cim.client.ability.AbilityActivationHandler;
 import craftingismagic.cim.client.ability.AbilityActivationKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuOpener;
+import craftingismagic.cim.client.ability.SelectedAbility;
 import craftingismagic.cim.client.changeling.ChangelingInfiltratorFallbackRenderer;
 import craftingismagic.cim.client.changeling.ChangelingInfiltratorRenderer;
 import craftingismagic.cim.client.changeling.VoiceMimicryConsentKeyHandler;
@@ -22,8 +24,10 @@ import craftingismagic.cim.client.levitation.LevitationClientState;
 import craftingismagic.cim.client.levitation.LevitationSelectionHandler;
 import craftingismagic.cim.client.levitation.LevitationSelectionHighlightRenderer;
 import craftingismagic.cim.client.pegasus.PegasusChargeEffectHandler;
+import craftingismagic.cim.client.pegasus.PegasusChargeVisualState;
 import craftingismagic.cim.client.pegasus.PegasusDashKeyHandler;
 import craftingismagic.cim.client.pegasus.PegasusRainboomTrailEffectHandler;
+import craftingismagic.cim.client.pegasus.RainboomFlameTexture;
 import craftingismagic.cim.client.pegasus.RainbowRingRegistry;
 import craftingismagic.cim.client.pegasus.SonicRainboomEffectHandler;
 import craftingismagic.cim.client.rogue.CimRoguePonyRenderer;
@@ -53,6 +57,7 @@ public class CimClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		RainbowRingRegistry.register();
+		RainboomFlameTexture.register();
 
 		ClientPlayNetworking.registerGlobalReceiver(OpenSpeciesSelectS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> context.client().setScreen(new SpeciesSelectScreen())));
@@ -108,6 +113,20 @@ public class CimClient implements ClientModInitializer {
 		PegasusChargeEffectHandler.register();
 		PegasusRainboomTrailEffectHandler.register();
 		LevitationAuraEffectHandler.register();
+
+		// Every piece of client-side ability/effect state is static and per-world, but nothing used
+		// to clear it - quitting mid-hold left Levitation stuck thinking it was still holding in the
+		// next world, and entity-id-keyed effect maps carried stale entries into a world that
+		// reuses those ids.
+		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
+			LevitationClientState.reset();
+			TeleportChargeState.end();
+			SelectedAbility.set(null);
+			PegasusChargeVisualState.reset();
+			PegasusChargeEffectHandler.reset();
+			PegasusRainboomTrailEffectHandler.reset();
+			LevitationAuraEffectHandler.reset();
+		}));
 
 		if (FabricLoader.getInstance().isModLoaded("minelp")) {
 			MineLpVillagerSkins.register();

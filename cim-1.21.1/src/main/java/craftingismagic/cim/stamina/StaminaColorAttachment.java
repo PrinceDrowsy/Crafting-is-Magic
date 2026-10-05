@@ -34,6 +34,8 @@ public final class StaminaColorAttachment {
 	public static final AttachmentType<StaminaColors> STAMINA_COLORS = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "stamina_colors"),
 			builder -> builder.persistent(StaminaColors.CODEC)
+					// Survives respawn - otherwise dying would wipe this player state.
+					.copyOnDeath()
 					.syncWith(StaminaColors.PACKET_CODEC, SYNC_TO_OWNER));
 
 	private StaminaColorAttachment() {

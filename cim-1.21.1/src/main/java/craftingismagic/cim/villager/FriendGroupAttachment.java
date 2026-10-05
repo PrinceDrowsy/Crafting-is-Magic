@@ -36,6 +36,9 @@ public final class FriendGroupAttachment {
 	public static final AttachmentType<FriendGroup> FRIEND_GROUP = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "friend_group"),
 			builder -> builder.persistent(FriendGroup.CODEC)
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(FriendGroup.PACKET_CODEC, SYNC_TO_TRACKERS));
 
 	private FriendGroupAttachment() {

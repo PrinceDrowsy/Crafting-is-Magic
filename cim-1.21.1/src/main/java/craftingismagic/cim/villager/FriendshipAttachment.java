@@ -43,6 +43,9 @@ public final class FriendshipAttachment {
 	public static final AttachmentType<Map<UUID, RelationshipData>> AFFECTION = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "affection"),
 			builder -> builder.persistent(Codec.unboundedMap(Uuids.STRING_CODEC, RelationshipData.CODEC))
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(PacketCodecs.map(HashMap::new, Uuids.PACKET_CODEC, RelationshipData.PACKET_CODEC), SYNC_TO_TRACKERS));
 
 	private FriendshipAttachment() {

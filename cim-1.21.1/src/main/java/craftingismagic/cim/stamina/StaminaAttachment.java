@@ -36,6 +36,9 @@ public final class StaminaAttachment {
 	public static final AttachmentType<Stamina> STAMINA = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "stamina"),
 			builder -> builder.persistent(Stamina.CODEC)
+					// Survives respawn - otherwise dying would wipe this player state (and reset Stamina, a free
+					// way out of Exhaustion).
+					.copyOnDeath()
 					.syncWith(Stamina.PACKET_CODEC, SYNC_TO_OWNER));
 
 	private StaminaAttachment() {

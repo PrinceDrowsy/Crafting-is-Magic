@@ -50,6 +50,11 @@ public final class PegasusRainboomTrailEffectHandler {
 		ClientTickEvents.END_CLIENT_TICK.register(PegasusRainboomTrailEffectHandler::tick);
 	}
 
+	/** On leaving a world - entries hold an entity id and a removal tick from the old world's clock, neither meaningful in the next one. */
+	public static void reset() {
+		active.clear();
+	}
+
 	private static void start(PegasusRainboomTrailS2CPayload payload) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		Entity entity = client.world != null ? client.world.getEntityById(payload.entityId()) : null;

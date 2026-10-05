@@ -37,6 +37,9 @@ public final class FavoriteGiftAttachment {
 	public static final AttachmentType<Item> FAVORITE_GIFT = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "favorite_gift"),
 			builder -> builder.persistent(Registries.ITEM.getCodec())
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(PacketCodecs.registryValue(RegistryKeys.ITEM), SYNC_TO_TRACKERS));
 
 	private FavoriteGiftAttachment() {

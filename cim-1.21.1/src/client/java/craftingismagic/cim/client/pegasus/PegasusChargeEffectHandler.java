@@ -43,6 +43,11 @@ public final class PegasusChargeEffectHandler {
 		ClientTickEvents.END_CLIENT_TICK.register(PegasusChargeEffectHandler::tick);
 	}
 
+	/** On leaving a world - keyed by entity id, which the next world reuses; Veil drops the emitters themselves along with the old world. */
+	public static void reset() {
+		activeEmitters.clear();
+	}
+
 	private static void start(PegasusChargeStartS2CPayload payload) {
 		end(payload.entityId());
 		PegasusChargeVisualState.start(payload.entityId(), payload.durationTicks());

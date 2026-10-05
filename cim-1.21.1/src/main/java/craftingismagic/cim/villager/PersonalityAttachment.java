@@ -57,6 +57,9 @@ public final class PersonalityAttachment {
 	public static final AttachmentType<Personality> PERSONALITY = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "personality"),
 			builder -> builder.persistent(Personality.CODEC)
+					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
+					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
+					.copyOnDeath()
 					.syncWith(Personality.PACKET_CODEC, SYNC_TO_TRACKERS));
 
 	private PersonalityAttachment() {

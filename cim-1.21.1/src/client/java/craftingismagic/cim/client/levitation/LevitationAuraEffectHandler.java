@@ -156,6 +156,13 @@ public final class LevitationAuraEffectHandler {
 		ClientTickEvents.END_CLIENT_TICK.register(LevitationAuraEffectHandler::tick);
 	}
 
+	/** On leaving a world - entries are keyed by entity id, and ids are reused in the next world, so a
+	 * stale entry would make {@link #start} silently skip a real new hold that happens to share an id.
+	 * Veil drops the emitters themselves along with the old world. */
+	public static void reset() {
+		active.clear();
+	}
+
 	private static void handle(LevitationAuraS2CPayload payload) {
 		if (payload.entityIds().isEmpty()) {
 			return;
