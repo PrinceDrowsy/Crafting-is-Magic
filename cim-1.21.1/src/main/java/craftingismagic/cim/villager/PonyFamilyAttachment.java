@@ -55,6 +55,9 @@ public final class PonyFamilyAttachment {
 
 	public static void setFamily(Entity entity, PonyFamily family) {
 		entity.setAttached(FAMILY, family);
+		// Every family write passes through here, so this is the one place that keeps the growth
+		// tick's tracked set of Child/Teenager villagers in step (see VillagerFamilyHandler).
+		VillagerFamilyHandler.onFamilyChanged(entity);
 	}
 
 	/**

@@ -1,7 +1,9 @@
 package craftingismagic.cim.villager;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
@@ -45,10 +47,20 @@ public final class VillagerFamilyHandler {
 	private static final float ORPHAN_CHANCE = 0.10f;
 	private static final double FAMILY_SEARCH_RADIUS = 28.0;
 	private static final int MAX_CHILDREN_PER_PARENT = 2;
-	/** Growth doesn't need per-tick precision - checked once a second rather than every tick. */
-	private static final int GROWTH_CHECK_INTERVAL = 20;
+	/** Growth doesn't need fine precision (stages last many minutes) - checked every 5 seconds. Each
+	 * check rewrites the growing villager's family attachment, which syncs to trackers, so a longer
+	 * interval also means fewer packets. */
+	private static final int GROWTH_CHECK_INTERVAL = 100;
 
 	private static final LifeStage[] CHILD_LIFE_STAGES = {LifeStage.BABY, LifeStage.CHILD, LifeStage.TEENAGER};
+
+	/**
+	 * Only the villagers currently in a growing stage (Child or Teenager) - so the growth tick never
+	 * has to walk every entity in every world. Kept current by {@code ENTITY_LOAD}/{@code
+	 * ENTITY_UNLOAD} and by {@link #onFamilyChanged}, which {@link PonyFamilyAttachment#setFamily}
+	 * calls on every family write. Entities don't override {@code equals}, so this is an identity set.
+	 */
+	private static final Set<VillagerEntity> growingVillagers = new HashSet<>();
 
 	private VillagerFamilyHandler() {
 	}
@@ -73,9 +85,59 @@ public final class VillagerFamilyHandler {
 					villager.setBreedingAge(-LifeStageConfig.get().babyDurationTicks());
 				}
 			}
+			onFamilyChanged(villager);
+		});
+		ServerEntityEvents.ENTITY_UNLOAD.register((entity, world) -> {
+			if (entity instanceof VillagerEntity villager) {
+				growingVillagers.remove(villager);
+			}
 		});
 
 		ServerTickEvents.END_SERVER_TICK.register(VillagerFamilyHandler::tickGrowth);
+	}
+
+	/** How many villagers the growth tick is currently tracking - shown in the debug overlay. */
+	public static int growingCount() {
+		return growingVillagers.size();
+	}
+
+	/**
+	 * Moves a villager straight to its next life stage - the debug {@code grow} command's lever, so
+	 * growth can be tested without waiting out a stage. A Baby is grown through vanilla's own path
+	 * (breeding age to 0, which fires {@code onGrowUp} and lets {@code VillagerGrowthMixin} make it a
+	 * Child); Child and Teenager advance directly. Returns the new stage, or null if there's nowhere
+	 * left to grow (an Adult, or a villager with no family yet).
+	 */
+	public static LifeStage advanceLifeStage(VillagerEntity villager) {
+		if (!PonyFamilyAttachment.hasFamily(villager)) {
+			return null;
+		}
+		PonyFamily family = PonyFamilyAttachment.getFamily(villager);
+		switch (family.lifeStage()) {
+			case BABY -> villager.setBreedingAge(0);
+			case CHILD -> PonyFamilyAttachment.setFamily(villager,
+					new PonyFamily(LifeStage.TEENAGER, 0, family.parents(), family.partner(), family.orphan()));
+			case TEENAGER -> PonyFamilyAttachment.setFamily(villager,
+					new PonyFamily(LifeStage.ADULT, 0, family.parents(), family.partner(), family.orphan()));
+			default -> {
+				return null;
+			}
+		}
+		return PonyFamilyAttachment.getFamily(villager).lifeStage();
+	}
+
+	/** Keeps {@link #growingVillagers} in step with a villager's current life stage - called from
+	 * {@link PonyFamilyAttachment#setFamily} so every family write, wherever it happens, is seen. */
+	static void onFamilyChanged(Entity entity) {
+		if (!(entity instanceof VillagerEntity villager) || villager.getWorld().isClient()) {
+			return;
+		}
+		LifeStage stage = PonyFamilyAttachment.hasFamily(villager) ? PonyFamilyAttachment.getFamily(villager).lifeStage() : null;
+		if (stage == LifeStage.CHILD || stage == LifeStage.TEENAGER) {
+			growingVillagers.add(villager);
+		} else {
+			growingVillagers.remove(villager);
+		}
 	}
 
 	private static void assignFamily(VillagerEntity villager, ServerWorld world) {
@@ -248,25 +310,27 @@ public final class VillagerFamilyHandler {
 			return;
 		}
 		LifeStageConfig config = LifeStageConfig.get();
-		for (ServerWorld world : server.getWorlds()) {
-			for (Entity entity : world.iterateEntities()) {
-				if (!(entity instanceof VillagerEntity villager) || !PonyFamilyAttachment.hasFamily(villager)) {
-					continue;
-				}
-				PonyFamily family = PonyFamilyAttachment.getFamily(villager);
-				if (family.lifeStage() != LifeStage.CHILD && family.lifeStage() != LifeStage.TEENAGER) {
-					continue;
-				}
+		// Copied first: setFamily below calls back into onFamilyChanged, which may remove a villager
+		// that just reached Adult from the live set mid-iteration.
+		for (VillagerEntity villager : List.copyOf(growingVillagers)) {
+			if (villager.isRemoved() || !PonyFamilyAttachment.hasFamily(villager)) {
+				growingVillagers.remove(villager);
+				continue;
+			}
+			PonyFamily family = PonyFamilyAttachment.getFamily(villager);
+			if (family.lifeStage() != LifeStage.CHILD && family.lifeStage() != LifeStage.TEENAGER) {
+				growingVillagers.remove(villager);
+				continue;
+			}
 
-				int growthTicks = family.growthTicks() + GROWTH_CHECK_INTERVAL;
-				int threshold = family.lifeStage() == LifeStage.CHILD ? config.childDurationTicks() : config.teenagerDurationTicks();
-				if (growthTicks >= threshold) {
-					LifeStage next = family.lifeStage() == LifeStage.CHILD ? LifeStage.TEENAGER : LifeStage.ADULT;
-					PonyFamilyAttachment.setFamily(villager, new PonyFamily(next, 0, family.parents(), family.partner(), family.orphan()));
-				} else {
-					PonyFamilyAttachment.setFamily(villager,
-							new PonyFamily(family.lifeStage(), growthTicks, family.parents(), family.partner(), family.orphan()));
-				}
+			int growthTicks = family.growthTicks() + GROWTH_CHECK_INTERVAL;
+			int threshold = family.lifeStage() == LifeStage.CHILD ? config.childDurationTicks() : config.teenagerDurationTicks();
+			if (growthTicks >= threshold) {
+				LifeStage next = family.lifeStage() == LifeStage.CHILD ? LifeStage.TEENAGER : LifeStage.ADULT;
+				PonyFamilyAttachment.setFamily(villager, new PonyFamily(next, 0, family.parents(), family.partner(), family.orphan()));
+			} else {
+				PonyFamilyAttachment.setFamily(villager,
+						new PonyFamily(family.lifeStage(), growthTicks, family.parents(), family.partner(), family.orphan()));
 			}
 		}
 	}

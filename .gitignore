@@ -1,3 +1,5 @@
 # Dev client run logs (see the dev-loop workflow - regenerated on every relaunch)
 .runclient.log
 .runclient.err.log
+runclient_out.log
+runclient_err.log

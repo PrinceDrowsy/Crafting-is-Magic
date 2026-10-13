@@ -25,6 +25,9 @@
 		],
 		"voicechat": [
 			"craftingismagic.cim.changeling.ChangelingVoicechatPlugin"
+		],
+		"modmenu": [
+			"craftingismagic.cim.client.config.CimModMenu"
 		]
 	},
 	"mixins": [
@@ -42,10 +45,7 @@
 		"veil": "*"
 	},
 	"suggests": {
-		"another-mod": "*"
-	},
-	"loadAfter": [
-		"minelp",
-		"voicechat"
-	]
+		"modmenu": "*",
+		"yet_another_config_lib_v3": "*"
+	}
 }

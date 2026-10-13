@@ -23,6 +23,9 @@ import org.slf4j.LoggerFactory;
 import craftingismagic.cim.changeling.ChangelingCommand;
 import craftingismagic.cim.changeling.DisguiseTargetAttachment;
 import craftingismagic.cim.changeling.VoiceMimicryConsentAttachment;
+import craftingismagic.cim.debug.CimDebug;
+import craftingismagic.cim.debug.DebugCommand;
+import craftingismagic.cim.debug.DebugOverlay;
 import craftingismagic.cim.entity.CimEntities;
 import craftingismagic.cim.item.CimItemGroups;
 import craftingismagic.cim.item.CimItems;
@@ -40,6 +43,8 @@ import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
 import craftingismagic.cim.network.DebugDrainStaminaC2SPayload;
+import craftingismagic.cim.network.DebugInfoS2CPayload;
+import craftingismagic.cim.network.DebugOverlayToggleC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
@@ -60,6 +65,7 @@ import craftingismagic.cim.network.SaveTeleportShortcutC2SPayload;
 import craftingismagic.cim.network.SelectSpeciesC2SPayload;
 import craftingismagic.cim.network.SetStaminaColorC2SPayload;
 import craftingismagic.cim.network.SonicRainboomS2CPayload;
+import craftingismagic.cim.network.StaminaSyncS2CPayload;
 import craftingismagic.cim.network.StartLevitationC2SPayload;
 import craftingismagic.cim.network.StartTeleportChargeC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
@@ -82,6 +88,7 @@ import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
 import craftingismagic.cim.stamina.StaminaManager;
+import craftingismagic.cim.stamina.StaminaSync;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
@@ -115,6 +122,7 @@ public class Cim implements ModInitializer {
 		CimEntities.register();
 		CimStatusEffects.register();
 		preloadAttachmentTypes();
+		CimGameRules.register();
 		VillagerSpeciesHandler.register();
 		ChangelingDisguiseHandler.register();
 		VillagerFamilyHandler.register();
@@ -122,6 +130,8 @@ public class Cim implements ModInitializer {
 		VillagerInteractionHandler.register();
 		VillageSpawnHandler.register();
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
+		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
+		DebugOverlay.register();
 
 		// Rare, wandering natural spawn - roughly "occasional Pillager sighting" commonality, not
 		// zombie-tier common. Weight/group-size are tunable, not load-bearing.
@@ -171,6 +181,9 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DebugDrainStaminaC2SPayload.ID, DebugDrainStaminaC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(SetStaminaColorC2SPayload.ID, SetStaminaColorC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ToggleVoiceMimicryConsentC2SPayload.ID, ToggleVoiceMimicryConsentC2SPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(StaminaSyncS2CPayload.ID, StaminaSyncS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugOverlayToggleC2SPayload.ID, DebugOverlayToggleC2SPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(DebugInfoS2CPayload.ID, DebugInfoS2CPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			// Species is a one-time, game-start choice - the selection screen is only ever opened for
@@ -241,12 +254,14 @@ public class Cim implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(DebugToggleChangelingDisguiseC2SPayload.ID, (payload, context) ->
 				VillagerDebugEditorHandler.toggleDisguise(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugDrainStaminaC2SPayload.ID, (payload, context) -> {
-			// Creative-only test lever for the Stamina system (see DebugDrainStaminaC2SPayload's own
-			// doc comment) - re-checks Creative mode server-side, not just the client's own gating.
-			if (context.player().isCreative()) {
+			// Test lever for the Stamina system (see DebugDrainStaminaC2SPayload's own doc comment) -
+			// re-checks the debug gate server-side, not just the client's own gating.
+			if (CimDebug.allowed(context.player())) {
 				StaminaManager.drain(context.player(), 10.0f);
 			}
 		});
+		ServerPlayNetworking.registerGlobalReceiver(DebugOverlayToggleC2SPayload.ID,
+				(payload, context) -> DebugOverlay.setSubscribed(context.player(), payload.enabled()));
 		ServerPlayNetworking.registerGlobalReceiver(SetStaminaColorC2SPayload.ID, (payload, context) ->
 				StaminaColorAttachment.setColors(context.player(), new StaminaColors(payload.fillColor(), payload.backgroundColor())));
 		ServerPlayNetworking.registerGlobalReceiver(ToggleVoiceMimicryConsentC2SPayload.ID, (payload, context) -> {
@@ -261,9 +276,12 @@ public class Cim implements ModInitializer {
 				ServerPlayNetworking.send(handler.getPlayer(), new OpenSpeciesSelectS2CPayload());
 			}
 			StaminaManager.restoreExhaustionEffectIfPending(handler.getPlayer());
+			StaminaSync.invalidate(handler.getPlayer());
 		});
 
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+			StaminaSync.invalidate(handler.getPlayer());
+			DebugOverlay.setSubscribed(handler.getPlayer(), false);
 			LevitationManager.cancel(handler.getPlayer());
 			PegasusDashManager.cancel(handler.getPlayer());
 			PegasusRainboomCharge.cancel(handler.getPlayer());
@@ -279,9 +297,13 @@ public class Cim implements ModInitializer {
 				interruptAbilities(player);
 			}
 		});
-		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> interruptAbilities(player));
+		ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register((player, origin, destination) -> {
+			interruptAbilities(player);
+			StaminaSync.invalidate(player);
+		});
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			interruptAbilities(newPlayer);
+			StaminaSync.invalidate(newPlayer);
 			// Status effects don't survive respawn the way the (copyOnDeath) Stamina attachment does.
 			StaminaManager.restoreExhaustionEffectIfPending(newPlayer);
 		});
@@ -297,6 +319,7 @@ public class Cim implements ModInitializer {
 		// within the same tick, rather than the two partially canceling out. See StaminaManager's
 		// own doc comment.
 		ServerTickEvents.END_SERVER_TICK.register(StaminaManager::tick);
+		ServerTickEvents.END_SERVER_TICK.register(DebugOverlay::tick);
 
 		// 100 ticks is vanilla's own threshold for "slept enough to count" (the same one that
 		// triggers the night skip and the spawn-point-setting/advancement rewards) - reused here so

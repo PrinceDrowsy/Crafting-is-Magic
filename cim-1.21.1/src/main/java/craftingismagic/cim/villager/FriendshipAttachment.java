@@ -7,15 +7,9 @@ import java.util.UUID;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import io.netty.buffer.ByteBuf;
-
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
-import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.minecraft.entity.Entity;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 
@@ -31,22 +25,21 @@ import craftingismagic.cim.Cim;
  * {@link craftingismagic.cim.species.SpeciesAttachment} (a single value shared by everyone), the
  * per-player nature here lives in the attachment's own value type - a map keyed by player UUID,
  * same overall shape otherwise.
+ * <p>
+ * Server-only - deliberately never synced. It used to sync the whole map to every tracking player
+ * on every change, which cost bandwidth and leaked one player's relationship data (and, with the
+ * memory system coming, their secrets) onto other players' clients. Screens that need it get what
+ * they need in their own open payloads instead (see {@code OpenVillagerMenuS2CPayload}).
  */
 public final class FriendshipAttachment {
 	private static final int MAX_GIFTS_PER_DAY = 3;
-
-	/** Same reasoning as {@code SpeciesAttachment}'s identical predicate: avoids syncing to a
-	 * player who hasn't started tracking the villager yet, which crashes Fabric's own sync handler. */
-	private static final AttachmentSyncPredicate SYNC_TO_TRACKERS = (target, player) ->
-			target instanceof Entity targetEntity && PlayerLookup.tracking(targetEntity).contains(player);
 
 	public static final AttachmentType<Map<UUID, RelationshipData>> AFFECTION = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "affection"),
 			builder -> builder.persistent(Codec.unboundedMap(Uuids.STRING_CODEC, RelationshipData.CODEC))
 					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
 					// villager -> witch) - without this, curing a pony would wipe it back to a stranger.
-					.copyOnDeath()
-					.syncWith(PacketCodecs.map(HashMap::new, Uuids.PACKET_CODEC, RelationshipData.PACKET_CODEC), SYNC_TO_TRACKERS));
+					.copyOnDeath());
 
 	private FriendshipAttachment() {
 	}
@@ -120,12 +113,5 @@ public final class FriendshipAttachment {
 				Codec.INT.fieldOf("gifts_given_that_day").forGetter(RelationshipData::giftsGivenThatDay),
 				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType)
 		).apply(instance, RelationshipData::new));
-
-		public static final PacketCodec<ByteBuf, RelationshipData> PACKET_CODEC = PacketCodec.tuple(
-				PacketCodecs.INTEGER, RelationshipData::affection,
-				PacketCodecs.VAR_LONG, RelationshipData::lastGiftDay,
-				PacketCodecs.INTEGER, RelationshipData::giftsGivenThatDay,
-				RelationshipType.PACKET_CODEC, RelationshipData::relationshipType,
-				RelationshipData::new);
 	}
 }

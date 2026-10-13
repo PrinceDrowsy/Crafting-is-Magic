@@ -11,13 +11,14 @@ import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.Cim;
 
-/** The mod's own creative-inventory tab - currently just the dev-only debug items, since none of
- * the mod's other content (abilities, genetics, etc.) is obtained as a placeable/holdable item. */
+/** The mod's debug-tools creative tab (docs/implementation-plan.md: Debug and testing tools). It's
+ * the only tab for now, since none of the mod's real content is an item yet - a separate main tab
+ * arrives with the first real items, so debug tools never mix with them. */
 public final class CimItemGroups {
-	public static final ItemGroup MAIN = Registry.register(Registries.ITEM_GROUP,
-			Identifier.of(Cim.MOD_ID, "main"),
+	public static final ItemGroup DEBUG = Registry.register(Registries.ITEM_GROUP,
+			Identifier.of(Cim.MOD_ID, "debug"),
 			FabricItemGroup.builder()
-					.displayName(Text.translatable("itemGroup.cim.main"))
+					.displayName(Text.translatable("itemGroup.cim.debug"))
 					.icon(() -> new ItemStack(CimItems.VILLAGER_DEBUG_WAND))
 					.entries((displayContext, entries) -> {
 						entries.add(CimItems.VILLAGER_DEBUG_WAND);

@@ -6,7 +6,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 
 import craftingismagic.cim.species.SpeciesAttachment;
-import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
@@ -36,12 +35,12 @@ public final class StaminaBarHud {
 			return;
 		}
 
-		Stamina stamina = StaminaAttachment.getStamina(client.player);
+		Stamina stamina = ClientStaminaState.get();
 		StaminaColors colors = StaminaColorAttachment.getColors(client.player);
 		int x = context.getScaledWindowWidth() / 2 - 91;
 		int y = context.getScaledWindowHeight() - 32 + 3 - BAR_HEIGHT - ROW_GAP;
 
 		StaminaNotchBarRenderer.draw(context, x, y, BAR_WIDTH, BAR_HEIGHT,
-				stamina.current(), stamina.max(), colors.fillColor(), colors.backgroundColor());
+				ClientStaminaState.displayedCurrent(), stamina.max(), colors.fillColor(), colors.backgroundColor());
 	}
 }

@@ -73,7 +73,8 @@ public final class LifeStageConfig {
 		return defaults;
 	}
 
-	private void save() {
+	/** Public so the optional in-game config screen (CimConfigScreen) can write edits back. */
+	public void save() {
 		try {
 			Files.createDirectories(CONFIG_PATH.getParent());
 			try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {

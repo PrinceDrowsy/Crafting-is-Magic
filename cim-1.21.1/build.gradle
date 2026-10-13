@@ -39,6 +39,14 @@ repositories {
 		name = 'Simple Voice Chat Maven'
 		url = 'https://maven.maxhenkel.de/repository/public'
 	}
+	maven { // For YACL (optional - the in-game config screen)
+		name = 'Xander Maven'
+		url = 'https://maven.isxander.dev/releases'
+	}
+	maven { // For Mod Menu (optional - where the config screen is opened from)
+		name = 'TerraformersMC'
+		url = 'https://maven.terraformersmc.com/releases'
+	}
 }
 
 loom {
@@ -51,6 +59,17 @@ loom {
 		}
 	}
 
+	// A second dev client for multiplayer testing (docs/implementation-plan.md: Debug and testing
+	// tools): run `runClient`, open the world to LAN, then run `runClient2` and join it. Its own run
+	// directory and username keep the two clients' saves and identities apart.
+	runs {
+		client2 {
+			client()
+			configName = "Minecraft Client 2"
+			programArgs "--username", "Dev2"
+			runDir "run-client2"
+		}
+	}
 }
 
 fabricApi {
@@ -95,6 +114,15 @@ dependencies {
 	// (fabric.mod.json's "voicechat" key) is inherently safe with no such check needed - Simple Voice
 	// Chat is the only thing that ever queries that entrypoint, so it simply never fires without it.
 	compileOnly "de.maxhenkel.voicechat:voicechat-api:${project.voicechat_api_version}"
+
+	// YACL + Mod Menu - optional, same shape as MineLP above: the mod's own JSON configs always work
+	// on their own, and players who have both installed get an in-game settings screen on top (see
+	// CimConfigScreen). modLocalRuntime puts them in the dev client only, so the screen can be tested
+	// without ever becoming a runtime requirement.
+	modCompileOnly "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+	modLocalRuntime "dev.isxander:yet-another-config-lib:${project.yacl_version}"
+	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 // Loom auto-injects fabric-loader and sponge-mixin, but on this Loom version they resolve to a

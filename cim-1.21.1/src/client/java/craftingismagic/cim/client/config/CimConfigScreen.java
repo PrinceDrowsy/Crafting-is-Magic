@@ -1,0 +1,87 @@
+package craftingismagic.cim.client.config;
+
+import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.Option;
+import dev.isxander.yacl3.api.OptionDescription;
+import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.controller.FloatFieldControllerBuilder;
+import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
+import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
+
+import craftingismagic.cim.debug.DebugConfig;
+import craftingismagic.cim.spawn.VillageSpawnConfig;
+import craftingismagic.cim.villager.LifeStageConfig;
+
+/**
+ * The in-game settings screen, built with YACL. Optional: only ever loaded when YACL is installed
+ * (see {@link CimModMenu}), never a requirement - the mod's own JSON configs always work without it.
+ * This screen just edits those same config objects and writes them back.
+ */
+public final class CimConfigScreen {
+	private CimConfigScreen() {
+	}
+
+	public static Screen create(Screen parent) {
+		VillageSpawnConfig spawn = VillageSpawnConfig.get();
+		LifeStageConfig lifeStages = LifeStageConfig.get();
+		VillageSpawnConfig spawnDefaults = new VillageSpawnConfig();
+		LifeStageConfig lifeStageDefaults = new LifeStageConfig();
+		DebugConfig debug = DebugConfig.get();
+		DebugConfig debugDefaults = new DebugConfig();
+
+		return YetAnotherConfigLib.createBuilder()
+				.title(Text.translatable("config.cim.title"))
+				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.world"))
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.spawn_in_village"))
+								.description(OptionDescription.of(Text.translatable("config.cim.spawn_in_village.desc")))
+								.binding(spawnDefaults.spawnInVillage, () -> spawn.spawnInVillage, value -> spawn.spawnInVillage = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.build())
+				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.life_stages"))
+						.option(Option.<Integer>createBuilder()
+								.name(Text.translatable("config.cim.ticks_per_year"))
+								.description(OptionDescription.of(Text.translatable("config.cim.ticks_per_year.desc")))
+								.binding(lifeStageDefaults.ticksPerYear, () -> lifeStages.ticksPerYear, value -> lifeStages.ticksPerYear = value)
+								.controller(option -> IntegerFieldControllerBuilder.create(option).min(1))
+								.build())
+						.option(yearsOption("config.cim.baby_years", lifeStageDefaults.babyDurationYears,
+								() -> lifeStages.babyDurationYears, value -> lifeStages.babyDurationYears = value))
+						.option(yearsOption("config.cim.child_years", lifeStageDefaults.childDurationYears,
+								() -> lifeStages.childDurationYears, value -> lifeStages.childDurationYears = value))
+						.option(yearsOption("config.cim.teenager_years", lifeStageDefaults.teenagerDurationYears,
+								() -> lifeStages.teenagerDurationYears, value -> lifeStages.teenagerDurationYears = value))
+						.build())
+				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.debug"))
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.debug_enabled"))
+								.description(OptionDescription.of(Text.translatable("config.cim.debug_enabled.desc")))
+								.binding(debugDefaults.enabled, () -> debug.enabled, value -> debug.enabled = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.build())
+				.save(() -> {
+					spawn.save();
+					lifeStages.save();
+					debug.save();
+				})
+				.build()
+				.generateScreen(parent);
+	}
+
+	private static Option<Float> yearsOption(String key, float defaultValue,
+			java.util.function.Supplier<Float> getter, java.util.function.Consumer<Float> setter) {
+		return Option.<Float>createBuilder()
+				.name(Text.translatable(key))
+				.description(OptionDescription.of(Text.translatable("config.cim.stage_years.desc")))
+				.binding(defaultValue, getter, setter)
+				.controller(option -> FloatFieldControllerBuilder.create(option).min(0.01f))
+				.build();
+	}
+}

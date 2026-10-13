@@ -81,11 +81,18 @@ public final class StaminaManager {
 			if (!drainedThisTick.contains(player.getUuid())) {
 				regen(player);
 			}
+			StaminaSync.tick(player, server.getTicks());
 		}
 		drainedThisTick.clear();
 	}
 
 	private static void regen(ServerPlayerEntity player) {
+		// No regen while dead: the attachment is copied to the respawned player, so refilling on the
+		// death screen would hand back a full bar - dying as a free way out of a drained pool, the
+		// exact thing copyOnDeath exists to prevent.
+		if (!player.isAlive()) {
+			return;
+		}
 		Stamina stamina = StaminaAttachment.getStamina(player);
 		if (stamina.awaitingSleep() || stamina.current() >= stamina.max()) {
 			return;

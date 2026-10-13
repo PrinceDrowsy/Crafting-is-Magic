@@ -4,7 +4,6 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
-import net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.RegistryByteBuf;
@@ -22,24 +21,21 @@ import craftingismagic.cim.Cim;
  * been set yet rather than requiring initialization, the same "missing means the sensible default"
  * shape {@link craftingismagic.cim.villager.FriendshipAttachment.RelationshipData#EMPTY} already uses.
  * <p>
- * Owner-only sync (matching {@code SpeciesAttachment}'s narrower predicate, not {@code
- * AttachmentSyncPredicate#all()}) - Stamina is only ever meaningful to the player spending it, nobody
- * else needs to see another player's bar.
+ * Server-side storage only - not synced through the attachment, because regen and continuous drains
+ * write it every tick. {@link StaminaSync} sends it to the owning player on meaningful changes
+ * instead; the client reads {@code ClientStaminaState}, never this attachment.
  */
 public final class StaminaAttachment {
 	/** Public so other systems (e.g. Levitation's Stamina-scaled throw power) have a stable
 	 * reference point for "a fresh, un-grown pool" rather than duplicating the magic number. */
 	public static final float BASE_MAX_STAMINA = 100.0f;
 
-	private static final AttachmentSyncPredicate SYNC_TO_OWNER = (target, player) -> target == player;
-
 	public static final AttachmentType<Stamina> STAMINA = AttachmentRegistry.create(
 			Identifier.of(Cim.MOD_ID, "stamina"),
 			builder -> builder.persistent(Stamina.CODEC)
 					// Survives respawn - otherwise dying would wipe this player state (and reset Stamina, a free
 					// way out of Exhaustion).
-					.copyOnDeath()
-					.syncWith(Stamina.PACKET_CODEC, SYNC_TO_OWNER));
+					.copyOnDeath());
 
 	private StaminaAttachment() {
 	}

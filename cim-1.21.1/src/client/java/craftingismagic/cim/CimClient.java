@@ -13,6 +13,7 @@ import craftingismagic.cim.client.ability.SelectedAbility;
 import craftingismagic.cim.client.changeling.ChangelingInfiltratorFallbackRenderer;
 import craftingismagic.cim.client.changeling.ChangelingInfiltratorRenderer;
 import craftingismagic.cim.client.changeling.VoiceMimicryConsentKeyHandler;
+import craftingismagic.cim.client.debug.DebugOverlayHud;
 import craftingismagic.cim.client.gui.IdleChatterScreen;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.gui.VillagerDebugEditorScreen;
@@ -34,6 +35,7 @@ import craftingismagic.cim.client.rogue.CimRoguePonyRenderer;
 import craftingismagic.cim.client.rogue.RoguePonyFallbackRenderer;
 import craftingismagic.cim.client.species.EarthPonyJumpBarHud;
 import craftingismagic.cim.client.species.EarthPonyJumpHandler;
+import craftingismagic.cim.client.stamina.ClientStaminaState;
 import craftingismagic.cim.client.stamina.DebugStaminaDrainKeyHandler;
 import craftingismagic.cim.client.stamina.StaminaBarHud;
 import craftingismagic.cim.client.stamina.StaminaColorKeyHandler;
@@ -43,6 +45,7 @@ import craftingismagic.cim.client.unicorn.TeleportChargeState;
 import craftingismagic.cim.client.villager.ChangelingTrueFormSkins;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
+import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
@@ -50,6 +53,7 @@ import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
+import craftingismagic.cim.network.StaminaSyncS2CPayload;
 import craftingismagic.cim.network.TeleportChargeEndS2CPayload;
 import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
 
@@ -80,6 +84,12 @@ public class CimClient implements ClientModInitializer {
 				}));
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(VillagerDebugEditorScreen.fromPayload(payload))));
+
+		ClientPlayNetworking.registerGlobalReceiver(StaminaSyncS2CPayload.ID,
+				(payload, context) -> context.client().execute(() -> ClientStaminaState.set(payload.stamina())));
+		ClientPlayNetworking.registerGlobalReceiver(DebugInfoS2CPayload.ID,
+				(payload, context) -> context.client().execute(() -> DebugOverlayHud.setServerLines(payload.lines())));
+		DebugOverlayHud.register();
 
 		ClientPlayNetworking.registerGlobalReceiver(TeleportChargeStartS2CPayload.ID,
 				(payload, context) -> TeleportChargeState.start(payload.durationTicks()));
@@ -120,6 +130,8 @@ public class CimClient implements ClientModInitializer {
 		// reuses those ids.
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
 			LevitationClientState.reset();
+			ClientStaminaState.reset();
+			DebugOverlayHud.reset();
 			TeleportChargeState.end();
 			SelectedAbility.set(null);
 			PegasusChargeVisualState.reset();
