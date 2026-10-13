@@ -5,11 +5,13 @@ import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.api.controller.FloatFieldControllerBuilder;
+import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
+import craftingismagic.cim.client.accessibility.AccessibilityConfig;
 import craftingismagic.cim.debug.DebugConfig;
 import craftingismagic.cim.spawn.VillageSpawnConfig;
 import craftingismagic.cim.villager.LifeStageConfig;
@@ -24,6 +26,8 @@ public final class CimConfigScreen {
 	}
 
 	public static Screen create(Screen parent) {
+		AccessibilityConfig accessibility = AccessibilityConfig.get();
+		AccessibilityConfig accessibilityDefaults = new AccessibilityConfig();
 		VillageSpawnConfig spawn = VillageSpawnConfig.get();
 		LifeStageConfig lifeStages = LifeStageConfig.get();
 		VillageSpawnConfig spawnDefaults = new VillageSpawnConfig();
@@ -33,6 +37,23 @@ public final class CimConfigScreen {
 
 		return YetAnotherConfigLib.createBuilder()
 				.title(Text.translatable("config.cim.title"))
+				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.accessibility"))
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.dyslexic_font"))
+								.description(OptionDescription.of(Text.translatable("config.cim.dyslexic_font.desc")))
+								.binding(accessibilityDefaults.dyslexicFont, () -> accessibility.dyslexicFont, value -> accessibility.dyslexicFont = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.option(Option.<Float>createBuilder()
+								.name(Text.translatable("config.cim.text_scale"))
+								.description(OptionDescription.of(Text.translatable("config.cim.text_scale.desc")))
+								.binding(accessibilityDefaults.textScale, () -> accessibility.textScale, value -> accessibility.textScale = value)
+								.controller(option -> FloatSliderControllerBuilder.create(option)
+										.range(AccessibilityConfig.MIN_TEXT_SCALE, AccessibilityConfig.MAX_TEXT_SCALE)
+										.step(0.05f))
+								.build())
+						.build())
 				.category(ConfigCategory.createBuilder()
 						.name(Text.translatable("config.cim.category.world"))
 						.option(Option.<Boolean>createBuilder()
@@ -67,6 +88,7 @@ public final class CimConfigScreen {
 								.build())
 						.build())
 				.save(() -> {
+					accessibility.save();
 					spawn.save();
 					lifeStages.save();
 					debug.save();

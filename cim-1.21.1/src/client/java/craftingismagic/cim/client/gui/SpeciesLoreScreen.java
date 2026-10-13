@@ -6,12 +6,13 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ScrollableTextWidget;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import craftingismagic.cim.client.ability.AbilityLoreRegistry;
+import craftingismagic.cim.client.accessibility.CimText;
+import craftingismagic.cim.client.accessibility.ScaledTextWidget;
 import craftingismagic.cim.client.ability.AbilityLoreRegistry.AbilityLoreEntry;
 import craftingismagic.cim.network.SelectSpeciesC2SPayload;
 import craftingismagic.cim.species.Species;
@@ -44,18 +45,20 @@ public class SpeciesLoreScreen extends Screen {
 	@Override
 	protected void init() {
 		int x = (this.width - CONTENT_WIDTH) / 2;
-		int bodyHeight = this.height - BODY_Y - BODY_BOTTOM_MARGIN;
+		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
+		int bodyY = Math.max(BODY_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 8);
+		int bodyHeight = this.height - bodyY - BODY_BOTTOM_MARGIN;
 
 		this.addDrawableChild(
-				new ScrollableTextWidget(x, BODY_Y, CONTENT_WIDTH, bodyHeight, buildBody(species), this.textRenderer));
+				new ScaledTextWidget(x, bodyY, CONTENT_WIDTH, bodyHeight, buildBody(species), this.textRenderer));
 
 		int buttonY = this.height - BUTTON_HEIGHT - 16;
 		int buttonsX = (this.width - BUTTON_WIDTH * 2 - BUTTON_SPACING) / 2;
-		this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.species_detail.back"),
+		this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable("screen.cim.species_detail.back")),
 						button -> this.client.setScreen(new SpeciesSelectScreen()))
 				.dimensions(buttonsX, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build());
-		this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.species_detail.continue"),
+		this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable("screen.cim.species_detail.continue")),
 						button -> this.confirm())
 				.dimensions(buttonsX + BUTTON_WIDTH + BUTTON_SPACING, buttonY, BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build());
@@ -64,7 +67,7 @@ public class SpeciesLoreScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
+		CimText.drawCentered(context, this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
 	}
 
 	private void confirm() {

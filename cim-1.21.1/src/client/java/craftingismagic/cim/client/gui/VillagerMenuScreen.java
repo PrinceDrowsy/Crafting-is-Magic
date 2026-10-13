@@ -6,6 +6,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
+import craftingismagic.cim.client.accessibility.CimText;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
 import craftingismagic.cim.network.VillagerGiveGiftC2SPayload;
 import craftingismagic.cim.network.VillagerIdleChatterC2SPayload;
@@ -78,7 +79,7 @@ public class VillagerMenuScreen extends Screen {
 	}
 
 	private int addButton(int x, int y, String translationKey, boolean enabled, ButtonWidget.PressAction onPress) {
-		ButtonWidget button = ButtonWidget.builder(Text.translatable(translationKey), onPress)
+		ButtonWidget button = ButtonWidget.builder(CimText.style(Text.translatable(translationKey)), onPress)
 				.dimensions(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build();
 		button.active = enabled;
@@ -89,9 +90,11 @@ public class VillagerMenuScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
-		context.drawCenteredTextWithShadow(this.textRenderer,
-				Text.translatable("screen.cim.villager_menu.affection", affection), this.width / 2, AFFECTION_Y, 0xAAAAAA);
+		CimText.drawCentered(context, this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
+		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
+		int affectionY = Math.max(AFFECTION_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 6);
+		CimText.drawCentered(context, this.textRenderer,
+				Text.translatable("screen.cim.villager_menu.affection", affection), this.width / 2, affectionY, 0xAAAAAA);
 	}
 
 	@Override

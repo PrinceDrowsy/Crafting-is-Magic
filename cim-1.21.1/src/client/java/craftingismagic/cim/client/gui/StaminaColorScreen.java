@@ -7,6 +7,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
+import craftingismagic.cim.client.accessibility.CimText;
 import craftingismagic.cim.client.stamina.StaminaNotchBarRenderer;
 import craftingismagic.cim.network.SetStaminaColorC2SPayload;
 import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
@@ -77,7 +78,7 @@ public class StaminaColorScreen extends Screen {
 
 		previewY = y + ROW_HEIGHT + 10;
 
-		this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.stamina_color.close"), b -> this.close())
+		this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable("screen.cim.stamina_color.close")), b -> this.close())
 				.dimensions(centerX - BUTTON_WIDTH / 2, this.height / 2 + 60, BUTTON_WIDTH, BUTTON_HEIGHT)
 				.build());
 	}
@@ -89,12 +90,12 @@ public class StaminaColorScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(this.textRenderer, this.getTitle(), this.width / 2, this.height / 2 - 60, 0xFFFFFF);
+		context.drawCenteredTextWithShadow(this.textRenderer, CimText.style(this.getTitle()), this.width / 2, this.height / 2 - 60, 0xFFFFFF);
 
 		int centerX = this.width / 2;
 		int labelX = centerX - (LABEL_WIDTH + FIELD_WIDTH) / 2;
-		context.drawTextWithShadow(this.textRenderer, Text.translatable("screen.cim.stamina_color.fill"), labelX, fillRowY + 4, 0xAAAAAA);
-		context.drawTextWithShadow(this.textRenderer, Text.translatable("screen.cim.stamina_color.background"), labelX, backgroundRowY + 4, 0xAAAAAA);
+		context.drawTextWithShadow(this.textRenderer, CimText.style(Text.translatable("screen.cim.stamina_color.fill")), labelX, fillRowY + 4, 0xAAAAAA);
+		context.drawTextWithShadow(this.textRenderer, CimText.style(Text.translatable("screen.cim.stamina_color.background")), labelX, backgroundRowY + 4, 0xAAAAAA);
 
 		StaminaNotchBarRenderer.draw(context, centerX - PREVIEW_WIDTH / 2, previewY, PREVIEW_WIDTH, PREVIEW_HEIGHT,
 				150f, 200f, fillColor, backgroundColor);

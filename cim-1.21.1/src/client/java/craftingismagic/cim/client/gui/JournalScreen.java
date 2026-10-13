@@ -5,7 +5,6 @@ import java.util.List;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.ScrollableTextWidget;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
@@ -13,6 +12,8 @@ import net.minecraft.util.Formatting;
 
 import craftingismagic.cim.client.ability.AbilityLoreRegistry;
 import craftingismagic.cim.client.ability.AbilityLoreRegistry.AbilityLoreEntry;
+import craftingismagic.cim.client.accessibility.CimText;
+import craftingismagic.cim.client.accessibility.ScaledTextWidget;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 
@@ -59,27 +60,30 @@ public class JournalScreen extends Screen {
 	@Override
 	protected void init() {
 		int x = (this.width - CONTENT_WIDTH) / 2;
+		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
+		int tabsY = Math.max(TABS_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 6);
+		int bodyY = tabsY + (BODY_Y - TABS_Y);
 
 		int tabsWidth = Tab.values().length * TAB_BUTTON_WIDTH + (Tab.values().length - 1) * TAB_SPACING;
 		int tabX = (this.width - tabsWidth) / 2;
 		for (Tab tab : Tab.values()) {
-			ButtonWidget button = ButtonWidget.builder(tab.label(), button2 -> this.client.setScreen(new JournalScreen(tab)))
-					.dimensions(tabX, TABS_Y, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)
+			ButtonWidget button = ButtonWidget.builder(CimText.style(tab.label()), button2 -> this.client.setScreen(new JournalScreen(tab)))
+					.dimensions(tabX, tabsY, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)
 					.build();
 			button.active = tab != activeTab;
 			this.addDrawableChild(button);
 			tabX += TAB_BUTTON_WIDTH + TAB_SPACING;
 		}
 
-		int bodyHeight = this.height - BODY_Y - BODY_BOTTOM_MARGIN;
+		int bodyHeight = this.height - bodyY - BODY_BOTTOM_MARGIN;
 		this.addDrawableChild(
-				new ScrollableTextWidget(x, BODY_Y, CONTENT_WIDTH, bodyHeight, bodyFor(activeTab, this.client.player), this.textRenderer));
+				new ScaledTextWidget(x, bodyY, CONTENT_WIDTH, bodyHeight, bodyFor(activeTab, this.client.player), this.textRenderer));
 	}
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
+		CimText.drawCentered(context, this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
 	}
 
 	@Override

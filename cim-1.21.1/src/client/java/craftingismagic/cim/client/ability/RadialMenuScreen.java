@@ -12,6 +12,8 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
+import craftingismagic.cim.client.accessibility.CimText;
+
 /**
  * A generic radial wheel of {@link Ability}-shaped wedges: opens while some key is held, closes
  * and hands off whatever's hovered when it's released. Modeled closely on vanilla's own F3+F4
@@ -100,7 +102,7 @@ public class RadialMenuScreen extends Screen {
 
 		if (hoveredIndex != -1) {
 			Text name = abilities.get(hoveredIndex).displayName();
-			context.drawCenteredTextWithShadow(textRenderer, name, centerX, centerY - 4, 0xFFFFFF);
+			context.drawCenteredTextWithShadow(textRenderer, CimText.style(name), centerX, centerY - 4, 0xFFFFFF);
 		}
 	}
 

@@ -4,6 +4,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
+import craftingismagic.cim.client.accessibility.CimText;
 import craftingismagic.cim.species.Species;
 
 /**
@@ -29,7 +30,7 @@ public class SpeciesSelectScreen extends Screen {
 		for (int i = 0; i < species.length; i++) {
 			Species choice = species[i];
 			int y = startY + i * (BUTTON_HEIGHT + BUTTON_SPACING);
-			this.addDrawableChild(ButtonWidget.builder(Text.translatable(choice.translationKey()), button -> this.selectSpecies(choice))
+			this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable(choice.translationKey())), button -> this.selectSpecies(choice))
 					.dimensions(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)
 					.build());
 		}

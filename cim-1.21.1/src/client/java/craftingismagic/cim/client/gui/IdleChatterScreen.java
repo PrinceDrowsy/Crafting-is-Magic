@@ -8,6 +8,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.text.Text;
 
+import craftingismagic.cim.client.accessibility.CimText;
 import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
 import craftingismagic.cim.villager.ReplyTone;
@@ -78,13 +79,13 @@ public class IdleChatterScreen extends Screen {
 			addToneButton(x, y, ReplyTone.BOLD, "screen.cim.idle_chatter.bold");
 		} else if (state == State.DONE) {
 			int x = (this.width - BUTTON_WIDTH) / 2;
-			this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.idle_chatter.close"), button -> this.close())
+			this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable("screen.cim.idle_chatter.close")), button -> this.close())
 					.dimensions(x, y, BUTTON_WIDTH, BUTTON_HEIGHT).build());
 		}
 	}
 
 	private int addToneButton(int x, int y, ReplyTone tone, String translationKey) {
-		this.addDrawableChild(ButtonWidget.builder(Text.translatable(translationKey), button -> {
+		this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable(translationKey)), button -> {
 			state = State.WAITING_FOR_SERVER;
 			ClientPlayNetworking.send(new IdleChatterReplyC2SPayload(villagerEntityId, tone));
 			rebuildButtons();
@@ -95,7 +96,7 @@ public class IdleChatterScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
-		context.drawCenteredTextWithShadow(this.textRenderer, this.getTitle(), this.width / 2, 12, 0xFFFFFF);
+		CimText.drawCentered(context, this.textRenderer, this.getTitle(), this.width / 2, 12, 0xFFFFFF);
 
 		int centerX = this.width / 2;
 		int portraitX1 = centerX - PORTRAIT_WIDTH / 2;
@@ -108,7 +109,7 @@ public class IdleChatterScreen extends Screen {
 					PORTRAIT_ENTITY_SIZE, PORTRAIT_Y_OFFSET, (float) mouseX, (float) mouseY, livingEntity);
 		}
 
-		context.drawTextWrapped(this.textRenderer, Text.literal(bodyText),
+		CimText.drawWrapped(context, this.textRenderer, Text.literal(bodyText),
 				centerX - TEXT_MAX_WIDTH / 2, portraitY2 + 12, TEXT_MAX_WIDTH, 0xFFFFFF);
 	}
 

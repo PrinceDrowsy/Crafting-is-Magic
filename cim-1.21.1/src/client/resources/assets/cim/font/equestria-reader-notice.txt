@@ -1,0 +1,14 @@
+Equestria Reader
+
+Equestria Reader is a Modified Version of OpenDyslexic, created by Abbie Gonzalez
+(https://abbiecod.es). It was converted from OpenType/CFF to TrueType outlines,
+because Minecraft can only load TrueType fonts, and renamed, because the SIL Open
+Font License does not allow a modified version to use the Reserved Font Name
+"OpenDyslexic". The glyph designs are otherwise unchanged.
+
+Equestria Reader is distributed under the SIL Open Font License, Version 1.1. The
+full license text, with the original copyright notice, is in
+equestria-reader-ofl.txt beside this file. The conversion script is
+tools/fonts/convert_opendyslexic.py in the Crafting is Magic source repository.
+
+Original font: https://github.com/antijingoist/opendyslexic
