@@ -16,6 +16,7 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 
@@ -56,8 +57,40 @@ public final class PonyFamilyAttachment {
 	public static void setFamily(Entity entity, PonyFamily family) {
 		entity.setAttached(FAMILY, family);
 		// Every family write passes through here, so this is the one place that keeps the growth
-		// tick's tracked set of Child/Teenager villagers in step (see VillagerFamilyHandler).
+		// tick's tracked set of Child/Teenager villagers in step (see VillagerFamilyHandler) - and each
+		// parent's list of their foals.
 		VillagerFamilyHandler.onFamilyChanged(entity);
+		linkToParents(entity);
+	}
+
+	/**
+	 * Each pony's own foals, kept on the parent so finding them never means searching the whole world
+	 * (a pony's death used to scan every loaded entity for its children). Server-only, survives curing.
+	 */
+	public static final AttachmentType<List<UUID>> CHILDREN = AttachmentRegistry.create(
+			Identifier.of(Cim.MOD_ID, "pony_children"),
+			builder -> builder.persistent(Uuids.CODEC.listOf()).copyOnDeath());
+
+	public static List<UUID> children(Entity parent) {
+		return parent.hasAttached(CHILDREN) ? parent.getAttached(CHILDREN) : List.of();
+	}
+
+	/**
+	 * Adds {@code child} to each of its loaded parents' list of foals. Runs on every family change and
+	 * whenever a pony loads, so worlds from before this list existed fill it in as they're played.
+	 */
+	public static void linkToParents(Entity child) {
+		if (!hasFamily(child) || !(child.getWorld() instanceof ServerWorld world)) {
+			return;
+		}
+		for (UUID parentId : getFamily(child).parents()) {
+			Entity parent = world.getEntity(parentId);
+			if (parent != null && !children(parent).contains(child.getUuid())) {
+				List<UUID> foals = new ArrayList<>(children(parent));
+				foals.add(child.getUuid());
+				parent.setAttached(CHILDREN, List.copyOf(foals));
+			}
+		}
 	}
 
 	/**

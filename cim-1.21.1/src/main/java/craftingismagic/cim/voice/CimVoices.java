@@ -18,6 +18,7 @@ import craftingismagic.cim.memory.Emotion;
 import craftingismagic.cim.memory.EmotionIntensity;
 import craftingismagic.cim.memory.Memory;
 import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.memory.Mood;
 import craftingismagic.cim.narrative.TaleAst.Node;
 import craftingismagic.cim.narrative.TaleAst.Reply;
 import craftingismagic.cim.narrative.TaleContext;
@@ -152,14 +153,14 @@ public final class CimVoices implements TaleVocabulary.Voices {
 		return Identifier.of("cim", "relationship/tried/" + node.id().getNamespace() + "/" + node.id().getPath() + "/" + reply.line());
 	}
 
-	/** Emotions the pony holds at least clearly - a first pass at mood until Phase 4. */
+	/** Emotions the pony feels at least clearly right now (README: The mood system). */
 	private static Set<Emotion> moodOf(Entity pony) {
 		Set<Emotion> mood = EnumSet.noneOf(Emotion.class);
-		for (Memory memory : MemoryStore.getAll(pony)) {
-			if (memory.emotion().isPresent() && memory.intensity().compareTo(EmotionIntensity.CLEAR) >= 0) {
-				mood.add(memory.emotion().get());
+		Mood.of(pony).forEach((emotion, strength) -> {
+			if (strength >= Mood.threshold(EmotionIntensity.CLEAR)) {
+				mood.add(emotion);
 			}
-		}
+		});
 		return mood;
 	}
 

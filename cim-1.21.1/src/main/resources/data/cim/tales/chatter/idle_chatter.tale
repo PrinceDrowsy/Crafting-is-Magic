@@ -180,6 +180,49 @@ start: chatter
 -> replies
 
 
+// ---- Breaking news you haven't heard ----
+// PLACEHOLDER lines. You only feel what you know: a pony who was close to the one who died (or
+// anyone, if nobody else was) tells you - once - and that's when it hits.
+
+=== share_loss
+start: chatter
+weight: 5000
+when: news(cim:loss)
+{pony}: ...Have you heard? About {news_subject}? I'm so sorry. They're gone.
+~ tell_news cim:loss
+-> gentle_replies
+
+
+// ---- When you're grieving ----
+// PLACEHOLDER lines. Ponies soften around a grieving player - even grumpy ones are gentler
+// (README: The mood system). While you grieve, this opener takes over Idle Chatter.
+
+=== gentle_with_you
+start: chatter
+weight: 1000
+when: player.mood(grief, clear)
+-> gentle_cranky if personality(cranky)
+{pony}: Hey... I heard about {mourning}. You don't have to talk about it. I just wanted you to know I'm here.
+-> gentle_replies
+
+=== gentle_cranky
+{pony}: ...Look. I'm no good at this sort of thing. But about {mourning} - if you need somewhere quiet to sit, my porch is free.
+-> gentle_replies
+
+=== gentle_replies
+* Friendly: Thank you.
+    ~ fondness +5
+    ~ trust +1
+    -> gentle_goodbye
+* Curious: How did you know?
+    ~ fondness +5
+    -> gentle_goodbye
+
+=== gentle_goodbye
+{pony}: Take care of yourself, okay? Come find me if you need anything.
+-> END
+
+
 // ---- Replies ----
 // No pick is ever penalized; a mismatch just doesn't earn the bonus (README: Personality system).
 

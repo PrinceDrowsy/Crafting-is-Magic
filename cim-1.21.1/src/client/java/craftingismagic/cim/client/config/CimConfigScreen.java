@@ -14,6 +14,7 @@ import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.accessibility.AccessibilityConfig;
 import craftingismagic.cim.client.dialogue.DialogueConfig;
+import craftingismagic.cim.client.mood.MomentConfig;
 import craftingismagic.cim.debug.DebugConfig;
 import craftingismagic.cim.spawn.VillageSpawnConfig;
 import craftingismagic.cim.villager.LifeStageConfig;
@@ -32,6 +33,8 @@ public final class CimConfigScreen {
 		AccessibilityConfig accessibilityDefaults = new AccessibilityConfig();
 		DialogueConfig dialogue = DialogueConfig.get();
 		DialogueConfig dialogueDefaults = new DialogueConfig();
+		MomentConfig moments = MomentConfig.get();
+		MomentConfig momentDefaults = new MomentConfig();
 		VillageSpawnConfig spawn = VillageSpawnConfig.get();
 		LifeStageConfig lifeStages = LifeStageConfig.get();
 		VillageSpawnConfig spawnDefaults = new VillageSpawnConfig();
@@ -84,6 +87,33 @@ public final class CimConfigScreen {
 								.build())
 						.build())
 				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.moments"))
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.moments_enabled"))
+								.description(OptionDescription.of(Text.translatable("config.cim.moments_enabled.desc")))
+								.binding(momentDefaults.enabled, () -> moments.enabled, value -> moments.enabled = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.option(Option.<Float>createBuilder()
+								.name(Text.translatable("config.cim.moments_intensity"))
+								.description(OptionDescription.of(Text.translatable("config.cim.moments_intensity.desc")))
+								.binding(momentDefaults.intensity, () -> moments.intensity, value -> moments.intensity = value)
+								.controller(option -> FloatSliderControllerBuilder.create(option).range(0f, 1f).step(0.05f))
+								.build())
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.moments_music"))
+								.description(OptionDescription.of(Text.translatable("config.cim.moments_music.desc")))
+								.binding(momentDefaults.music, () -> moments.music, value -> moments.music = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.moments_sound_dip"))
+								.description(OptionDescription.of(Text.translatable("config.cim.moments_sound_dip.desc")))
+								.binding(momentDefaults.soundDip, () -> moments.soundDip, value -> moments.soundDip = value)
+								.controller(TickBoxControllerBuilder::create)
+								.build())
+						.build())
+				.category(ConfigCategory.createBuilder()
 						.name(Text.translatable("config.cim.category.world"))
 						.option(Option.<Boolean>createBuilder()
 								.name(Text.translatable("config.cim.spawn_in_village"))
@@ -119,6 +149,7 @@ public final class CimConfigScreen {
 				.save(() -> {
 					accessibility.save();
 					dialogue.save();
+					moments.save();
 					spawn.save();
 					lifeStages.save();
 					debug.save();

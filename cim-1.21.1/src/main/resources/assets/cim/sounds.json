@@ -14,5 +14,12 @@
 	"levitation.release": {
 		"subtitle": "subtitles.cim.levitation.release",
 		"sounds": ["cim:levitation/telekinesis_stop"]
+	},
+	"music.grief": {
+		"sounds": [
+			{ "name": "minecraft:music/game/comforting_memories", "stream": true },
+			{ "name": "minecraft:music/game/mice_on_venus", "stream": true },
+			{ "name": "minecraft:music/game/sweden", "stream": true }
+		]
 	}
 }

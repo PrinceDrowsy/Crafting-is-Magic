@@ -95,6 +95,7 @@ import craftingismagic.cim.stamina.StaminaSync;
 import craftingismagic.cim.story.CimTaleVocabulary;
 import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.story.StoryThreads;
+import craftingismagic.cim.story.PlayerNews;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
@@ -108,6 +109,10 @@ import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
 import craftingismagic.cim.villager.VillagerDebugEditorHandler;
 import craftingismagic.cim.villager.VillagerDialogue;
+import craftingismagic.cim.villager.VillagerGriefHandler;
+import craftingismagic.cim.network.MomentS2CPayload;
+import craftingismagic.cim.network.DebugSetPonyMovementC2SPayload;
+import craftingismagic.cim.debug.DebugPonyMovement;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 import craftingismagic.cim.villager.VillagerFriendGroupHandler;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
@@ -143,6 +148,9 @@ public class Cim implements ModInitializer {
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
+		VillagerGriefHandler.register();
+		PlayerNews.register();
+		DebugPonyMovement.register();
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
 		DebugOverlay.register();
@@ -181,6 +189,10 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DialogueChooseC2SPayload.ID, DialogueChooseC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OpenVillagerMenuS2CPayload.ID, OpenVillagerMenuS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DialogueBeatS2CPayload.ID, DialogueBeatS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(MomentS2CPayload.ID, MomentS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetPonyMovementC2SPayload.ID, DebugSetPonyMovementC2SPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetPonyMovementC2SPayload.ID,
+				(payload, context) -> VillagerDebugEditorHandler.setMovement(context.player(), payload.entityId(), payload.mode()));
 		PayloadTypeRegistry.playS2C().register(OpenVillagerDebugEditorS2CPayload.ID, OpenVillagerDebugEditorS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerNameC2SPayload.ID, DebugSetVillagerNameC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerSpeciesC2SPayload.ID, DebugSetVillagerSpeciesC2SPayload.CODEC);
@@ -390,6 +402,9 @@ public class Cim implements ModInitializer {
 				StoryFacts.RELATIONSHIP_FACTS,
 				StoryThreads.THREADS,
 				VoiceLeanings.LEANINGS,
+				PlayerNews.PENDING,
+				PlayerNews.NAMES,
+				PonyFamilyAttachment.CHILDREN,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

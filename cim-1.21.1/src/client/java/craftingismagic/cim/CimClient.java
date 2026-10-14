@@ -48,6 +48,8 @@ import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
+import craftingismagic.cim.network.MomentS2CPayload;
+import craftingismagic.cim.client.mood.MomentDirector;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
@@ -73,6 +75,9 @@ public class CimClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerMenuS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(
 						new VillagerMenuScreen(payload.villagerEntityId(), payload.canTrade(), payload.villagerName()))));
+		MomentDirector.register();
+		ClientPlayNetworking.registerGlobalReceiver(MomentS2CPayload.ID,
+				(payload, context) -> context.client().execute(() -> MomentDirector.play(payload.moment())));
 		ClientPlayNetworking.registerGlobalReceiver(DialogueBeatS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> {
 					if (context.client().currentScreen instanceof DialogueScreen screen && screen.entityId() == payload.entityId()) {

@@ -1,0 +1,10 @@
+{
+  "stages": [
+    {
+      "type": "veil:blit",
+      "shader": "cim:mood_grade",
+      "in": "minecraft:main",
+      "clear": false
+    }
+  ]
+}

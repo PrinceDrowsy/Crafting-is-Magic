@@ -7,6 +7,8 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
+
+import craftingismagic.cim.debug.DebugPonyMovement;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.Items;
@@ -327,6 +329,15 @@ public final class VillagerDebugEditorHandler {
 				new ChangelingDisguiseAttachment.ChangelingDisguise(disguise.disguiseSpecies(), disguise.trueName(), disguise.disguiseName(), nowDisguised));
 		villager.setCustomName(Text.literal(nowDisguised ? disguise.disguiseName() : disguise.trueName()));
 		villager.setCustomNameVisible(true);
+	}
+
+	/** Stay / follow me / normal - debug-only movement control (see {@link DebugPonyMovement}). */
+	public static void setMovement(ServerPlayerEntity player, int villagerEntityId, int mode) {
+		MobEntity entity = resolveEntity(player, villagerEntityId);
+		DebugPonyMovement.Mode[] modes = DebugPonyMovement.Mode.values();
+		if (entity != null && mode >= 0 && mode < modes.length) {
+			DebugPonyMovement.set(player, entity, modes[mode]);
+		}
 	}
 
 	private static MobEntity resolveEntity(ServerPlayerEntity player, int entityId) {

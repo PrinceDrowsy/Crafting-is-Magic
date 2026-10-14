@@ -29,6 +29,7 @@ import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
+import craftingismagic.cim.network.DebugSetPonyMovementC2SPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
 import craftingismagic.cim.species.Species;
@@ -159,7 +160,23 @@ public class VillagerDebugEditorScreen extends Screen {
 		this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.villager_debug_editor.close"), b -> this.close())
 				.dimensions((this.width - TAB_BUTTON_WIDTH) / 2, this.height - 28, TAB_BUTTON_WIDTH, TAB_BUTTON_HEIGHT)
 				.build());
+
+		// Stay / follow me / normal - shown on every tab. Remembered here per pony between openings;
+		// the server forgets it on restart, which is fine for a debug tool.
+		int movementWidth = 110;
+		this.addDrawableChild(CyclingButtonWidget.builder((Integer mode) -> Text.literal(MOVEMENT_LABELS[mode]))
+				.values(0, 1, 2)
+				.initially(MOVEMENT_MODES.getOrDefault(villagerEntityId, 0))
+				.build((this.width + TAB_BUTTON_WIDTH) / 2 + 8, this.height - 28, movementWidth, TAB_BUTTON_HEIGHT,
+						Text.literal("Movement"), (button, value) -> {
+							MOVEMENT_MODES.put(villagerEntityId, value);
+							ClientPlayNetworking.send(new DebugSetPonyMovementC2SPayload(villagerEntityId, value));
+						}));
 	}
+
+	/** Matches DebugPonyMovement.Mode: normal routine, hold in place, follow you. */
+	private static final String[] MOVEMENT_LABELS = {"Normal", "Stay", "Follow me"};
+	private static final java.util.Map<Integer, Integer> MOVEMENT_MODES = new java.util.HashMap<>();
 
 	// ---- Identity tab ----
 

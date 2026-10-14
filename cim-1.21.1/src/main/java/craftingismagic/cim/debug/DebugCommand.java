@@ -42,6 +42,10 @@ import craftingismagic.cim.memory.MemoryDescriptions;
 import craftingismagic.cim.memory.MemoryImportance;
 import craftingismagic.cim.memory.MemoryKnowledge;
 import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.memory.Mood;
+import craftingismagic.cim.network.MomentS2CPayload;
+import craftingismagic.cim.villager.VillagerGriefHandler;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import craftingismagic.cim.narrative.TaleAst;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
 import craftingismagic.cim.narrative.TaleLibrary;
@@ -52,7 +56,9 @@ import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.story.StoryThreads;
+import craftingismagic.cim.story.PlayerNews;
 import craftingismagic.cim.villager.LifeStage;
+import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 import craftingismagic.cim.voice.CimVoices;
@@ -72,6 +78,7 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code dialogue test <node> <pony>} - play any node as a conversation.</li>
  * <li>{@code thread status|start|advance|reset|fire} - see and move your threads, and fake their events.</li>
  * <li>{@code voice show|set|add|dice} - your inner voices, and forcing rolls.</li>
+ * <li>{@code mood show [entity]}, {@code moment play|stop} - feelings from memories, and scene-setting moments.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -90,6 +97,10 @@ public final class DebugCommand {
 						.then(dialogueBranch())
 						.then(threadBranch())
 						.then(voiceBranch())
+						.then(moodBranch())
+						.then(momentBranch())
+						.then(newsBranch())
+						.then(familyBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -507,6 +518,131 @@ public final class DebugCommand {
 							CimVoices.force(player.getUuid(), null);
 							context.getSource().sendFeedback(() -> Text.literal("Rolls are fair again"), false);
 						}))));
+	}
+
+	/**
+	 * {@code mood show [entity]} - what they feel now, from their memories; {@code moment play <id>} -
+	 * plays a scene-setting moment on your own screen; {@code moment stop}.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> moodBranch() {
+		return CommandManager.literal("mood")
+				.then(CommandManager.literal("show")
+						.executes(context -> forSelf(context, player ->
+								context.getSource().sendFeedback(() -> Text.literal("You feel: " + Mood.describe(player)), false)))
+						.then(CommandManager.argument("target", EntityArgumentType.entity()).executes(context -> {
+							Entity target = EntityArgumentType.getEntity(context, "target");
+							context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " feels: " + Mood.describe(target)), false);
+							return 1;
+						})));
+	}
+
+	/** {@code news list|clear|letter} - news you haven't heard yet; {@code letter} delivers the first one by letter now. */
+	private static LiteralArgumentBuilder<ServerCommandSource> newsBranch() {
+		return CommandManager.literal("news")
+				.then(CommandManager.literal("list").executes(context -> forSelf(context, player -> {
+					List<PlayerNews.News> pending = PlayerNews.pending(player);
+					context.getSource().sendFeedback(() -> Text.literal(pending.size() + " unheard news:"), false);
+					long now = player.getWorld().getTime();
+					for (PlayerNews.News news : pending) {
+						String who = news.anyone() ? "anyone can tell you" : "told by: " + messengerNames(player, news);
+						context.getSource().sendFeedback(() -> Text.literal("  " + news.type() + " - " + news.subjectName() + ", " + who + ", "
+								+ Math.max(0, (now - news.since()) / Mood.DAY) + " day(s) ago"), false);
+					}
+				})))
+				// Makes the ponies who can break your news glow for 30 seconds, to find them.
+				.then(CommandManager.literal("who").executes(context -> forSelf(context, player -> {
+					int found = 0;
+					for (PlayerNews.News news : PlayerNews.pending(player)) {
+						for (java.util.UUID uuid : news.messengers()) {
+							if (player.getServerWorld().getEntity(uuid) instanceof net.minecraft.entity.LivingEntity pony) {
+								pony.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(
+										net.minecraft.entity.effect.StatusEffects.GLOWING, 600, 0, false, false));
+								found++;
+							}
+						}
+					}
+					int glowing = found;
+					context.getSource().sendFeedback(() -> Text.literal(glowing > 0 ? glowing + " messenger(s) glowing for 30 seconds"
+							: "No messengers loaded nearby (or anyone can tell you)"), false);
+				})))
+				.then(CommandManager.literal("clear").executes(context -> forSelf(context, player -> {
+					int count = PlayerNews.clear(player);
+					context.getSource().sendFeedback(() -> Text.literal("Forgot " + count + " unheard news"), false);
+				})))
+				.then(CommandManager.literal("letter").executes(context -> forSelf(context, player -> {
+					List<PlayerNews.News> pending = PlayerNews.pending(player);
+					if (pending.isEmpty()) {
+						context.getSource().sendError(Text.literal("No unheard news to send"));
+					} else {
+						PlayerNews.sendLetter(player, pending.get(0));
+					}
+				})));
+	}
+
+	/**
+	 * {@code family gather <pony>} - brings a pony and every loaded relative (parents, partner, foals,
+	 * siblings) to where you stand, for testing family scenes without hunting the village for them.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> familyBranch() {
+		return CommandManager.literal("family")
+				.then(CommandManager.literal("gather").then(CommandManager.argument("pony", EntityArgumentType.entity())
+						.executes(context -> {
+							ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+							Entity pony = EntityArgumentType.getEntity(context, "pony");
+							if (!PonyFamilyAttachment.hasFamily(pony)) {
+								throw new SimpleCommandExceptionType(Text.literal(pony.getName().getString() + " has no family record")).create();
+							}
+							java.util.Set<java.util.UUID> family = new java.util.LinkedHashSet<>();
+							family.add(pony.getUuid());
+							PonyFamilyAttachment.PonyFamily record = PonyFamilyAttachment.getFamily(pony);
+							family.addAll(record.parents());
+							family.addAll(record.partner());
+							family.addAll(PonyFamilyAttachment.children(pony));
+							for (java.util.UUID parentId : record.parents()) {
+								Entity parent = player.getServerWorld().getEntity(parentId);
+								if (parent != null) {
+									family.addAll(PonyFamilyAttachment.children(parent)); // siblings
+								}
+							}
+							List<String> gathered = new java.util.ArrayList<>();
+							int i = 0;
+							for (java.util.UUID uuid : family) {
+								Entity relative = player.getServerWorld().getEntity(uuid);
+								if (relative == null || !relative.isAlive()) {
+									continue;
+								}
+								double angle = i++ * (Math.PI * 2 / Math.max(1, family.size()));
+								relative.requestTeleport(player.getX() + Math.cos(angle) * 1.5, player.getY(), player.getZ() + Math.sin(angle) * 1.5);
+								gathered.add(relative.getName().getString());
+							}
+							context.getSource().sendFeedback(() -> Text.literal("Gathered " + gathered.size() + " of " + family.size() + " (others not loaded): "
+									+ String.join(", ", gathered)), false);
+							return gathered.size();
+						})));
+	}
+
+	private static String messengerNames(ServerPlayerEntity player, PlayerNews.News news) {
+		List<String> names = new java.util.ArrayList<>();
+		for (java.util.UUID uuid : news.messengers()) {
+			Entity pony = player.getServerWorld().getEntity(uuid);
+			names.add(pony != null ? pony.getName().getString() : "(not loaded)");
+		}
+		return String.join(", ", names);
+	}
+
+	private static LiteralArgumentBuilder<ServerCommandSource> momentBranch() {
+		return CommandManager.literal("moment")
+				.then(CommandManager.literal("play").then(CommandManager.argument("moment", IdentifierArgumentType.identifier())
+						.suggests((context, builder) -> CommandSource.suggestIdentifiers(List.of(VillagerGriefHandler.GRIEF_MOMENT), builder))
+						.executes(context -> forSelf(context, player -> {
+							Identifier moment = IdentifierArgumentType.getIdentifier(context, "moment");
+							ServerPlayNetworking.send(player, new MomentS2CPayload(moment));
+							context.getSource().sendFeedback(() -> Text.literal("Playing " + moment + " on your screen"), false);
+						}))))
+				.then(CommandManager.literal("stop").executes(context -> forSelf(context, player -> {
+					ServerPlayNetworking.send(player, new MomentS2CPayload(Identifier.of("cim", "stop")));
+					context.getSource().sendFeedback(() -> Text.literal("Stopped the moment"), false);
+				})));
 	}
 
 	private static RequiredArgumentBuilder<ServerCommandSource, String> voiceArgument() {

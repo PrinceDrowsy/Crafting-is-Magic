@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.registry.Registries;
@@ -27,7 +28,9 @@ import craftingismagic.cim.memory.Memory;
 import craftingismagic.cim.memory.MemoryImportance;
 import craftingismagic.cim.memory.MemoryKnowledge;
 import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.memory.Mood;
 import craftingismagic.cim.narrative.TaleContext;
+import craftingismagic.cim.network.MomentS2CPayload;
 import craftingismagic.cim.narrative.TaleVocabulary;
 import craftingismagic.cim.narrative.TaleVocabulary.ArgumentCheck;
 import craftingismagic.cim.narrative.TaleVocabulary.ConditionTest;
@@ -45,6 +48,7 @@ import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment.PonyFamily;
 import craftingismagic.cim.villager.Quirk;
 import craftingismagic.cim.villager.ReplyTone;
+import craftingismagic.cim.villager.VillagerGriefHandler;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
@@ -53,7 +57,7 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * start context. Other mods register theirs the same way, under their own namespace.
  * <p>
  * Some words are accepted now but wait on later systems, and say so in the log when used:
- * {@code ~ moment} on Phase 4, and
+ * and
  * {@code player.heritage}/{@code player.upbringing}/{@code holiday}/{@code season}
  * on the character creator and calendar - those conditions are false until then.
  */
@@ -100,6 +104,9 @@ public final class CimTaleVocabulary {
 							cmp.orElse("=="), band(args.get(0)).ordinal()));
 		}
 		condition("mood", (args, cmp) -> words(args, 1, 2, List.of(names(Emotion.values()), TaleVocabulary.TIERS)), CimTaleVocabulary::mood);
+		// How the player is feeling - ponies notice, and soften around grief (README: The mood system).
+		condition("player.mood", (args, cmp) -> words(args, 1, 2, List.of(names(Emotion.values()), TaleVocabulary.TIERS)),
+				(tale, args, cmp) -> feels(tale.player(), args));
 		condition("fact", (args, cmp) -> factIds(args), (tale, args, cmp) -> hasFact(tale, id(args.get(0))));
 		condition("remembers", (args, cmp) -> ids(args, 1), (tale, args, cmp) -> MemoryStore.remembers(tale.speaker(), id(args.get(0))));
 		condition("voice", (args, cmp) -> words(args, 1, 2, List.of(List.copyOf(TaleVocabulary.voices()), TaleVocabulary.TIERS)),
@@ -129,6 +136,10 @@ public final class CimTaleVocabulary {
 						&& SpeciesAttachment.getSpecies(tale.player()).name().equalsIgnoreCase(args.get(0)));
 		condition("player.heritage", (args, cmp) -> anyWord(args), (tale, args, cmp) -> waiting("player.heritage", "the character creator"));
 		condition("player.upbringing", (args, cmp) -> anyWord(args), (tale, args, cmp) -> waiting("player.upbringing", "the character creator"));
+		// This pony could break news the player hasn't heard yet - news(cim:loss), or any news.
+		condition("news", (args, cmp) -> args.isEmpty() ? List.of() : ids(args, 1),
+				(tale, args, cmp) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
+						.isPresent());
 		condition("night", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isNight());
 		condition("raining", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isRaining());
 		condition("thundering", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isThundering());
@@ -158,15 +169,15 @@ public final class CimTaleVocabulary {
 		};
 	}
 
-	/**
-	 * First pass at the mood query: the pony holds a memory with this emotion at least this strong.
-	 * Phase 4 replaces it with real mood (README: The mood system).
-	 */
+	/** {@code mood(grief[, strong])}: the pony feels it at least that strongly now (README: The mood system). */
 	private static boolean mood(TaleContext tale, List<String> args, Optional<String> comparison) {
+		return feels(tale.speaker(), args);
+	}
+
+	private static boolean feels(Entity who, List<String> args) {
 		Emotion emotion = Emotion.valueOf(args.get(0).toUpperCase(Locale.ROOT));
 		EmotionIntensity least = args.size() > 1 ? EmotionIntensity.valueOf(args.get(1).toUpperCase(Locale.ROOT)) : EmotionIntensity.FAINT;
-		return MemoryStore.getAll(tale.speaker()).stream()
-				.anyMatch(memory -> memory.emotion().filter(emotion::equals).isPresent() && memory.intensity().compareTo(least) >= 0);
+		return Mood.feels(who, emotion, least);
 	}
 
 	private static boolean family(Entity pony, String kind) {
@@ -216,6 +227,10 @@ public final class CimTaleVocabulary {
 							Integer.parseInt(args.get(0).replace("+", ""))));
 		}
 		TaleVocabulary.registerEffect(cim("memory"), CimTaleVocabulary::memoryArgs, CimTaleVocabulary::addMemory);
+		// The player learns the news this pony is breaking - now the feeling and its moment arrive.
+		TaleVocabulary.registerEffect(cim("tell_news"), (args, cmp) -> args.isEmpty() ? List.of() : ids(args, 1),
+				(tale, args) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
+						.ifPresent(news -> PlayerNews.learn(tale.player(), news)));
 		TaleVocabulary.registerEffect(cim("fact"), (args, cmp) -> {
 			List<String> problems = new ArrayList<>(subcommand(args, List.of("set", "clear")));
 			if (problems.isEmpty()) {
@@ -235,7 +250,7 @@ public final class CimTaleVocabulary {
 			}
 		});
 		TaleVocabulary.registerEffect(cim("moment"), (args, cmp) -> ids(args, 1),
-				(tale, args) -> waiting("~ moment " + args.get(0), "the mood system (Phase 4)"));
+				(tale, args) -> ServerPlayNetworking.send(tale.player(), new MomentS2CPayload(id(args.get(0)))));
 		TaleVocabulary.registerEffect(cim("leaning"), (args, cmp) -> {
 			String[] words = split(args);
 			if (args.size() != 1 || words.length != 2 || !ELEMENTS.contains(normalize(words[0])) || !SIGNED_NUMBER.matcher(words[1]).matches()) {
@@ -363,8 +378,23 @@ public final class CimTaleVocabulary {
 		// What Idle Chatter's goodbye hints at - "a surprise" when the pony has no favorite.
 		TaleVocabulary.registerVariable("favorite_gift", tale -> Optional.of(FavoriteGiftAttachment.hasFavorite(tale.speaker())
 				? FavoriteGiftAttachment.getFavorite(tale.speaker()).getName().getString() : "a surprise"));
+		// Who the player is grieving most right now, so a gentle line can say who it means.
+		TaleVocabulary.registerVariable("mourning", CimTaleVocabulary::mourning);
+		TaleVocabulary.registerVariable("news_subject", tale -> PlayerNews.tellable(tale.player(), tale.speaker(), Optional.empty())
+				.map(PlayerNews.News::subjectName));
 		TaleVocabulary.registerVariable("parent", tale -> relativeName(tale, "parent"));
 		TaleVocabulary.registerVariable("partner", tale -> relativeName(tale, "partner"));
+	}
+
+	/** The one whose loss the player feels most strongly now, by the name they knew them by. */
+	private static Optional<String> mourning(TaleContext tale) {
+		long now = tale.world().getTime();
+		return MemoryStore.getAll(tale.player()).stream()
+				.filter(memory -> memory.type().equals(VillagerGriefHandler.LOSS) && memory.subject().isPresent())
+				.filter(memory -> Mood.strength(memory, now) > 0f)
+				.max(java.util.Comparator.comparingDouble(memory -> Mood.strength(memory, now)))
+				// A loss from before names were kept still reads naturally: "I heard about them".
+				.map(memory -> PlayerNews.rememberedName(tale.player(), memory.subject().get()).orElse("them"));
 	}
 
 	/** The first parent's or partner's name, if they're loaded in the world right now. */

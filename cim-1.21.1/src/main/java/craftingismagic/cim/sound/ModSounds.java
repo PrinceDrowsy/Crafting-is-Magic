@@ -2,6 +2,7 @@ package craftingismagic.cim.sound;
 
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
 
@@ -13,6 +14,8 @@ public final class ModSounds {
 	public static final SoundEvent LEVITATION_LOOP_1 = register("levitation.loop_1");
 	public static final SoundEvent LEVITATION_LOOP_2 = register("levitation.loop_2");
 	public static final SoundEvent LEVITATION_RELEASE = register("levitation.release");
+	/** The grief moment's music: gentle vanilla tracks (Comforting Memories, Mice on Venus, Sweden) - no new audio. */
+	public static final RegistryEntry<SoundEvent> MUSIC_GRIEF = Registries.SOUND_EVENT.getEntry(register("music.grief"));
 
 	private ModSounds() {
 	}

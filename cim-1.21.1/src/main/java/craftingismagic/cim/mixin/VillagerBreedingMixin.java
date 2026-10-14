@@ -9,6 +9,8 @@ import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.server.world.ServerWorld;
 
+import craftingismagic.cim.villager.LifeStage;
+import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyKinship;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 
@@ -35,11 +37,32 @@ public abstract class VillagerBreedingMixin {
 			at = @At("HEAD"), cancellable = true)
 	private void cim$refuseRelatives(ServerWorld world, PassiveEntity partner, CallbackInfoReturnable<VillagerEntity> cir) {
 		VillagerEntity self = (VillagerEntity) (Object) this;
-		if (partner instanceof VillagerEntity other && PonyKinship.areRelated(world, self, other)) {
+		// Hard rules: only Adults ever pair, and related ponies never do. (A safety net - non-adults
+		// never become ready to breed in the first place; see cim$adultsOnly.)
+		if (partner instanceof VillagerEntity other
+				&& (!isAdult(self) || !isAdult(other) || PonyKinship.areRelated(world, self, other))) {
 			self.setBreedingAge(BREEDING_COOLDOWN_TICKS);
 			other.setBreedingAge(BREEDING_COOLDOWN_TICKS);
 			cir.setReturnValue(null);
 		}
+	}
+
+	/**
+	 * Hard rule: only Adults pair (decided long before - see the content rules). The mod's Child and
+	 * Teenager stages are vanilla adults (only Baby is a vanilla baby), so without this vanilla would
+	 * let them breed. A non-Adult pony is simply never ready to breed - it won't seek a partner or take
+	 * breeding food.
+	 */
+	@Inject(method = "isReadyToBreed", at = @At("RETURN"), cancellable = true)
+	private void cim$adultsOnly(CallbackInfoReturnable<Boolean> cir) {
+		if (cir.getReturnValueZ() && !isAdult((VillagerEntity) (Object) this)) {
+			cir.setReturnValue(false);
+		}
+	}
+
+	/** A pony with no family record yet is treated as an Adult, as vanilla villagers always were. */
+	private static boolean isAdult(VillagerEntity pony) {
+		return !PonyFamilyAttachment.hasFamily(pony) || PonyFamilyAttachment.getFamily(pony).lifeStage() == LifeStage.ADULT;
 	}
 
 	@Inject(method = "createChild(Lnet/minecraft/server/world/ServerWorld;Lnet/minecraft/entity/passive/PassiveEntity;)Lnet/minecraft/entity/passive/VillagerEntity;",

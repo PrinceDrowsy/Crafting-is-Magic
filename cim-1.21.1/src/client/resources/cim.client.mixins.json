@@ -7,7 +7,12 @@
 		"MouseScrollMixin",
 		"PegasusFlightBobMixin",
 		"PegasusFlightCameraBobMixin",
-		"PegasusChargeStretchMixin"
+		"PegasusChargeStretchMixin",
+		"MomentSoundMixin",
+		"MomentNewSoundMixin",
+		"SoundManagerAccessor",
+		"SoundSystemAccessor",
+		"SourceAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

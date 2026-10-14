@@ -137,7 +137,8 @@ public class DialogueScreen extends Screen {
 	private static Entry entry(LineData line) {
 		if (line.kind() == DialogueBeatS2CPayload.SPOKEN) {
 			String speaker = line.speaker().isEmpty() ? "..." : line.speaker();
-			return new Entry(Text.literal(speaker), Bubbly.PONY_TAG, Text.literal(line.text()), false, SOUND_SPOKEN, "");
+			// Spoken words in quotes, so they never read like an inner voice's thoughts.
+			return new Entry(Text.literal(speaker), Bubbly.PONY_TAG, Text.literal("“" + line.text() + "”"), false, SOUND_SPOKEN, "");
 		}
 		VoiceStyle style = VoiceStyle.of(line.voice());
 		if (line.kind() == DialogueBeatS2CPayload.VOICE) {
