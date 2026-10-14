@@ -28,6 +28,7 @@ import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.memory.Emotion;
@@ -37,6 +38,9 @@ import craftingismagic.cim.memory.MemoryDescriptions;
 import craftingismagic.cim.memory.MemoryImportance;
 import craftingismagic.cim.memory.MemoryKnowledge;
 import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.narrative.TaleAst.TaleFile;
+import craftingismagic.cim.narrative.TaleLibrary;
+import craftingismagic.cim.narrative.TaleProblem;
 import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaManager;
@@ -54,6 +58,7 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
  * <li>{@code grow <villagers>} - push villagers to their next life stage.</li>
  * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories.</li>
  * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
+ * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -68,6 +73,7 @@ public final class DebugCommand {
 						.then(staminaBranch())
 						.then(memoryBranch())
 						.then(factBranch())
+						.then(taleBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -287,6 +293,44 @@ public final class DebugCommand {
 							facts.forEach((fact, time) -> context.getSource().sendFeedback(
 									() -> Text.literal("  " + fact + " (" + Math.max(0, (now - time) / 24000L) + " days ago)"), false));
 							return facts.size();
+						}));
+	}
+
+	/** How many problems {@code tale validate} prints in chat before pointing at the log. */
+	private static final int TALE_PROBLEMS_SHOWN = 20;
+
+	/**
+	 * {@code tale validate} prints every problem from the last load (run {@code /reload} after editing a
+	 * file); {@code tale list} shows each loaded file with its nodes and threads.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> taleBranch() {
+		return CommandManager.literal("tale")
+				.then(CommandManager.literal("validate")
+						.executes(context -> {
+							ServerCommandSource source = context.getSource();
+							TaleLibrary.Snapshot tales = TaleLibrary.get();
+							long errors = tales.errorCount();
+							long warnings = tales.warningCount();
+							source.sendFeedback(() -> Text.literal(tales.files().size() + " tale file(s): " + errors + " error(s), " + warnings + " warning(s)")
+									.formatted(errors > 0 ? Formatting.RED : warnings > 0 ? Formatting.YELLOW : Formatting.GREEN), false);
+							tales.problems().stream().limit(TALE_PROBLEMS_SHOWN).forEach(problem -> source.sendFeedback(() -> Text.literal(problem.toString())
+									.formatted(problem.severity() == TaleProblem.Severity.ERROR ? Formatting.RED : Formatting.YELLOW), false));
+							if (tales.problems().size() > TALE_PROBLEMS_SHOWN) {
+								source.sendFeedback(() -> Text.literal("...and " + (tales.problems().size() - TALE_PROBLEMS_SHOWN)
+										+ " more - the full list is in the log.").formatted(Formatting.GRAY), false);
+							}
+							return (int) errors;
+						}))
+				.then(CommandManager.literal("list")
+						.executes(context -> {
+							ServerCommandSource source = context.getSource();
+							Collection<TaleFile> files = TaleLibrary.get().files().values();
+							source.sendFeedback(() -> Text.literal(files.size() + " tale file(s):"), false);
+							for (TaleFile file : files) {
+								source.sendFeedback(() -> Text.literal("  " + file.id() + " - " + file.nodes().size() + " node(s), "
+										+ file.threads().size() + " thread(s)"), false);
+							}
+							return files.size();
 						}));
 	}
 
