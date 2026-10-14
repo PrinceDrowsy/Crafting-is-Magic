@@ -67,6 +67,7 @@ public final class TaleParser {
 	// Thread being built
 	private Identifier threadId;
 	private int threadLine;
+	private boolean threadOnCue;
 	private List<ConditionCall> threadRequires;
 	private List<Stage> threadStages;
 	private StageBuilder stage;
@@ -122,6 +123,7 @@ public final class TaleParser {
 			}
 			threadId = id;
 			threadLine = lineNumber;
+			threadOnCue = false;
 			threadRequires = new ArrayList<>();
 			threadStages = new ArrayList<>();
 			return;
@@ -345,6 +347,20 @@ public final class TaleParser {
 			threadRequires.addAll(conditions(lineNumber, content.substring("requires:".length())));
 			return;
 		}
+		if (content.startsWith("starts:")) {
+			if (stage != null || !threadStages.isEmpty()) {
+				error(lineNumber, "\"starts:\" has to come before the thread's first stage.");
+			}
+			String when = content.substring("starts:".length()).trim().replaceAll("\\s+", " ");
+			if (when.equals("on cue")) {
+				threadOnCue = true;
+			} else if (when.equals("automatically")) {
+				threadOnCue = false;
+			} else {
+				error(lineNumber, "\"starts:\" is either \"on cue\" (only ~ thread start begins it) or \"automatically\" (the default).");
+			}
+			return;
+		}
 		if (!indented && content.startsWith("stage")) {
 			finishStage();
 			String name = content.substring("stage".length()).trim();
@@ -417,7 +433,7 @@ public final class TaleParser {
 		if (threadStages.isEmpty()) {
 			error(threadLine, "This thread has no stages.");
 		}
-		threads.add(new TaleAst.Thread(threadId, threadLine, List.copyOf(threadRequires), List.copyOf(threadStages)));
+		threads.add(new TaleAst.Thread(threadId, threadLine, threadOnCue, List.copyOf(threadRequires), List.copyOf(threadStages)));
 		threadId = null;
 	}
 

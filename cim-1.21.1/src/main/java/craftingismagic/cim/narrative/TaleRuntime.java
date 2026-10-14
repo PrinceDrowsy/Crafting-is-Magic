@@ -105,6 +105,8 @@ public final class TaleRuntime {
 		private final TaleContext tale;
 		private Node node;
 		private final List<Reply> offered = new ArrayList<>();
+		/** Nodes played since {@link #drainVisited} was last called. */
+		private final List<Identifier> visited = new ArrayList<>();
 		private Beat beat;
 
 		private Conversation(Node node, TaleContext tale) {
@@ -125,6 +127,13 @@ public final class TaleRuntime {
 		/** The node the conversation is at (where the current options came from). */
 		public Node node() {
 			return node;
+		}
+
+		/** The nodes played since the last call, in order - for {@code talk(<node>)} thread events. */
+		public List<Identifier> drainVisited() {
+			List<Identifier> nodes = List.copyOf(visited);
+			visited.clear();
+			return nodes;
 		}
 
 		/** Picks option {@code index} of the current beat. Out-of-range picks are ignored. */
@@ -152,6 +161,7 @@ public final class TaleRuntime {
 		/** Runs {@code from} from the top until it pauses or ends. */
 		private Beat run(Node from, List<Line> lines, int[] steps) {
 			node = from;
+			visited.add(from.id());
 			offered.clear();
 			List<Statement> body = from.body();
 			for (int i = 0; i < body.size(); i++) {

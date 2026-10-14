@@ -39,6 +39,8 @@ public final class TaleValidator {
 	private final Set<Identifier> jumpedTo = new HashSet<>();
 	/** "threadId stage" pairs moved to by {@code ~ thread advance} anywhere. */
 	private final Set<String> advancedTo = new HashSet<>();
+	/** Threads named by {@code ~ thread start} anywhere. */
+	private final Set<String> started = new HashSet<>();
 
 	private TaleValidator(List<TaleFile> files, List<TaleProblem> problems) {
 		this.files = files;
@@ -218,7 +220,9 @@ public final class TaleValidator {
 		if (effect.type().equals(Identifier.of("cim", "thread")) && !effect.args().isEmpty()) {
 			String[] words = effect.args().get(0).trim().split("\\s+");
 			if (words.length == 3 && words[0].equals("advance")) {
-				advancedTo.add(words[1] + " " + words[2]);
+				advancedTo.add(threadKey(words[1]) + " " + words[2]);
+			} else if (words.length == 2 && words[0].equals("start")) {
+				started.add(threadKey(words[1]));
 			}
 		}
 	}
@@ -289,8 +293,8 @@ public final class TaleValidator {
 	}
 
 	private void checkStage(TaleFile file, TaleAst.Thread thread, Set<String> stageNames, int line, String target) {
-		if (!stageNames.contains(target)) {
-			error(file, line, "Thread " + thread.id() + " has no stage \"" + target + "\".");
+		if (!stageNames.contains(target) && !target.equals(END)) {
+			error(file, line, "Thread " + thread.id() + " has no stage \"" + target + "\"." + (target.equalsIgnoreCase(END) ? " (END is written in capitals.)" : ""));
 		}
 	}
 
@@ -308,6 +312,10 @@ public final class TaleValidator {
 				stage.triggers().forEach(trigger -> trigger.target().ifPresent(reached::add));
 				stage.after().ifPresent(after -> reached.add(after.target()));
 			}
+			if (thread.onCue() && !started.contains(thread.id().toString())) {
+				warning(file, thread.line(), "Thread " + thread.id() + " starts on cue, but nothing says \"~ thread start " + thread.id()
+						+ "\" - only /cim debug thread start will begin it.");
+			}
 			for (int i = 1; i < thread.stages().size(); i++) {
 				Stage stage = thread.stages().get(i);
 				if (!reached.contains(stage.name()) && !advancedTo.contains(thread.id() + " " + stage.name())) {
@@ -315,6 +323,11 @@ public final class TaleValidator {
 				}
 			}
 		}
+	}
+
+	/** Thread IDs written without a namespace are {@code cim:}. */
+	private static String threadKey(String written) {
+		return written.contains(":") ? written : "cim:" + written;
 	}
 
 	private void error(TaleFile file, int line, String message) {

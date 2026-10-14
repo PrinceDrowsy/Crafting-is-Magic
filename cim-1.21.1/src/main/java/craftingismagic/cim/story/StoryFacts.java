@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 
@@ -26,7 +27,8 @@ import craftingismagic.cim.Cim;
  * <li><b>Relationship</b> - between one player and one pony (e.g. {@code cim:comforted_after_loss}); an
  * attachment on the pony, keyed by player, that survives curing.</li>
  * </ul>
- * Each fact remembers the world time it was set, for "last summer"-style lines. IDs are namespaced so
+ * Each fact remembers the world time it was set, for "last summer"-style lines. A fact becoming true
+ * (not one set again) is a thread event - see {@link StoryThreads}. IDs are namespaced so
  * datapacks and other mods can add their own. Never synced: what a client needs to know about the
  * story arrives in the payloads that need it.
  */
@@ -51,7 +53,11 @@ public final class StoryFacts {
 	}
 
 	public static void setWorld(MinecraftServer server, Identifier fact) {
+		boolean isNew = !hasWorld(server, fact);
 		WorldFactsState.get(server).set(fact, server.getOverworld().getTime());
+		if (isNew) {
+			server.getPlayerManager().getPlayerList().forEach(player -> StoryThreads.factBecameTrue(player, player, fact));
+		}
 	}
 
 	public static boolean clearWorld(MinecraftServer server, Identifier fact) {
@@ -69,9 +75,13 @@ public final class StoryFacts {
 	}
 
 	public static void setPersonal(Entity player, Identifier fact) {
+		boolean isNew = !hasPersonal(player, fact);
 		Map<Identifier, Long> facts = new HashMap<>(personalFacts(player));
 		facts.put(fact, player.getWorld().getTime());
 		player.setAttached(PERSONAL_FACTS, Map.copyOf(facts));
+		if (isNew && player instanceof ServerPlayerEntity serverPlayer) {
+			StoryThreads.factBecameTrue(serverPlayer, serverPlayer, fact);
+		}
 	}
 
 	public static boolean clearPersonal(Entity player, Identifier fact) {
@@ -94,9 +104,16 @@ public final class StoryFacts {
 	}
 
 	public static void setRelationship(Entity pony, UUID player, Identifier fact) {
+		boolean isNew = !hasRelationship(pony, player, fact);
 		Map<Identifier, Long> facts = new HashMap<>(relationshipFacts(pony, player));
 		facts.put(fact, pony.getWorld().getTime());
 		putRelationshipFacts(pony, player, facts);
+		if (isNew && pony.getServer() != null) {
+			ServerPlayerEntity online = pony.getServer().getPlayerManager().getPlayer(player);
+			if (online != null) {
+				StoryThreads.factBecameTrue(online, pony, fact);
+			}
+		}
 	}
 
 	public static boolean clearRelationship(Entity pony, UUID player, Identifier fact) {

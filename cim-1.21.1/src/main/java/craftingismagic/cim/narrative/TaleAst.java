@@ -113,14 +113,23 @@ public final class TaleAst {
 	public record EffectCall(int line, Identifier type, List<String> args, String source) {
 	}
 
-	/** {@code === thread <id>} - a story that unfolds over time in stages. */
-	public record Thread(Identifier id, int line, List<ConditionCall> requires, List<Stage> stages) {
+	/**
+	 * {@code === thread <id>} - a story that unfolds over time in stages.
+	 *
+	 * @param onCue    {@code starts: on cue} - only {@code ~ thread start} begins it; otherwise it
+	 *                 starts by itself once {@code requires} fits the player
+	 * @param requires checked when the thread would start, not after
+	 */
+	public record Thread(Identifier id, int line, boolean onCue, List<ConditionCall> requires, List<Stage> stages) {
+		public Optional<Stage> stage(String name) {
+			return stages.stream().filter(stage -> stage.name().equals(name)).findFirst();
+		}
 	}
 
 	public record Stage(String name, int line, List<Trigger> triggers, List<EffectCall> effects, Optional<After> after) {
 	}
 
-	/** {@code on <event>[, chance N%] [-> stage]}. */
+	/** {@code on <event>[, chance N%] [-> stage]} - with a target it's a pure transition. */
 	public record Trigger(int line, EventCall event, int chancePercent, Optional<String> target) {
 	}
 

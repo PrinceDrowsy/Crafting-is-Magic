@@ -23,6 +23,10 @@ import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.command.argument.IdentifierArgumentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.world.biome.Biome;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -42,10 +46,12 @@ import craftingismagic.cim.narrative.TaleAst;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
 import craftingismagic.cim.narrative.TaleLibrary;
 import craftingismagic.cim.narrative.TaleProblem;
+import craftingismagic.cim.narrative.TaleThreads;
 import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.story.StoryFacts;
+import craftingismagic.cim.story.StoryThreads;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
@@ -62,6 +68,7 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
  * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
  * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems.</li>
  * <li>{@code dialogue test <node> <pony>} - play any node as a conversation.</li>
+ * <li>{@code thread status|start|advance|reset|fire} - see and move your threads, and fake their events.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -78,6 +85,7 @@ public final class DebugCommand {
 						.then(factBranch())
 						.then(taleBranch())
 						.then(dialogueBranch())
+						.then(threadBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -315,7 +323,8 @@ public final class DebugCommand {
 							TaleLibrary.Snapshot tales = TaleLibrary.get();
 							long errors = tales.errorCount();
 							long warnings = tales.warningCount();
-							source.sendFeedback(() -> Text.literal(tales.files().size() + " tale file(s): " + errors + " error(s), " + warnings + " warning(s)")
+							source.sendFeedback(() -> Text.literal(tales.files().size() + " tale file(s): " + errors + " error(s), " + warnings + " warning(s)"
+									+ (tales.leftOut() > 0 ? "; " + tales.leftOut() + " node(s)/thread(s) left out for errors" : ""))
 									.formatted(errors > 0 ? Formatting.RED : warnings > 0 ? Formatting.YELLOW : Formatting.GREEN), false);
 							tales.problems().stream().limit(TALE_PROBLEMS_SHOWN).forEach(problem -> source.sendFeedback(() -> Text.literal(problem.toString())
 									.formatted(problem.severity() == TaleProblem.Severity.ERROR ? Formatting.RED : Formatting.YELLOW), false));
@@ -359,6 +368,103 @@ public final class DebugCommand {
 											VillagerDialogue.startAt(context.getSource().getPlayerOrThrow(), pony, node);
 											return 1;
 										}))));
+	}
+
+	/**
+	 * {@code thread status} lists your threads; {@code start} (ignores {@code requires:}), {@code
+	 * advance}, and {@code reset} move them by hand; {@code fire} fakes an event - {@code sleep},
+	 * {@code wake}, {@code day}, {@code night}, {@code enter_biome <biome>}, {@code talk <node|any>},
+	 * {@code fact <id>} (the fact itself isn't set) - so a stage can be tested without the world
+	 * cooperating.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> threadBranch() {
+		LiteralArgumentBuilder<ServerCommandSource> fire = CommandManager.literal("fire");
+		for (String bare : List.of("sleep", "wake", "day", "night")) {
+			fire.then(CommandManager.literal(bare).executes(context -> forSelf(context, player -> {
+				StoryThreads.fire(player, player, TaleThreads.Event.of(Identifier.of("cim", bare)));
+				context.getSource().sendFeedback(() -> Text.literal("Fired " + bare), false);
+			})));
+		}
+		fire.then(CommandManager.literal("enter_biome").then(CommandManager.argument("biome", IdentifierArgumentType.identifier())
+				.suggests((context, builder) -> CommandSource.suggestIdentifiers(
+						context.getSource().getRegistryManager().get(RegistryKeys.BIOME).getIds(), builder))
+				.executes(context -> {
+					Identifier id = IdentifierArgumentType.getIdentifier(context, "biome");
+					ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+					RegistryEntry<Biome> biome = context.getSource().getRegistryManager().get(RegistryKeys.BIOME)
+							.getEntry(RegistryKey.of(RegistryKeys.BIOME, id))
+							.orElseThrow(() -> new SimpleCommandExceptionType(Text.literal("No biome " + id)).create());
+					StoryThreads.enteredBiome(player, biome);
+					context.getSource().sendFeedback(() -> Text.literal("Fired enter_biome " + id), false);
+					return 1;
+				})));
+		fire.then(CommandManager.literal("talk").then(CommandManager.argument("node", StringArgumentType.greedyString())
+				.suggests((context, builder) -> CommandSource.suggestMatching(
+						java.util.stream.Stream.concat(java.util.stream.Stream.of("any"),
+								TaleLibrary.get().nodes().keySet().stream().map(Identifier::toString)), builder))
+				.executes(context -> forSelf(context, player -> {
+					String node = StringArgumentType.getString(context, "node").trim();
+					boolean any = node.equals("any");
+					StoryThreads.talked(player, player, any ? List.of() : List.of(Identifier.of(node)), any);
+					context.getSource().sendFeedback(() -> Text.literal("Fired talk " + node), false);
+				}))));
+		fire.then(CommandManager.literal("fact").then(CommandManager.argument("fact", IdentifierArgumentType.identifier())
+				.executes(context -> forSelf(context, player -> {
+					Identifier fact = IdentifierArgumentType.getIdentifier(context, "fact");
+					StoryThreads.fire(player, player, new TaleThreads.Event(Identifier.of("cim", "fact"),
+							args -> args.size() == 1 && Identifier.of(args.get(0).contains(":") ? args.get(0) : "cim:" + args.get(0)).equals(fact)));
+					context.getSource().sendFeedback(() -> Text.literal("Fired fact " + fact + " (not set)"), false);
+				}))));
+
+		return CommandManager.literal("thread")
+				.then(CommandManager.literal("status").executes(context -> forSelf(context, player -> {
+					Map<Identifier, TaleThreads.Progress> all = StoryThreads.progress(player);
+					context.getSource().sendFeedback(() -> Text.literal(all.size() + " thread(s) for " + player.getName().getString() + ":"), false);
+					all.forEach((id, progress) -> context.getSource().sendFeedback(() -> Text.literal("  " + id + " - "
+							+ (progress.finished() ? "finished" : "at \"" + progress.stage() + "\", acted " + progress.fired() + "x")
+							+ (TaleLibrary.get().threads().containsKey(id) ? "" : " (not loaded)")), false));
+					long waiting = TaleLibrary.get().threads().keySet().stream().filter(id -> !all.containsKey(id)).count();
+					if (waiting > 0) {
+						context.getSource().sendFeedback(() -> Text.literal(waiting + " loaded thread(s) not started for you yet").formatted(Formatting.GRAY), false);
+					}
+				})))
+				.then(CommandManager.literal("start").then(threadArgument()
+						.executes(context -> forSelf(context, player -> {
+							Identifier id = IdentifierArgumentType.getIdentifier(context, "thread");
+							boolean started = StoryThreads.start(player, id, true);
+							context.getSource().sendFeedback(() -> Text.literal(started ? "Started " + id
+									: "Didn't start " + id + " - not loaded, or already had (reset it first)"), false);
+						}))))
+				.then(CommandManager.literal("advance").then(threadArgument()
+						.then(CommandManager.argument("stage", StringArgumentType.word())
+								.suggests((context, builder) -> {
+									TaleAst.Thread thread = TaleLibrary.get().threads().get(IdentifierArgumentType.getIdentifier(context, "thread"));
+									return CommandSource.suggestMatching(thread == null ? List.of() : java.util.stream.Stream.concat(
+											thread.stages().stream().map(TaleAst.Stage::name), java.util.stream.Stream.of("END")).toList(), builder);
+								})
+								.executes(context -> forSelf(context, player -> {
+									Identifier id = IdentifierArgumentType.getIdentifier(context, "thread");
+									String stage = StringArgumentType.getString(context, "stage");
+									boolean moved = StoryThreads.advance(player, id, stage);
+									context.getSource().sendFeedback(() -> Text.literal(moved ? id + " is now at " + stage
+											: "No thread " + id + " with a stage " + stage), false);
+								})))))
+				.then(CommandManager.literal("reset")
+						.executes(context -> forSelf(context, player -> {
+							int count = StoryThreads.reset(player, Optional.empty());
+							context.getSource().sendFeedback(() -> Text.literal("Forgot " + count + " thread(s)"), false);
+						}))
+						.then(threadArgument().executes(context -> forSelf(context, player -> {
+							Identifier id = IdentifierArgumentType.getIdentifier(context, "thread");
+							int count = StoryThreads.reset(player, Optional.of(id));
+							context.getSource().sendFeedback(() -> Text.literal(count > 0 ? "Forgot " + id : "Didn't have " + id), false);
+						}))))
+				.then(fire);
+	}
+
+	private static RequiredArgumentBuilder<ServerCommandSource, Identifier> threadArgument() {
+		return CommandManager.argument("thread", IdentifierArgumentType.identifier())
+				.suggests((context, builder) -> CommandSource.suggestIdentifiers(TaleLibrary.get().threads().keySet(), builder));
 	}
 
 	private static int addMemory(CommandContext<ServerCommandSource> context, MemoryImportance importance, Emotion emotion,

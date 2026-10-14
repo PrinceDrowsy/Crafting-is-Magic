@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
@@ -27,20 +30,22 @@ import craftingismagic.cim.narrative.TaleAst.TaleFile;
 /**
  * Every {@code .tale} file the loaded datapacks provide ({@code data/<namespace>/tales/**.tale}),
  * parsed and validated on each data reload ({@code /reload} included). Files load even when they
- * have problems, so the report can point at them; the runtime decides what to skip.
+ * have problems, so the report can point at them - but a node or thread with any error in it is left
+ * out of the playable library (half-written content shouldn't run), while the rest of its file plays.
  */
 public final class TaleLibrary {
 	public static final String FOLDER = "tales";
 	public static final String EXTENSION = ".tale";
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/narrative");
 
-	private static volatile Snapshot current = new Snapshot(Map.of(), Map.of(), List.of());
+	private static volatile Snapshot current = new Snapshot(Map.of(), Map.of(), Map.of(), List.of(), 0);
 
 	private TaleLibrary() {
 	}
 
 	/** One reload's worth of tales. Replaced whole, so readers never see a half-loaded library. */
-	public record Snapshot(Map<Identifier, TaleFile> files, Map<Identifier, Node> nodes, List<TaleProblem> problems) {
+	public record Snapshot(Map<Identifier, TaleFile> files, Map<Identifier, Node> nodes, Map<Identifier, TaleAst.Thread> threads,
+			List<TaleProblem> problems, int leftOut) {
 		public long errorCount() {
 			return problems.stream().filter(problem -> problem.severity() == TaleProblem.Severity.ERROR).count();
 		}
@@ -95,12 +100,13 @@ public final class TaleLibrary {
 		if (!readProblems.isEmpty()) {
 			List<TaleProblem> all = new ArrayList<>(readProblems);
 			all.addAll(snapshot.problems());
-			snapshot = new Snapshot(snapshot.files(), snapshot.nodes(), List.copyOf(all));
+			snapshot = new Snapshot(snapshot.files(), snapshot.nodes(), snapshot.threads(), List.copyOf(all), snapshot.leftOut());
 		}
 		current = snapshot;
 
-		LOGGER.info("Loaded {} tale file(s), {} node(s): {} error(s), {} warning(s)",
-				snapshot.files().size(), snapshot.nodes().size(), snapshot.errorCount(), snapshot.warningCount());
+		LOGGER.info("Loaded {} tale file(s), {} node(s), {} thread(s): {} error(s), {} warning(s); {} left out for errors",
+				snapshot.files().size(), snapshot.nodes().size(), snapshot.threads().size(), snapshot.errorCount(), snapshot.warningCount(),
+				snapshot.leftOut());
 		for (TaleProblem problem : snapshot.problems()) {
 			if (problem.severity() == TaleProblem.Severity.ERROR) {
 				LOGGER.error("{}", problem);
@@ -124,12 +130,44 @@ public final class TaleLibrary {
 		TaleValidator.validate(List.copyOf(files.values()), problems);
 
 		Map<Identifier, Node> nodes = new LinkedHashMap<>();
+		Map<Identifier, TaleAst.Thread> threads = new LinkedHashMap<>();
+		int leftOut = 0;
 		for (TaleFile file : files.values()) {
+			Set<Integer> broken = brokenHeaders(file, problems);
 			for (Node node : file.nodes()) {
-				nodes.putIfAbsent(node.id(), node);
+				if (broken.contains(node.line())) {
+					leftOut++;
+				} else {
+					nodes.putIfAbsent(node.id(), node);
+				}
+			}
+			for (TaleAst.Thread thread : file.threads()) {
+				if (broken.contains(thread.line())) {
+					leftOut++;
+				} else {
+					threads.putIfAbsent(thread.id(), thread);
+				}
 			}
 		}
 		problems.sort(Comparator.comparing(TaleProblem::source).thenComparingInt(TaleProblem::line));
-		return new Snapshot(Collections.unmodifiableMap(files), Collections.unmodifiableMap(nodes), List.copyOf(problems));
+		return new Snapshot(Collections.unmodifiableMap(files), Collections.unmodifiableMap(nodes), Collections.unmodifiableMap(threads),
+				List.copyOf(problems), leftOut);
+	}
+
+	/** The {@code ===} lines of every node and thread in {@code file} that an error falls inside. */
+	private static Set<Integer> brokenHeaders(TaleFile file, List<TaleProblem> problems) {
+		TreeSet<Integer> headers = new TreeSet<>();
+		file.nodes().forEach(node -> headers.add(node.line()));
+		file.threads().forEach(thread -> headers.add(thread.line()));
+		Set<Integer> broken = new HashSet<>();
+		for (TaleProblem problem : problems) {
+			if (problem.severity() == TaleProblem.Severity.ERROR && problem.source().equals(file.source())) {
+				Integer owner = headers.floor(problem.line());
+				if (owner != null) {
+					broken.add(owner);
+				}
+			}
+		}
+		return broken;
 	}
 }

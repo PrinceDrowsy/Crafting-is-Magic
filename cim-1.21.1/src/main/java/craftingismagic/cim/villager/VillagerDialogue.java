@@ -24,6 +24,7 @@ import craftingismagic.cim.narrative.TaleRuntime.Beat;
 import craftingismagic.cim.narrative.TaleRuntime.Conversation;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
 import craftingismagic.cim.story.CimTaleVocabulary;
+import craftingismagic.cim.story.StoryThreads;
 
 /**
  * Runs {@code .tale} conversations between players and ponies: one at a time per player, held on the
@@ -80,6 +81,7 @@ public final class VillagerDialogue {
 		Conversation conversation = TaleRuntime.start(node, context);
 		sessions.put(player.getUuid(), new Session(pony.getId(), conversation));
 		send(player, pony, conversation.beat());
+		StoryThreads.talked(player, pony, conversation.drainVisited(), true);
 	}
 
 	public static void choose(ServerPlayerEntity player, int entityId, int option) {
@@ -93,6 +95,7 @@ public final class VillagerDialogue {
 			return;
 		}
 		send(player, pony, session.conversation().choose(option));
+		StoryThreads.talked(player, pony, session.conversation().drainVisited(), false);
 	}
 
 	/** The screen closed, or the player left. */

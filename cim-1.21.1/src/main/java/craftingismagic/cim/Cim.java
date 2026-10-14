@@ -94,6 +94,7 @@ import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.stamina.StaminaSync;
 import craftingismagic.cim.story.CimTaleVocabulary;
 import craftingismagic.cim.story.StoryFacts;
+import craftingismagic.cim.story.StoryThreads;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
@@ -138,6 +139,7 @@ public class Cim implements ModInitializer {
 		CimTaleVocabulary.register();
 		TaleLibrary.register();
 		VillagerDialogue.register();
+		StoryThreads.register();
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
 		DebugOverlay.register();
@@ -383,6 +385,7 @@ public class Cim implements ModInitializer {
 				MemoryStore.MEMORIES,
 				StoryFacts.PERSONAL_FACTS,
 				StoryFacts.RELATIONSHIP_FACTS,
+				StoryThreads.THREADS,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

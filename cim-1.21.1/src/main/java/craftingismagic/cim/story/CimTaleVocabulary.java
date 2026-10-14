@@ -52,8 +52,8 @@ import craftingismagic.cim.villager.ReplyTone;
  * start context. Other mods register theirs the same way, under their own namespace.
  * <p>
  * Some words are accepted now but wait on later systems, and say so in the log when used: voices
- * ({@code voice(...)}, {@code ~ leaning}) on Phase 3, {@code ~ moment} on Phase 4, threads on the
- * thread runtime, and {@code player.heritage}/{@code player.upbringing}/{@code holiday}/{@code season}
+ * ({@code voice(...)}, {@code ~ leaning}) on Phase 3, {@code ~ moment} on Phase 4, and
+ * {@code player.heritage}/{@code player.upbringing}/{@code holiday}/{@code season}
  * on the character creator and calendar - those conditions are false until then.
  */
 public final class CimTaleVocabulary {
@@ -190,7 +190,11 @@ public final class CimTaleVocabulary {
 
 	/** {@code biome(minecraft:forest, #minecraft:is_ocean)} - any listed biome or biome tag where the pony stands. */
 	private static boolean inBiome(TaleContext tale, List<String> args, Optional<String> comparison) {
-		RegistryEntry<Biome> biome = tale.world().getBiome(tale.speaker().getBlockPos());
+		return biomeMatches(tale.world().getBiome(tale.speaker().getBlockPos()), args);
+	}
+
+	/** Whether {@code biome} is any of the listed biome IDs or {@code #tags}. */
+	static boolean biomeMatches(RegistryEntry<Biome> biome, List<String> args) {
 		for (String arg : args) {
 			if (arg.startsWith("#") ? biome.isIn(TagKey.of(RegistryKeys.BIOME, minecraftId(arg.substring(1)))) : biome.matchesId(minecraftId(arg))) {
 				return true;
@@ -220,8 +224,14 @@ public final class CimTaleVocabulary {
 			String[] words = split(args);
 			setFact(tale, id(words[1]), words[0].equals("set"));
 		});
-		TaleVocabulary.registerEffect(cim("thread"), CimTaleVocabulary::threadArgs,
-				(tale, args) -> waiting("~ thread " + args.get(0), "the thread runtime"));
+		TaleVocabulary.registerEffect(cim("thread"), CimTaleVocabulary::threadArgs, (tale, args) -> {
+			String[] words = split(args);
+			if (words[0].equals("start")) {
+				StoryThreads.start(tale.player(), id(words[1]), false);
+			} else {
+				StoryThreads.advance(tale.player(), id(words[1]), words[2]);
+			}
+		});
 		TaleVocabulary.registerEffect(cim("moment"), (args, cmp) -> ids(args, 1),
 				(tale, args) -> waiting("~ moment " + args.get(0), "the mood system (Phase 4)"));
 		TaleVocabulary.registerEffect(cim("leaning"), (args, cmp) -> {
@@ -322,14 +332,15 @@ public final class CimTaleVocabulary {
 		}
 	}
 
-	// ---- Thread events (checked now, run with the thread runtime) ----
+	// ---- Thread events (noticed by StoryThreads) ----
 
 	private static void registerEvents() {
 		for (String bare : List.of("sleep", "wake", "day", "night")) {
 			TaleVocabulary.registerEvent(cim(bare), (args, cmp) -> count(args, 0, 0));
 		}
-		TaleVocabulary.registerEvent(cim("enter_biome"), (args, cmp) -> count(args, 1, 1));
-		TaleVocabulary.registerEvent(cim("talk"), (args, cmp) -> count(args, 1, 1));
+		TaleVocabulary.registerEvent(cim("enter_biome"), (args, cmp) -> biomeArgs(args));
+		// talk(any) when a conversation opens; talk(<node id>) when one reaches that node.
+		TaleVocabulary.registerEvent(cim("talk"), (args, cmp) -> args.size() == 1 && args.get(0).equals("any") ? List.of() : ids(args, 1));
 		TaleVocabulary.registerEvent(cim("holiday"), (args, cmp) -> ids(args, 1));
 		TaleVocabulary.registerEvent(cim("fact"), (args, cmp) -> factIds(args));
 	}
