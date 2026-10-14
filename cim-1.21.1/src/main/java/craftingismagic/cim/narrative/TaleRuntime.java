@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import craftingismagic.cim.narrative.TaleAst.ConditionCall;
 import craftingismagic.cim.narrative.TaleAst.EffectCall;
 import craftingismagic.cim.narrative.TaleAst.EffectStatement;
+import craftingismagic.cim.narrative.TaleAst.Interjection;
 import craftingismagic.cim.narrative.TaleAst.Jump;
 import craftingismagic.cim.narrative.TaleAst.Node;
 import craftingismagic.cim.narrative.TaleAst.Reply;
@@ -25,8 +26,9 @@ import craftingismagic.cim.narrative.TaleAst.WeightBonus;
 /**
  * Plays loaded {@code .tale} conversations. A {@link Conversation} runs a node from the top - spoken
  * lines pile up, effects happen, jumps are followed - until it reaches the node's replies (it pauses
- * and hands back a {@link Beat}) or runs out (it ends). Interjections and voice replies wait for the
- * inner-voice system (docs/implementation-plan.md: Phase 3) and are skipped for now.
+ * and hands back a {@link Beat}) or runs out (it ends). Interjections and voice replies show only
+ * when the player's voice is strong enough ({@link TaleVocabulary.Voices}); a voice reply is rolled,
+ * and the conversation follows its success or failure branch.
  * <p>
  * Never throws on bad content: a broken condition counts as false, a broken effect is skipped, and a
  * jump loop is cut off after {@link #MAX_STEPS} statements - each logged, so a datapack mistake can't
@@ -42,17 +44,38 @@ public final class TaleRuntime {
 	private TaleRuntime() {
 	}
 
+	/** What a line on screen is. */
+	public enum LineKind {
+		/** Someone speaking. */
+		SPOKEN,
+		/** An inner voice speaking up ({@code voice} says which). */
+		VOICE,
+		/** A voice reply just landed ({@code voice} says which). */
+		SUCCESS,
+		/** A voice reply just didn't land. */
+		FAILURE
+	}
+
 	/**
 	 * One line on screen.
 	 *
 	 * @param partner true when the conversation partner ({@code {pony}}) says it, so screens can leave
 	 *                the name off
+	 * @param voice   the voice, for every kind but {@link LineKind#SPOKEN}; empty otherwise
 	 */
-	public record Line(String speaker, boolean partner, String text) {
+	public record Line(LineKind kind, String speaker, boolean partner, String text, String voice) {
+		public static Line spoken(String speaker, boolean partner, String text) {
+			return new Line(LineKind.SPOKEN, speaker, partner, text, "");
+		}
 	}
 
-	/** A reply the player can pick; {@code text} may be empty, in which case screens show the tone. */
-	public record Option(Optional<String> tone, String text) {
+	/**
+	 * A reply the player can pick; {@code text} may be empty for a tone reply, in which case screens
+	 * show the tone.
+	 *
+	 * @param odds for a voice reply, its chance in percent; -1 for a tone reply
+	 */
+	public record Option(Optional<String> tone, Optional<String> voice, String text, int odds) {
 	}
 
 	/** What to show now: the lines since the last choice, and either options or the end. */
@@ -142,9 +165,25 @@ public final class TaleRuntime {
 				return beat;
 			}
 			Reply reply = offered.get(index);
+			Node from = node;
 			offered.clear();
 			List<Line> lines = new ArrayList<>();
 			int[] steps = {0};
+			Optional<String> rolledTarget = Optional.empty();
+			if (reply.isVoiceReply()) {
+				TaleVocabulary.Voices voices = TaleVocabulary.voicesImpl();
+				String voice = TaleVocabulary.normalize(reply.voice().get());
+				boolean success;
+				try {
+					success = voices.roll(tale, from, reply, voices.odds(tale, from, reply));
+					voices.attempted(tale, from, reply, success);
+				} catch (RuntimeException e) {
+					LOGGER.error("{}: line {}: rolling the voice reply failed; treating it as a failure", from.id(), reply.line(), e);
+					success = false;
+				}
+				lines.add(new Line(success ? LineKind.SUCCESS : LineKind.FAILURE, "", false, "", voice));
+				rolledTarget = success ? reply.successTarget() : reply.failureTarget();
+			}
 			for (Statement statement : reply.body()) {
 				if (++steps[0] > MAX_STEPS) {
 					return beat = loop();
@@ -154,6 +193,9 @@ public final class TaleRuntime {
 				} else if (statement instanceof Jump jump && allHold(jump.conditions(), tale)) {
 					return beat = follow(jump.target(), lines, steps);
 				}
+			}
+			if (rolledTarget.isPresent()) {
+				return beat = follow(rolledTarget.get(), lines, steps);
 			}
 			return beat = new Beat(List.copyOf(lines), List.of(), true);
 		}
@@ -184,20 +226,63 @@ public final class TaleRuntime {
 							return follow(jump.target(), lines, steps);
 						}
 					}
-					case Reply reply -> {
-						if (!reply.isVoiceReply()) {
-							offered.add(reply);
+					case Interjection interjection -> {
+						if (hears(interjection.voice(), interjection.tier())) {
+							lines.add(new Line(LineKind.VOICE, "", false, fill(interjection.text(), tale, false),
+									TaleVocabulary.normalize(interjection.voice())));
 						}
 					}
-					default -> {
+					case Reply reply -> {
+						if (!reply.isVoiceReply() || offersVoiceReply(from, reply)) {
+							offered.add(reply);
+						}
 					}
 				}
 			}
 			if (offered.isEmpty()) {
 				return new Beat(List.copyOf(lines), List.of(), true);
 			}
-			List<Option> options = offered.stream().map(reply -> new Option(reply.tone(), fill(reply.text(), tale, false))).toList();
-			return new Beat(List.copyOf(lines), options, false);
+			List<Option> options = new ArrayList<>();
+			for (Reply reply : offered) {
+				if (reply.isVoiceReply()) {
+					int odds;
+					try {
+						odds = TaleVocabulary.voicesImpl().odds(tale, from, reply);
+					} catch (RuntimeException e) {
+						LOGGER.error("{}: line {}: working out the odds failed", from.id(), reply.line(), e);
+						odds = 50;
+					}
+					options.add(new Option(Optional.empty(), Optional.of(TaleVocabulary.normalize(reply.voice().get())),
+							fill(reply.text(), tale, false), odds));
+				} else {
+					options.add(new Option(reply.tone(), Optional.empty(), fill(reply.text(), tale, false), -1));
+				}
+			}
+			return new Beat(List.copyOf(lines), List.copyOf(options), false);
+		}
+
+		/** Whether the player's {@code voice} is at least {@code tier}. */
+		private boolean hears(String voice, String tier) {
+			try {
+				int needed = Math.max(0, TaleVocabulary.tierIndex(tier));
+				return TaleVocabulary.voicesImpl().tier(tale, TaleVocabulary.normalize(voice)) >= needed;
+			} catch (RuntimeException e) {
+				LOGGER.error("Checking the {} voice failed; staying quiet", voice, e);
+				return false;
+			}
+		}
+
+		/** A voice reply shows when the voice is strong enough and a {@code !once} hasn't been tried. */
+		private boolean offersVoiceReply(Node from, Reply reply) {
+			if (!hears(reply.voice().get(), reply.voiceTier().orElse("faint"))) {
+				return false;
+			}
+			try {
+				return !reply.once() || !TaleVocabulary.voicesImpl().alreadyTried(tale, from, reply);
+			} catch (RuntimeException e) {
+				LOGGER.error("{}: line {}: checking a !once reply failed; hiding it", from.id(), reply.line(), e);
+				return false;
+			}
 		}
 
 		private Beat follow(String target, List<Line> lines, int[] steps) {
@@ -225,7 +310,7 @@ public final class TaleRuntime {
 			List<String> texts = spoken.texts();
 			String text = texts.size() == 1 ? texts.get(0) : texts.get(tale.random().nextInt(texts.size()));
 			boolean partner = spoken.speaker().equals("{pony}");
-			return new Line(fill(spoken.speaker(), tale, false), partner, fill(text, tale, false));
+			return Line.spoken(fill(spoken.speaker(), tale, false), partner, fill(text, tale, false));
 		}
 	}
 

@@ -4,6 +4,7 @@ import dev.isxander.yacl3.api.ConfigCategory;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatFieldControllerBuilder;
 import dev.isxander.yacl3.api.controller.FloatSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerFieldControllerBuilder;
@@ -12,6 +13,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.accessibility.AccessibilityConfig;
+import craftingismagic.cim.client.dialogue.DialogueConfig;
 import craftingismagic.cim.debug.DebugConfig;
 import craftingismagic.cim.spawn.VillageSpawnConfig;
 import craftingismagic.cim.villager.LifeStageConfig;
@@ -28,6 +30,8 @@ public final class CimConfigScreen {
 	public static Screen create(Screen parent) {
 		AccessibilityConfig accessibility = AccessibilityConfig.get();
 		AccessibilityConfig accessibilityDefaults = new AccessibilityConfig();
+		DialogueConfig dialogue = DialogueConfig.get();
+		DialogueConfig dialogueDefaults = new DialogueConfig();
 		VillageSpawnConfig spawn = VillageSpawnConfig.get();
 		LifeStageConfig lifeStages = LifeStageConfig.get();
 		VillageSpawnConfig spawnDefaults = new VillageSpawnConfig();
@@ -52,6 +56,31 @@ public final class CimConfigScreen {
 								.controller(option -> FloatSliderControllerBuilder.create(option)
 										.range(AccessibilityConfig.MIN_TEXT_SCALE, AccessibilityConfig.MAX_TEXT_SCALE)
 										.step(0.05f))
+								.build())
+						.build())
+				.category(ConfigCategory.createBuilder()
+						.name(Text.translatable("config.cim.category.conversations"))
+						.option(Option.<DialogueConfig.VoiceLines>createBuilder()
+								.name(Text.translatable("config.cim.voice_lines"))
+								.description(OptionDescription.of(Text.translatable("config.cim.voice_lines.desc")))
+								.binding(dialogueDefaults.voiceLines, () -> dialogue.voiceLines, value -> dialogue.voiceLines = value)
+								.controller(option -> EnumControllerBuilder.create(option)
+										.enumClass(DialogueConfig.VoiceLines.class)
+										.formatValue(value -> Text.translatable("config.cim.voice_lines." + value.name().toLowerCase(java.util.Locale.ROOT))))
+								.build())
+						.option(Option.<DialogueConfig.RevealSpeed>createBuilder()
+								.name(Text.translatable("config.cim.reveal_speed"))
+								.description(OptionDescription.of(Text.translatable("config.cim.reveal_speed.desc")))
+								.binding(dialogueDefaults.revealSpeed, () -> dialogue.revealSpeed, value -> dialogue.revealSpeed = value)
+								.controller(option -> EnumControllerBuilder.create(option)
+										.enumClass(DialogueConfig.RevealSpeed.class)
+										.formatValue(value -> Text.translatable("config.cim.reveal_speed." + value.name().toLowerCase(java.util.Locale.ROOT))))
+								.build())
+						.option(Option.<Boolean>createBuilder()
+								.name(Text.translatable("config.cim.reveal_sound"))
+								.description(OptionDescription.of(Text.translatable("config.cim.reveal_sound.desc")))
+								.binding(dialogueDefaults.revealSound, () -> dialogue.revealSound, value -> dialogue.revealSound = value)
+								.controller(TickBoxControllerBuilder::create)
 								.build())
 						.build())
 				.category(ConfigCategory.createBuilder()
@@ -89,6 +118,7 @@ public final class CimConfigScreen {
 						.build())
 				.save(() -> {
 					accessibility.save();
+					dialogue.save();
 					spawn.save();
 					lifeStages.save();
 					debug.save();

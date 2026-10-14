@@ -112,6 +112,8 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
 import craftingismagic.cim.villager.VillagerFriendGroupHandler;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.VillagerSpeciesHandler;
+import craftingismagic.cim.voice.CimVoices;
+import craftingismagic.cim.voice.VoiceLeanings;
 
 public class Cim implements ModInitializer {
 	public static final String MOD_ID = "cim";
@@ -140,6 +142,7 @@ public class Cim implements ModInitializer {
 		TaleLibrary.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
+		CimVoices.register();
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
 		DebugOverlay.register();
@@ -386,6 +389,7 @@ public class Cim implements ModInitializer {
 				StoryFacts.PERSONAL_FACTS,
 				StoryFacts.RELATIONSHIP_FACTS,
 				StoryThreads.THREADS,
+				VoiceLeanings.LEANINGS,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

@@ -70,6 +70,64 @@ public final class TaleVocabulary {
 		Optional<String> resolve(TaleContext context);
 	}
 
+	/**
+	 * The player's inner voices, as the runtime needs them (README: Inner voices in conversation).
+	 * The game supplies one ({@link #setVoices}); until then every voice is silent, so interjections
+	 * and voice replies simply don't show.
+	 */
+	public interface Voices {
+		/** How strong {@code voice} is for this player: -1 silent, then the index into {@link #TIERS}. */
+		int tier(TaleContext context, String voice);
+
+		/** The chance, in percent, that {@code reply} succeeds right now. */
+		int odds(TaleContext context, TaleAst.Node node, TaleAst.Reply reply);
+
+		/** Rolls {@code reply} at {@code odds}; true is success. */
+		boolean roll(TaleContext context, TaleAst.Node node, TaleAst.Reply reply, int odds);
+
+		/** The player just tried {@code reply} (grow the voice, remember a {@code !once}). */
+		void attempted(TaleContext context, TaleAst.Node node, TaleAst.Reply reply, boolean success);
+
+		/** Whether a {@code !once} reply was already tried with this pony. */
+		boolean alreadyTried(TaleContext context, TaleAst.Node node, TaleAst.Reply reply);
+	}
+
+	private static final Voices SILENT = new Voices() {
+		public int tier(TaleContext context, String voice) {
+			return -1;
+		}
+
+		public int odds(TaleContext context, TaleAst.Node node, TaleAst.Reply reply) {
+			return 50;
+		}
+
+		public boolean roll(TaleContext context, TaleAst.Node node, TaleAst.Reply reply, int odds) {
+			return context.random().nextInt(100) < odds;
+		}
+
+		public void attempted(TaleContext context, TaleAst.Node node, TaleAst.Reply reply, boolean success) {
+		}
+
+		public boolean alreadyTried(TaleContext context, TaleAst.Node node, TaleAst.Reply reply) {
+			return false;
+		}
+	};
+
+	private static Voices activeVoices = SILENT;
+
+	public static void setVoices(Voices voices) {
+		activeVoices = voices;
+	}
+
+	public static Voices voicesImpl() {
+		return activeVoices;
+	}
+
+	/** {@code faint} is 0, {@code clear} 1, {@code strong} 2; -1 for anything else. */
+	public static int tierIndex(String tier) {
+		return TIERS.indexOf(normalize(tier));
+	}
+
 	public record Condition(ArgumentCheck check, ConditionTest test) {
 	}
 

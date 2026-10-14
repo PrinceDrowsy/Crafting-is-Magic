@@ -55,6 +55,8 @@ import craftingismagic.cim.story.StoryThreads;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
+import craftingismagic.cim.voice.CimVoices;
+import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
  * The {@code /cim debug ...} root every debug command hangs off (docs/implementation-plan.md: Debug
@@ -69,6 +71,7 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
  * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems.</li>
  * <li>{@code dialogue test <node> <pony>} - play any node as a conversation.</li>
  * <li>{@code thread status|start|advance|reset|fire} - see and move your threads, and fake their events.</li>
+ * <li>{@code voice show|set|add|dice} - your inner voices, and forcing rolls.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -86,6 +89,7 @@ public final class DebugCommand {
 						.then(taleBranch())
 						.then(dialogueBranch())
 						.then(threadBranch())
+						.then(voiceBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -460,6 +464,54 @@ public final class DebugCommand {
 							context.getSource().sendFeedback(() -> Text.literal(count > 0 ? "Forgot " + id : "Didn't have " + id), false);
 						}))))
 				.then(fire);
+	}
+
+	/**
+	 * {@code voice show} lists your voices; {@code set}/{@code add} change one (add goes through the
+	 * normal growth, top-voice slowdown included); {@code dice success|failure|off} forces your rolls.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> voiceBranch() {
+		return CommandManager.literal("voice")
+				.then(CommandManager.literal("show").executes(context -> forSelf(context, player -> {
+					for (String voice : VoiceLeanings.ALL) {
+						context.getSource().sendFeedback(() -> Text.literal(voice + ": " + VoiceLeanings.points(player, voice) + " ("
+								+ VoiceLeanings.tierName(VoiceLeanings.tier(player, voice)) + ")"), false);
+					}
+				})))
+				.then(CommandManager.literal("set").then(voiceArgument()
+						.then(CommandManager.argument("points", com.mojang.brigadier.arguments.IntegerArgumentType.integer(0))
+								.executes(context -> forSelf(context, player -> {
+									String voice = StringArgumentType.getString(context, "voice");
+									VoiceLeanings.set(player, voice, com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "points"));
+									context.getSource().sendFeedback(() -> Text.literal(voice + " is now " + VoiceLeanings.points(player, voice)
+											+ " (" + VoiceLeanings.tierName(VoiceLeanings.tier(player, voice)) + ")"), false);
+								})))))
+				.then(CommandManager.literal("add").then(voiceArgument()
+						.then(CommandManager.argument("amount", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+								.executes(context -> forSelf(context, player -> {
+									String voice = StringArgumentType.getString(context, "voice");
+									VoiceLeanings.grow(player, voice, com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(context, "amount"));
+									context.getSource().sendFeedback(() -> Text.literal(voice + " is now " + VoiceLeanings.points(player, voice)
+											+ " (" + VoiceLeanings.tierName(VoiceLeanings.tier(player, voice)) + ")"), false);
+								})))))
+				.then(CommandManager.literal("dice")
+						.then(CommandManager.literal("success").executes(context -> forSelf(context, player -> {
+							CimVoices.force(player.getUuid(), true);
+							context.getSource().sendFeedback(() -> Text.literal("Every roll succeeds until /cim debug voice dice off"), false);
+						})))
+						.then(CommandManager.literal("failure").executes(context -> forSelf(context, player -> {
+							CimVoices.force(player.getUuid(), false);
+							context.getSource().sendFeedback(() -> Text.literal("Every roll fails until /cim debug voice dice off"), false);
+						})))
+						.then(CommandManager.literal("off").executes(context -> forSelf(context, player -> {
+							CimVoices.force(player.getUuid(), null);
+							context.getSource().sendFeedback(() -> Text.literal("Rolls are fair again"), false);
+						}))));
+	}
+
+	private static RequiredArgumentBuilder<ServerCommandSource, String> voiceArgument() {
+		return CommandManager.argument("voice", StringArgumentType.word())
+				.suggests((context, builder) -> CommandSource.suggestMatching(VoiceLeanings.ALL, builder));
 	}
 
 	private static RequiredArgumentBuilder<ServerCommandSource, Identifier> threadArgument() {

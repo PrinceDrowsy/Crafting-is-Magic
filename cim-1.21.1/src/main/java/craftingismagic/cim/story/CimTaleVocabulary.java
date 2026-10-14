@@ -45,14 +45,15 @@ import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment.PonyFamily;
 import craftingismagic.cim.villager.Quirk;
 import craftingismagic.cim.villager.ReplyTone;
+import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
  * The game's own {@code .tale} words (docs/narrative-reference.md): the inner voices, reply tones,
  * feelings, every built-in condition, effect, thread event, and variable, and the {@code chatter}
  * start context. Other mods register theirs the same way, under their own namespace.
  * <p>
- * Some words are accepted now but wait on later systems, and say so in the log when used: voices
- * ({@code voice(...)}, {@code ~ leaning}) on Phase 3, {@code ~ moment} on Phase 4, and
+ * Some words are accepted now but wait on later systems, and say so in the log when used:
+ * {@code ~ moment} on Phase 4, and
  * {@code player.heritage}/{@code player.upbringing}/{@code holiday}/{@code season}
  * on the character creator and calendar - those conditions are false until then.
  */
@@ -60,7 +61,7 @@ public final class CimTaleVocabulary {
 	public static final String CHATTER = "chatter";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/narrative");
-	private static final List<String> ELEMENTS = List.of("honesty", "kindness", "laughter", "generosity", "loyalty", "magic");
+	private static final List<String> ELEMENTS = VoiceLeanings.ELEMENTS;
 	private static final List<String> SEASONS = List.of("spring", "summer", "autumn", "fall", "winter");
 	private static final List<String> FAMILY = List.of("recorded", "orphan", "parent", "partner");
 	private static final List<String> RELATIVES = List.of("parent", "partner");
@@ -77,7 +78,7 @@ public final class CimTaleVocabulary {
 		for (String element : ELEMENTS) {
 			TaleVocabulary.registerVoice(element, true);
 		}
-		TaleVocabulary.registerVoice("whisper", false);
+		TaleVocabulary.registerVoice(VoiceLeanings.WHISPER, false);
 		for (ReplyTone tone : ReplyTone.values()) {
 			TaleVocabulary.registerTone(tone.name());
 		}
@@ -102,7 +103,8 @@ public final class CimTaleVocabulary {
 		condition("fact", (args, cmp) -> factIds(args), (tale, args, cmp) -> hasFact(tale, id(args.get(0))));
 		condition("remembers", (args, cmp) -> ids(args, 1), (tale, args, cmp) -> MemoryStore.remembers(tale.speaker(), id(args.get(0))));
 		condition("voice", (args, cmp) -> words(args, 1, 2, List.of(List.copyOf(TaleVocabulary.voices()), TaleVocabulary.TIERS)),
-				(tale, args, cmp) -> waiting("voice(...)", "inner voices (Phase 3)"));
+				(tale, args, cmp) -> VoiceLeanings.tier(tale.player(), args.get(0))
+						>= (args.size() > 1 ? TaleVocabulary.tierIndex(args.get(1)) : 0));
 		condition("species", (args, cmp) -> words(args, 1, 1, List.of(names(Species.values()))),
 				(tale, args, cmp) -> species(tale.speaker()).name().equalsIgnoreCase(args.get(0)));
 		condition("personality", (args, cmp) -> words(args, 1, 1, List.of(names(PersonalityType.values()))),
@@ -240,7 +242,10 @@ public final class CimTaleVocabulary {
 				return List.of("write it as \"~ leaning <element> +N\"; elements: " + String.join(", ", ELEMENTS));
 			}
 			return List.of();
-		}, (tale, args) -> waiting("~ leaning " + args.get(0), "inner voices (Phase 3)"));
+		}, (tale, args) -> {
+			String[] words = split(args);
+			VoiceLeanings.grow(tale.player(), words[0], Integer.parseInt(words[1].replace("+", "")));
+		});
 	}
 
 	/** {@code ~ memory <id>[, <emotion> [faint|clear|strong]]}. */

@@ -1,5 +1,6 @@
 package craftingismagic.cim.villager;
 
+import java.util.List;
 import java.util.Optional;
 
 import com.mojang.serialization.Codec;
@@ -32,6 +33,24 @@ public enum PersonalityType {
 
 	public Optional<ReplyTone> toneAffinity() {
 		return Optional.ofNullable(toneAffinity);
+	}
+
+	/**
+	 * The Elements this kind of pony cares about most, as voice names (README: Friendship, deepened -
+	 * "examples, not final"). Voice replies in a valued Element roll better with them. Daring's
+	 * "courage" and Cranky's "usefulness" aren't voices, so only their Element counts.
+	 */
+	public List<String> valuedElements() {
+		return switch (this) {
+			case STEADFAST -> List.of("loyalty", "honesty");
+			case PEPPY -> List.of("laughter");
+			case GENTLE -> List.of("kindness");
+			case REFINED -> List.of("generosity");
+			case BOOKISH -> List.of("magic");
+			case DARING -> List.of("loyalty");
+			case CRANKY -> List.of("honesty");
+			case LAZY -> List.of();
+		};
 	}
 
 	public static final Codec<PersonalityType> CODEC = Codec.STRING.xmap(PersonalityType::valueOf, PersonalityType::name);

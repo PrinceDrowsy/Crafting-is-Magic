@@ -23,6 +23,9 @@ import craftingismagic.cim.narrative.TaleRuntime;
 import craftingismagic.cim.narrative.TaleRuntime.Beat;
 import craftingismagic.cim.narrative.TaleRuntime.Conversation;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
+import craftingismagic.cim.network.DialogueBeatS2CPayload.LineData;
+import craftingismagic.cim.network.DialogueBeatS2CPayload.OptionData;
+import craftingismagic.cim.voice.CimVoices;
 import craftingismagic.cim.story.CimTaleVocabulary;
 import craftingismagic.cim.story.StoryThreads;
 
@@ -64,7 +67,7 @@ public final class VillagerDialogue {
 				() -> {
 					LOGGER.warn("No Idle Chatter opener fits {} - are the chatter .tale files loading? (/cim debug tale validate)",
 							villager.getName().getString());
-					send(player, villager, new Beat(List.of(new TaleRuntime.Line("", true, "...")), List.of(), true));
+					send(player, villager, new Beat(List.of(TaleRuntime.Line.spoken("", true, "...")), List.of(), true));
 				});
 	}
 
@@ -104,11 +107,15 @@ public final class VillagerDialogue {
 	}
 
 	private static void send(ServerPlayerEntity player, Entity pony, Beat beat) {
-		List<String> lines = beat.lines().stream()
-				.map(line -> line.partner() || line.speaker().isEmpty() ? line.text() : line.speaker() + ": " + line.text())
-				.toList();
-		List<String> tones = beat.options().stream().map(option -> option.tone().map(t -> t.toLowerCase(Locale.ROOT)).orElse("")).toList();
-		List<String> texts = beat.options().stream().map(TaleRuntime.Option::text).toList();
-		ServerPlayNetworking.send(player, new DialogueBeatS2CPayload(pony.getId(), pony.getName().getString(), lines, tones, texts, beat.ended()));
+		String partnerName = pony.getName().getString();
+		List<LineData> lines = beat.lines().stream().map(line -> {
+			boolean spoken = line.kind() == TaleRuntime.LineKind.SPOKEN;
+			boolean partner = spoken && (line.partner() || line.speaker().isEmpty());
+			return new LineData(line.kind().ordinal(), line.voice(), spoken ? (partner ? partnerName : line.speaker()) : "", partner, line.text());
+		}).toList();
+		List<OptionData> options = beat.options().stream().map(option -> new OptionData(
+				option.tone().map(t -> t.toLowerCase(Locale.ROOT)).orElse(""), option.voice().orElse(""), option.text(),
+				option.odds() < 0 ? -1 : CimVoices.band(option.odds()))).toList();
+		ServerPlayNetworking.send(player, new DialogueBeatS2CPayload(pony.getId(), pony.getName().getString(), lines, options, beat.ended()));
 	}
 }
