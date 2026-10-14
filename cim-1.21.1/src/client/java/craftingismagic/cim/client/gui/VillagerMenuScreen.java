@@ -23,7 +23,7 @@ import craftingismagic.cim.network.VillagerOfferTradeC2SPayload;
  * The server freezes the villager in place the moment this screen opens, so it doesn't wander off
  * mid-conversation. {@link #close()} releases that hold whenever the player intentionally leaves
  * (button press or Escape) - except Offer Trade and Idle Chatter, which hand off to vanilla's own
- * trade-session lifecycle / {@link IdleChatterScreen} respectively instead of releasing it.
+ * trade-session lifecycle / {@link DialogueScreen} respectively instead of releasing it.
  * Deliberately overrides {@code close()}, not {@code removed()}: {@code removed()} also fires on
  * routine screen re-initialization (e.g. a window resize/focus event), which was silently releasing
  * the freeze seconds into what still looked like an open menu.

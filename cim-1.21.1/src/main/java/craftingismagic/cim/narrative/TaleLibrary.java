@@ -59,7 +59,12 @@ public final class TaleLibrary {
 
 			@Override
 			public void reload(ResourceManager manager) {
-				TaleLibrary.reload(manager);
+				// A tale bug must never stop a world from loading - keep the last good library instead.
+				try {
+					TaleLibrary.reload(manager);
+				} catch (RuntimeException e) {
+					LOGGER.error("Loading .tale files failed; keeping the previously loaded tales", e);
+				}
 			}
 		});
 	}

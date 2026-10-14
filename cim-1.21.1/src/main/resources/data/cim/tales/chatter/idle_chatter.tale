@@ -1,0 +1,225 @@
+// Idle Chatter (README: Idle Chatter, in more detail).
+//
+// PLACEHOLDER LINES - carried over word for word from the old Java version so behavior stays the
+// same while the engine changes. They're meant to be rewritten by hand.
+//
+// How it plays: the game picks one "start: chatter" node by weight (each is a topic), shows its
+// line, then everyone lands on "replies". Picking a tone builds Fondness - more if it's the tone
+// this pony's personality likes - and the pony reacts and says goodbye.
+
+
+// ---- Weather ----
+// Lazy ponies talk about the weather more.
+
+=== weather
+start: chatter
+weight: +3 if personality(lazy)
+-> weather_storm if thundering
+-> weather_rain if raining
+-> weather_woods if biome(forest, dark_forest, birch_forest, flower_forest, old_growth_birch_forest)
+-> weather_swamp if biome(swamp, mangrove_swamp)
+-> weather_water if biome(river, beach)
+-> weather_fields if biome(savanna, plains, sunflower_plains)
+{pony}: Not a cloud in the sky today. Can't complain about that.
+-> replies
+
+=== weather_storm
+{pony}: Some storm out there, huh? I saw a flash light up the whole sky earlier.
+-> replies
+
+=== weather_rain
+{pony}: Bit of a rainy one today. Good for the crops, at least.
+-> replies
+
+=== weather_woods
+{pony}: Clear skies today. The woods nearby have been quiet - almost too quiet, if you ask me.
+-> replies
+
+=== weather_swamp
+{pony}: Clear day, for once - the swamp doesn't smell half as strange when the sun's out.
+-> replies
+
+=== weather_water
+{pony}: Beautiful day by the falls. The water's practically sparkling.
+-> replies
+
+=== weather_fields
+{pony}: Good clear day for the orchards. Can't ask for better weather than this.
+-> replies
+
+
+// ---- Work & craft ----
+
+=== work
+start: chatter
+-> work_profession if not profession(none)
+-> work_unicorn if species(unicorn)
+-> work_pegasus if species(pegasus)
+-> work_bat_pony if species(bat_pony)
+-> work_kirin if species(kirin)
+-> work_changeling if species(changeling)
+{pony}: Been out plowing and hauling all morning. Good honest work.
+-> replies
+
+=== work_profession
+{pony}: Keeping busy with the {profession} work, same as always.
+    or: Never a dull moment being the village {profession}.
+-> replies
+
+=== work_unicorn
+{pony}: Practicing a bit of spellwork when I get the chance. Still got a ways to go.
+-> replies
+
+=== work_pegasus
+{pony}: Been up clearing clouds. Someone's got to keep the sky tidy.
+-> replies
+
+=== work_bat_pony
+{pony}: Mostly keep to the night shift. Suits me fine - less fuss that way.
+-> replies
+
+=== work_kirin
+{pony}: Just keeping to my own quiet routine today. Helps keep the temper in check.
+-> replies
+
+=== work_changeling
+{pony}: Oh, you know - odd jobs here and there. Whatever needs doing.
+-> replies
+
+
+// ---- Village gossip ----
+// Ponies with the Gossip quirk bring this up more.
+
+=== village_gossip
+start: chatter
+weight: +3 if quirk(gossip)
+{pony}: Did you hear? Someone's been leaving flowers on doorsteps all over the village. Nopony's owned up to it yet.
+    or: Between you and me, I heard two of the neighbors had quite the argument over a fence line last week.
+    or: There's a rumor going around that somepony found a whole cave of gems out past the tree line.
+-> replies
+
+
+// ---- Hobbies & interests ----
+// Bookish ponies bring this up more.
+
+=== hobbies
+start: chatter
+weight: +3 if personality(bookish)
+{pony}: When I get some free time, I like to just sit and watch the clouds roll by.
+    or: I've been trying to pick up a new hobby lately. Haven't quite settled on one yet.
+    or: Honestly? I could talk about my hobby for hours if you let me.
+-> replies
+
+
+// ---- Current events ----
+
+=== current_events
+start: chatter
+{pony}: Nothing much going on around the village lately - just the usual day to day.
+    or: Things have been pretty quiet around here. Suits me just fine, honestly.
+-> replies
+
+
+// ---- Friendship & relationships ----
+
+=== friendship
+start: chatter
+{pony}: It's nice having friends around the village. Makes the place feel like home.
+    or: You know, a good friend makes even the dullest chores bearable.
+-> replies
+
+
+// ---- Cutie mark story ----
+// Bookish ponies bring this up more. Changelings don't have cutie marks, so never.
+
+=== cutie_mark
+start: chatter
+weight: +3 if personality(bookish)
+when: not species(changeling)
+{pony}: Want to hear how I got my cutie mark? It's a bit of a story, but I don't mind telling it.
+    or: My cutie mark story isn't very exciting, honestly - but it means a lot to me.
+-> replies
+
+
+// ---- Homeland & family ----
+// "present" means the relative is loaded nearby right now, so the pony can name them.
+
+=== family
+start: chatter
+-> family_unknown if not family(recorded)
+-> family_orphan if family(orphan)
+-> family_parent if family(parent)
+-> family_partner if family(partner)
+{pony}: No family to speak of just yet - maybe someday.
+-> replies
+
+=== family_unknown
+{pony}: Never really knew my family, to be honest. This village is home enough for me now.
+-> replies
+
+=== family_orphan
+{pony}: I don't have any family of my own around here. Still, the village looks out for its own.
+-> replies
+
+=== family_parent
+-> family_parent_here if present(parent)
+{pony}: My family's around here somewhere, though I haven't seen them in a while.
+-> replies
+
+=== family_parent_here
+{pony}: Actually, my family's right here in the village - {parent} raised me.
+-> replies
+
+=== family_partner
+-> family_partner_here if present(partner)
+{pony}: I've got someone special in the village, though they're not around right now.
+-> replies
+
+=== family_partner_here
+{pony}: {partner} and I settled down together right here in the village.
+-> replies
+
+
+// ---- Replies ----
+// No pick is ever penalized; a mismatch just doesn't earn the bonus (README: Personality system).
+
+=== replies
+* Friendly:
+    ~ fondness +5
+    ~ fondness +3 if likes_tone(friendly)
+    -> react_friendly
+* Curious:
+    ~ fondness +5
+    ~ fondness +3 if likes_tone(curious)
+    -> react_curious
+* Bold:
+    ~ fondness +5
+    ~ fondness +3 if likes_tone(bold)
+    -> react_bold
+
+=== react_friendly
+{pony}: Aw, that's sweet of you to say!
+    or: Ha, I like you already.
+-> react_matched if likes_tone(friendly)
+-> goodbye
+
+=== react_curious
+{pony}: Ooh, good question - never really thought about it that way.
+    or: Huh, that's actually a fair point.
+-> react_matched if likes_tone(curious)
+-> goodbye
+
+=== react_bold
+{pony}: Ha! Now that's the kind of talk I like to hear.
+    or: Bold of you to say - I respect that.
+-> react_matched if likes_tone(bold)
+-> goodbye
+
+=== react_matched
+{pony}: You really get me.
+    or: Feels like we're on the same wavelength.
+-> goodbye
+
+=== goodbye
+{pony}: Anyway, it was nice chatting. Oh, and if you're ever looking for a gift - {favorite_gift} would make my day.
+-> END

@@ -50,12 +50,11 @@ import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.DebugOverlayToggleC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
-import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
-import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
+import craftingismagic.cim.network.DialogueBeatS2CPayload;
+import craftingismagic.cim.network.DialogueChooseC2SPayload;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
-import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
@@ -107,6 +106,7 @@ import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
 import craftingismagic.cim.villager.VillagerDebugEditorHandler;
+import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 import craftingismagic.cim.villager.VillagerFriendGroupHandler;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
@@ -137,6 +137,7 @@ public class Cim implements ModInitializer {
 		VillageSpawnHandler.register();
 		CimTaleVocabulary.register();
 		TaleLibrary.register();
+		VillagerDialogue.register();
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
 		DebugOverlay.register();
@@ -172,10 +173,9 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(VillagerOfferTradeC2SPayload.ID, VillagerOfferTradeC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(VillagerGiveGiftC2SPayload.ID, VillagerGiveGiftC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(StopVillagerInteractionC2SPayload.ID, StopVillagerInteractionC2SPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(IdleChatterReplyC2SPayload.ID, IdleChatterReplyC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DialogueChooseC2SPayload.ID, DialogueChooseC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OpenVillagerMenuS2CPayload.ID, OpenVillagerMenuS2CPayload.CODEC);
-		PayloadTypeRegistry.playS2C().register(OpenIdleChatterS2CPayload.ID, OpenIdleChatterS2CPayload.CODEC);
-		PayloadTypeRegistry.playS2C().register(IdleChatterReactionS2CPayload.ID, IdleChatterReactionS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(DialogueBeatS2CPayload.ID, DialogueBeatS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(OpenVillagerDebugEditorS2CPayload.ID, OpenVillagerDebugEditorS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerNameC2SPayload.ID, DebugSetVillagerNameC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerSpeciesC2SPayload.ID, DebugSetVillagerSpeciesC2SPayload.CODEC);
@@ -236,9 +236,9 @@ public class Cim implements ModInitializer {
 		ServerPlayNetworking.registerGlobalReceiver(PegasusChargeReleaseC2SPayload.ID,
 				(payload, context) -> PegasusRainboomCharge.cancelFromRelease(context.player()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerIdleChatterC2SPayload.ID,
-				(payload, context) -> VillagerInteractionHandler.idleChatter(context.player(), payload.villagerEntityId()));
-		ServerPlayNetworking.registerGlobalReceiver(IdleChatterReplyC2SPayload.ID, (payload, context) ->
-				VillagerInteractionHandler.replyToIdleChatter(context.player(), payload.villagerEntityId(), payload.tone()));
+				(payload, context) -> VillagerDialogue.startChatter(context.player(), payload.villagerEntityId()));
+		ServerPlayNetworking.registerGlobalReceiver(DialogueChooseC2SPayload.ID,
+				(payload, context) -> VillagerDialogue.choose(context.player(), payload.entityId(), payload.option()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerOfferTradeC2SPayload.ID,
 				(payload, context) -> VillagerInteractionHandler.offerTrade(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(VillagerGiveGiftC2SPayload.ID,

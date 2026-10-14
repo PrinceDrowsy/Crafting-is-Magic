@@ -38,6 +38,7 @@ import craftingismagic.cim.memory.MemoryDescriptions;
 import craftingismagic.cim.memory.MemoryImportance;
 import craftingismagic.cim.memory.MemoryKnowledge;
 import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.narrative.TaleAst;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
 import craftingismagic.cim.narrative.TaleLibrary;
 import craftingismagic.cim.narrative.TaleProblem;
@@ -46,6 +47,7 @@ import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.villager.LifeStage;
+import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 
 /**
@@ -59,6 +61,7 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
  * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories.</li>
  * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
  * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems.</li>
+ * <li>{@code dialogue test <node> <pony>} - play any node as a conversation.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -74,6 +77,7 @@ public final class DebugCommand {
 						.then(memoryBranch())
 						.then(factBranch())
 						.then(taleBranch())
+						.then(dialogueBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -332,6 +336,29 @@ public final class DebugCommand {
 							}
 							return files.size();
 						}));
+	}
+
+	/**
+	 * {@code dialogue test <node> <pony>} opens any loaded node as a conversation with that pony,
+	 * skipping its {@code start:} and {@code when:} - the way to play a branch without setting up the
+	 * world it needs.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> dialogueBranch() {
+		return CommandManager.literal("dialogue")
+				.then(CommandManager.literal("test")
+						.then(CommandManager.argument("node", IdentifierArgumentType.identifier())
+								.suggests((context, builder) -> CommandSource.suggestIdentifiers(TaleLibrary.get().nodes().keySet(), builder))
+								.then(CommandManager.argument("pony", EntityArgumentType.entity())
+										.executes(context -> {
+											Identifier id = IdentifierArgumentType.getIdentifier(context, "node");
+											TaleAst.Node node = TaleLibrary.get().nodes().get(id);
+											if (node == null) {
+												throw new SimpleCommandExceptionType(Text.literal("No loaded node " + id + " (see /cim debug tale list)")).create();
+											}
+											Entity pony = EntityArgumentType.getEntity(context, "pony");
+											VillagerDialogue.startAt(context.getSource().getPlayerOrThrow(), pony, node);
+											return 1;
+										}))));
 	}
 
 	private static int addMemory(CommandContext<ServerCommandSource> context, MemoryImportance importance, Emotion emotion,

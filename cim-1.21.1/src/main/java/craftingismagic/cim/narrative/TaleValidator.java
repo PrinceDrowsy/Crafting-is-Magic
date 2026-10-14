@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 
 import net.minecraft.util.Identifier;
 
@@ -16,6 +17,7 @@ import craftingismagic.cim.narrative.TaleAst.Interjection;
 import craftingismagic.cim.narrative.TaleAst.Jump;
 import craftingismagic.cim.narrative.TaleAst.Node;
 import craftingismagic.cim.narrative.TaleAst.Reply;
+import craftingismagic.cim.narrative.TaleAst.Spoken;
 import craftingismagic.cim.narrative.TaleAst.Stage;
 import craftingismagic.cim.narrative.TaleAst.Statement;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
@@ -86,12 +88,22 @@ public final class TaleValidator {
 	// ---- Nodes ----
 
 	private void checkNode(TaleFile file, Node node) {
+		for (String context : node.start()) {
+			if (!TaleVocabulary.isStartContext(context)) {
+				error(file, node.line(), "Nothing opens conversations at \"start: " + context + "\". Known: "
+						+ String.join(", ", TaleVocabulary.startContexts()) + ".");
+			}
+		}
+		if (node.start().isEmpty() && (node.weight() != 1 || !node.bonuses().isEmpty())) {
+			warning(file, node.line(), "\"weight:\" only matters on a node with \"start:\".");
+		}
+		node.bonuses().forEach(bonus -> bonus.conditions().forEach(condition -> checkCondition(file, condition)));
 		node.when().forEach(condition -> checkCondition(file, condition));
 		for (Statement statement : node.body()) {
 			checkStatement(file, statement);
 		}
 		for (int i = 0; i < node.body().size() - 1; i++) {
-			if (node.body().get(i) instanceof Jump jump) {
+			if (node.body().get(i) instanceof Jump jump && !jump.conditional()) {
 				warning(file, node.body().get(i + 1).line(), "Nothing after the jump on line " + jump.line() + " will ever play.");
 				break;
 			}
@@ -100,15 +112,24 @@ public final class TaleValidator {
 
 	private void checkStatement(TaleFile file, Statement statement) {
 		switch (statement) {
-			case Jump jump -> checkJump(file, jump.line(), jump.target());
-			case EffectStatement effect -> checkEffect(file, effect.effect());
+			case Jump jump -> {
+				checkJump(file, jump.line(), jump.target());
+				jump.conditions().forEach(condition -> checkCondition(file, condition));
+			}
+			case EffectStatement effect -> {
+				checkEffect(file, effect.effect());
+				effect.conditions().forEach(condition -> checkCondition(file, condition));
+			}
 			case Interjection interjection -> {
 				checkVoice(file, interjection.line(), interjection.voice());
 				checkTier(file, interjection.line(), interjection.tier());
+				checkVariables(file, interjection.line(), interjection.text());
+			}
+			case Spoken spoken -> {
+				checkVariables(file, spoken.line(), spoken.speaker());
+				spoken.texts().forEach(text -> checkVariables(file, spoken.line(), text));
 			}
 			case Reply reply -> checkReply(file, reply);
-			default -> {
-			}
 		}
 	}
 
@@ -120,6 +141,10 @@ public final class TaleValidator {
 		});
 		for (Statement statement : reply.body()) {
 			checkStatement(file, statement);
+		}
+		checkVariables(file, reply.line(), reply.text());
+		if (reply.text().isBlank() && reply.isVoiceReply()) {
+			error(file, reply.line(), "A voice reply needs text - only tone replies can fall back to showing the tone.");
 		}
 		if (reply.isVoiceReply()) {
 			String voice = reply.voice().get();
@@ -141,7 +166,7 @@ public final class TaleValidator {
 			}
 			reply.successTarget().ifPresent(target -> checkJump(file, reply.line(), target));
 			reply.failureTarget().ifPresent(target -> checkJump(file, reply.line(), target));
-		} else if (reply.body().stream().noneMatch(statement -> statement instanceof Jump)) {
+		} else if (reply.body().stream().noneMatch(statement -> statement instanceof Jump jump && !jump.conditional())) {
 			warning(file, reply.line(), "This reply has no \"-> target\", so choosing it ends the conversation. Add \"-> END\" if that's intended.");
 		}
 	}
@@ -173,26 +198,47 @@ public final class TaleValidator {
 	// ---- Calls ----
 
 	private void checkCondition(TaleFile file, ConditionCall condition) {
-		TaleVocabulary.ArgumentCheck check = TaleVocabulary.condition(condition.type());
-		if (check == null) {
+		TaleVocabulary.Condition type = TaleVocabulary.condition(condition.type());
+		if (type == null) {
 			error(file, condition.line(), "No mod or datapack has registered a condition called " + condition.type() + ".");
 			return;
 		}
-		report(file, condition.line(), "\"" + condition.source() + "\"", check.check(condition.args(), condition.comparison()));
+		condition.args().forEach(arg -> checkVariables(file, condition.line(), arg));
+		report(file, condition.line(), "\"" + condition.source() + "\"", safely(type.check(), condition.args(), condition.comparison()));
 	}
 
 	private void checkEffect(TaleFile file, EffectCall effect) {
-		TaleVocabulary.ArgumentCheck check = TaleVocabulary.effect(effect.type());
-		if (check == null) {
+		TaleVocabulary.Effect type = TaleVocabulary.effect(effect.type());
+		if (type == null) {
 			error(file, effect.line(), "No mod or datapack has registered an effect called " + effect.type() + ".");
 			return;
 		}
-		report(file, effect.line(), "\"~ " + effect.source() + "\"", check.check(effect.args(), Optional.empty()));
+		effect.args().forEach(arg -> checkVariables(file, effect.line(), arg));
+		report(file, effect.line(), "\"~ " + effect.source() + "\"", safely(type.check(), effect.args(), Optional.empty()));
 		if (effect.type().equals(Identifier.of("cim", "thread")) && !effect.args().isEmpty()) {
 			String[] words = effect.args().get(0).trim().split("\\s+");
 			if (words.length == 3 && words[0].equals("advance")) {
 				advancedTo.add(words[1] + " " + words[2]);
 			}
+		}
+	}
+
+	private void checkVariables(TaleFile file, int line, String text) {
+		Matcher matcher = TaleRuntime.VARIABLE.matcher(text);
+		while (matcher.find()) {
+			if (TaleVocabulary.variable(matcher.group(1)) == null) {
+				error(file, line, "Unknown variable {" + matcher.group(1) + "}. Variables: "
+						+ String.join(", ", TaleVocabulary.variables().stream().map(name -> "{" + name + "}").toList()) + ".");
+			}
+		}
+	}
+
+	/** A check that throws (a bug in it, or another mod's) becomes a reported problem, never a failed load. */
+	private static List<String> safely(TaleVocabulary.ArgumentCheck check, List<String> args, Optional<String> comparison) {
+		try {
+			return check.check(args, comparison);
+		} catch (RuntimeException e) {
+			return List.of("couldn't be checked (" + e + ")");
 		}
 	}
 
@@ -239,7 +285,7 @@ public final class TaleValidator {
 			error(file, trigger.line(), "No mod or datapack has registered an event called " + trigger.event().type() + ".");
 			return;
 		}
-		report(file, trigger.line(), "\"on " + trigger.event().source() + "\"", check.check(trigger.event().args(), Optional.empty()));
+		report(file, trigger.line(), "\"on " + trigger.event().source() + "\"", safely(check, trigger.event().args(), Optional.empty()));
 	}
 
 	private void checkStage(TaleFile file, TaleAst.Thread thread, Set<String> stageNames, int line, String target) {
@@ -252,9 +298,8 @@ public final class TaleValidator {
 
 	private void warnUnreached(TaleFile file) {
 		for (Node node : file.nodes()) {
-			// A node with "when:" is presumably an entry point the game picks by its conditions.
-			if (node.when().isEmpty() && !jumpedTo.contains(node.id()) && file.nodes().get(0) != node) {
-				warning(file, node.line(), "Nothing jumps to \"" + node.name() + "\" and it has no \"when:\", so it may never play.");
+			if (node.start().isEmpty() && !jumpedTo.contains(node.id())) {
+				warning(file, node.line(), "Nothing jumps to \"" + node.name() + "\" and it has no \"start:\", so it will only play from /cim debug dialogue test.");
 			}
 		}
 		for (TaleAst.Thread thread : file.threads()) {

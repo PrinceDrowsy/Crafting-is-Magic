@@ -16,17 +16,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.random.Random;
 import net.minecraft.village.VillagerProfession;
 
 import craftingismagic.cim.item.CimItems;
-import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
-import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.rogue.RoguePonyEntity;
-import craftingismagic.cim.species.Species;
-import craftingismagic.cim.species.SpeciesAttachment;
-import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 
 /**
  * Right-clicking a villager opens our own Interact menu directly, instead of vanilla's trade
@@ -52,8 +46,8 @@ import craftingismagic.cim.villager.PersonalityAttachment.Personality;
  * only fires on an intentional close.
  */
 public final class VillagerInteractionHandler {
-	private static final int IDLE_CHATTER_FONDNESS_BOOST = 5;
-	private static final int IDLE_CHATTER_TONE_MATCH_BONUS = 3;
+	// Idle Chatter's own Fondness (+5, +3 for the pony's favorite tone) now lives in
+	// data/cim/tales/chatter/idle_chatter.tale, run by VillagerDialogue.
 	private static final int FAVORITE_GIFT_FONDNESS_BOOST = 20;
 	/** A favorite gift answers something the pony told you in conversation (Idle Chatter's closing
 	 * line reveals it) - a gift that shows you listened builds Trust, not just Fondness (README:
@@ -61,7 +55,7 @@ public final class VillagerInteractionHandler {
 	private static final int FAVORITE_GIFT_TRUST_BOOST = 3;
 	private static final int GENERIC_GIFT_FONDNESS_BOOST = 5;
 	/** Sanity check on the client-supplied entity id - the player must actually be near it. */
-	private static final double MAX_INTERACT_DISTANCE_SQUARED = 8.0 * 8.0;
+	static final double MAX_INTERACT_DISTANCE_SQUARED = 8.0 * 8.0;
 
 	/** Frozen entity id -> the player currently interacting with it (villager menu/idle chatter, or
 	 * the debug editor - see the class doc comment). */
@@ -119,58 +113,6 @@ public final class VillagerInteractionHandler {
 		});
 	}
 
-	/**
-	 * Opens the conversation with a topic pick + opening line only - no affection change yet, that
-	 * moves to {@link #replyToIdleChatter} once the player actually picks a reply tone, so no pick is
-	 * ever penalized (README: "No pick is ever penalized; a mismatch just doesn't earn the bonus.").
-	 */
-	public static void idleChatter(ServerPlayerEntity player, int villagerEntityId) {
-		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
-		if (villager == null) {
-			return;
-		}
-
-		Species species = SpeciesAttachment.hasChosenSpecies(villager) ? SpeciesAttachment.getSpecies(villager) : Species.EARTH_PONY;
-		Personality personality = resolvePersonality(villager);
-		Random random = villager.getRandom();
-
-		IdleChatterTopic topic = IdleChatterDialogue.pickTopic(species, personality, random);
-		String openingLine = IdleChatterDialogue.openingLine(villager, topic, species, player.getServerWorld(), random);
-		ServerPlayNetworking.send(player,
-				new OpenIdleChatterS2CPayload(villagerEntityId, villager.getName().getString(), openingLine));
-	}
-
-	/**
-	 * Grants the base Fondness boost, plus a match bonus if the picked tone lines up with the
-	 * pony's {@link PersonalityType#toneAffinity()} - the concrete mechanical hook behind the
-	 * Personality system (README: Personality system, Mechanical hook).
-	 */
-	public static void replyToIdleChatter(ServerPlayerEntity player, int villagerEntityId, ReplyTone tone) {
-		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
-		if (villager == null) {
-			return;
-		}
-
-		Personality personality = resolvePersonality(villager);
-		boolean matched = personality.baseType().toneAffinity().map(affinity -> affinity == tone).orElse(false);
-		int boost = IDLE_CHATTER_FONDNESS_BOOST + (matched ? IDLE_CHATTER_TONE_MATCH_BONUS : 0);
-		FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.FONDNESS, boost);
-
-		Random random = villager.getRandom();
-		String reactionLine = IdleChatterDialogue.reactionLine(personality, tone, matched, random);
-		String closingLine = IdleChatterDialogue.closingLine(villager);
-		ServerPlayNetworking.send(player, new IdleChatterReactionS2CPayload(reactionLine, closingLine));
-	}
-
-	/** Falls back to a fresh uniform roll for a pre-existing villager that predates this system,
-	 * same "needs a fresh villager to see the real thing" caveat as genetics - not persisted here,
-	 * just keeps a stale/missing attachment from throwing. */
-	private static Personality resolvePersonality(VillagerEntity villager) {
-		return PersonalityAttachment.hasPersonality(villager)
-				? PersonalityAttachment.getPersonality(villager)
-				: PersonalityAttachment.randomize(villager.getRandom());
-	}
-
 	public static void offerTrade(ServerPlayerEntity player, int villagerEntityId) {
 		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
 		if (villager != null) {
@@ -223,6 +165,7 @@ public final class VillagerInteractionHandler {
 	 * VillagerEntity#getCustomer()}, since that method doesn't exist on a Rogue Pony at all.
 	 */
 	public static void stopInteracting(ServerPlayerEntity player, int villagerEntityId) {
+		VillagerDialogue.end(player);
 		if (player.getUuid().equals(frozenVillagers.get(villagerEntityId))
 				&& player.getServerWorld().getEntityById(villagerEntityId) instanceof MobEntity mob) {
 			unfreeze(mob);
@@ -231,6 +174,7 @@ public final class VillagerInteractionHandler {
 
 	/** Releases every entity a disconnecting player was holding still, so none stay frozen forever. */
 	public static void cancel(ServerPlayerEntity player) {
+		VillagerDialogue.end(player);
 		frozenVillagers.entrySet().removeIf(entry -> {
 			if (!entry.getValue().equals(player.getUuid())) {
 				return false;
@@ -263,7 +207,7 @@ public final class VillagerInteractionHandler {
 		frozenVillagers.remove(mob.getId());
 	}
 
-	private static VillagerEntity resolveNearbyVillager(ServerPlayerEntity player, int villagerEntityId) {
+	static VillagerEntity resolveNearbyVillager(ServerPlayerEntity player, int villagerEntityId) {
 		Entity entity = player.getServerWorld().getEntityById(villagerEntityId);
 		if (entity instanceof VillagerEntity villager && villager.squaredDistanceTo(player) <= MAX_INTERACT_DISTANCE_SQUARED) {
 			return villager;

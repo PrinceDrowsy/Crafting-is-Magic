@@ -22,6 +22,7 @@ import craftingismagic.cim.narrative.TaleAst.Stage;
 import craftingismagic.cim.narrative.TaleAst.Statement;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
 import craftingismagic.cim.narrative.TaleAst.Trigger;
+import craftingismagic.cim.narrative.TaleAst.WeightBonus;
 
 /**
  * Turns the text of a {@code .tale} file into a {@link TaleFile} (docs/narrative-reference.md). It
@@ -41,6 +42,10 @@ public final class TaleParser {
 	private static final Pattern CHANCE = Pattern.compile("^chance\\s+(\\d+)\\s*%$");
 	private static final Pattern AFTER = Pattern.compile("^after\\s+(\\d+)\\s+times?\\s*->\\s*(\\S+)$");
 	private static final Pattern BRANCH = Pattern.compile("^(success|failure)\\s*->\\s*(\\S+)$");
+	private static final Pattern WEIGHT_BASE = Pattern.compile("^(\\d+)$");
+	private static final Pattern WEIGHT_BONUS = Pattern.compile("^\\+(\\d+)\\s+if\\s+(.+)$");
+	/** A trailing {@code if ...} on a jump or effect. */
+	private static final Pattern IF_SUFFIX = Pattern.compile("^(.*?)\\s+if\\s+(.+)$");
 
 	private final Identifier fileId;
 	private final String source;
@@ -52,6 +57,9 @@ public final class TaleParser {
 	// Node being built
 	private String nodeName;
 	private int nodeLine;
+	private List<String> nodeStart;
+	private int nodeWeight;
+	private List<WeightBonus> nodeBonuses;
 	private List<ConditionCall> nodeWhen;
 	private List<Statement> nodeBody;
 	// Reply being built (inside a node)
@@ -123,6 +131,9 @@ public final class TaleParser {
 		}
 		nodeName = rest;
 		nodeLine = lineNumber;
+		nodeStart = new ArrayList<>();
+		nodeWeight = 1;
+		nodeBonuses = new ArrayList<>();
 		nodeWhen = new ArrayList<>();
 		nodeBody = new ArrayList<>();
 	}
@@ -130,11 +141,17 @@ public final class TaleParser {
 	// ---- Conversation nodes ----
 
 	private void nodeLine(int lineNumber, String content, boolean indented) {
-		if (content.startsWith("when:")) {
+		if (content.startsWith("when:") || content.startsWith("start:") || content.startsWith("weight:")) {
+			int colon = content.indexOf(':');
 			if (!nodeBody.isEmpty()) {
-				error(lineNumber, "\"when:\" has to come right after the node's \"===\" line.");
+				error(lineNumber, "\"" + content.substring(0, colon + 1) + "\" has to come right after the node's \"===\" line.");
 			}
-			nodeWhen.addAll(conditions(lineNumber, content.substring("when:".length())));
+			String rest = content.substring(colon + 1).trim();
+			switch (content.substring(0, colon)) {
+				case "when" -> nodeWhen.addAll(conditions(lineNumber, rest));
+				case "start" -> startLine(lineNumber, rest);
+				default -> weightLine(lineNumber, rest);
+			}
 			return;
 		}
 		if (content.startsWith("*")) {
@@ -146,6 +163,10 @@ public final class TaleParser {
 			replyChild(lineNumber, content);
 			return;
 		}
+		if (content.startsWith("or:")) {
+			alternative(lineNumber, content.substring("or:".length()).trim());
+			return;
+		}
 		finishReply();
 		Statement statement = statement(lineNumber, content);
 		if (statement != null) {
@@ -153,12 +174,54 @@ public final class TaleParser {
 		}
 	}
 
-	private Statement statement(int lineNumber, String content) {
-		if (content.startsWith("~")) {
-			return new EffectStatement(lineNumber, effect(lineNumber, content.substring(1).trim()));
+	private void startLine(int lineNumber, String rest) {
+		for (String part : splitTopLevel(rest)) {
+			String context = part.trim();
+			if (!NAME.matcher(context).matches()) {
+				error(lineNumber, "\"start:\" takes lowercase names like \"chatter\" - got \"" + context + "\".");
+			} else {
+				nodeStart.add(context);
+			}
 		}
-		if (content.startsWith("->")) {
-			return jump(lineNumber, content.substring(2).trim());
+		if (nodeStart.isEmpty()) {
+			error(lineNumber, "\"start:\" needs at least one name, like \"start: chatter\".");
+		}
+	}
+
+	private void weightLine(int lineNumber, String rest) {
+		Matcher base = WEIGHT_BASE.matcher(rest);
+		Matcher bonus = WEIGHT_BONUS.matcher(rest);
+		if (base.matches()) {
+			nodeWeight = Integer.parseInt(base.group(1));
+		} else if (bonus.matches()) {
+			nodeBonuses.add(new WeightBonus(lineNumber, Integer.parseInt(bonus.group(1)), conditions(lineNumber, bonus.group(2))));
+		} else {
+			error(lineNumber, "Write it as \"weight: 2\" or \"weight: +3 if <conditions>\".");
+		}
+	}
+
+	/** {@code or: text} under a spoken line - another way that line might come out. */
+	private void alternative(int lineNumber, String text) {
+		if (!nodeBody.isEmpty() && nodeBody.get(nodeBody.size() - 1) instanceof Spoken spoken) {
+			List<String> alternatives = new ArrayList<>(spoken.alternatives());
+			alternatives.add(text);
+			nodeBody.set(nodeBody.size() - 1, new Spoken(spoken.line(), spoken.speaker(), spoken.text(), List.copyOf(alternatives)));
+		} else {
+			error(lineNumber, "\"or:\" goes right under a spoken line, giving another way it might come out.");
+		}
+	}
+
+	private Statement statement(int lineNumber, String content) {
+		if (content.startsWith("~") || content.startsWith("->")) {
+			boolean isEffect = content.startsWith("~");
+			String body = content.substring(isEffect ? 1 : 2).trim();
+			List<ConditionCall> conditions = List.of();
+			Matcher suffix = IF_SUFFIX.matcher(body);
+			if (suffix.matches()) {
+				body = suffix.group(1).trim();
+				conditions = conditions(lineNumber, suffix.group(2));
+			}
+			return isEffect ? new EffectStatement(lineNumber, effect(lineNumber, body), conditions) : jump(lineNumber, body, conditions);
 		}
 		Matcher interjection = INTERJECTION.matcher(content);
 		if (interjection.matches()) {
@@ -167,18 +230,18 @@ public final class TaleParser {
 		}
 		Matcher spoken = SPEAKER_LINE.matcher(content);
 		if (spoken.matches()) {
-			return new Spoken(lineNumber, spoken.group(1).trim(), spoken.group(2));
+			return new Spoken(lineNumber, spoken.group(1).trim(), spoken.group(2), List.of());
 		}
 		error(lineNumber, "I don't recognize this line. Spoken lines look like \"{pony}: text\"; "
 				+ "voices like \"(Kindness) text\"; replies start with \"*\"; effects with \"~\"; jumps with \"->\".");
 		return null;
 	}
 
-	private Jump jump(int lineNumber, String target) {
+	private Jump jump(int lineNumber, String target, List<ConditionCall> conditions) {
 		if (target.isEmpty()) {
 			error(lineNumber, "\"->\" needs somewhere to go - a node name, or END.");
 		}
-		return new Jump(lineNumber, target);
+		return new Jump(lineNumber, target, conditions);
 	}
 
 	private ReplyBuilder replyHeader(int lineNumber, String content) {
@@ -267,7 +330,8 @@ public final class TaleParser {
 		if (id == null) {
 			id = Identifier.of(fileId.getNamespace(), fileId.getPath() + "/invalid_node_" + nodeLine);
 		}
-		nodes.add(new Node(nodeName, id, nodeLine, List.copyOf(nodeWhen), List.copyOf(nodeBody)));
+		nodes.add(new Node(nodeName, id, nodeLine, List.copyOf(nodeStart), nodeWeight, List.copyOf(nodeBonuses),
+				List.copyOf(nodeWhen), List.copyOf(nodeBody)));
 		nodeName = null;
 	}
 

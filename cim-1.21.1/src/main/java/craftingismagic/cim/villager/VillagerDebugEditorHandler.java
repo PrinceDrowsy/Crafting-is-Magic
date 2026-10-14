@@ -171,7 +171,7 @@ public final class VillagerDebugEditorHandler {
 		return new OpenVillagerDebugEditorS2CPayload.Family(parentNames, partnerName, childrenNames, siblingNames, family.orphan());
 	}
 
-	/** Same "not around right now" fallback {@code IdleChatterDialogue} already uses for this exact
+	/** Same "not around right now" fallback Idle Chatter uses ({@code present(parent)}) for this exact
 	 * situation (a real linked relative whose chunk just isn't loaded) - distinct from genuinely
 	 * having no parent/partner at all, which shows as an empty list/string instead. */
 	private static String resolveRelativeName(ServerWorld world, UUID uuid) {

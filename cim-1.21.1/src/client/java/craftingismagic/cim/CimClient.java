@@ -14,7 +14,7 @@ import craftingismagic.cim.client.changeling.ChangelingInfiltratorFallbackRender
 import craftingismagic.cim.client.changeling.ChangelingInfiltratorRenderer;
 import craftingismagic.cim.client.changeling.VoiceMimicryConsentKeyHandler;
 import craftingismagic.cim.client.debug.DebugOverlayHud;
-import craftingismagic.cim.client.gui.IdleChatterScreen;
+import craftingismagic.cim.client.gui.DialogueScreen;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.gui.VillagerDebugEditorScreen;
 import craftingismagic.cim.client.gui.VillagerMenuScreen;
@@ -47,10 +47,9 @@ import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
-import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
+import craftingismagic.cim.network.DialogueBeatS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
-import craftingismagic.cim.network.OpenIdleChatterS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
@@ -74,13 +73,12 @@ public class CimClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerMenuS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(
 						new VillagerMenuScreen(payload.villagerEntityId(), payload.canTrade(), payload.villagerName()))));
-		ClientPlayNetworking.registerGlobalReceiver(OpenIdleChatterS2CPayload.ID, (payload, context) -> context.client()
-				.execute(() -> context.client().setScreen(
-						new IdleChatterScreen(payload.villagerEntityId(), payload.villagerName(), payload.openingLine()))));
-		ClientPlayNetworking.registerGlobalReceiver(IdleChatterReactionS2CPayload.ID, (payload, context) -> context.client()
+		ClientPlayNetworking.registerGlobalReceiver(DialogueBeatS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> {
-					if (context.client().currentScreen instanceof IdleChatterScreen chatterScreen) {
-						chatterScreen.showReaction(payload.reactionLine(), payload.closingLine());
+					if (context.client().currentScreen instanceof DialogueScreen screen && screen.entityId() == payload.entityId()) {
+						screen.showBeat(payload);
+					} else {
+						context.client().setScreen(new DialogueScreen(payload));
 					}
 				}));
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()

@@ -1,5 +1,7 @@
 package craftingismagic.cim.client.gui;
 
+import java.util.List;
+
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -9,14 +11,15 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.accessibility.CimText;
-import craftingismagic.cim.network.IdleChatterReplyC2SPayload;
+import craftingismagic.cim.network.DialogueBeatS2CPayload;
+import craftingismagic.cim.network.DialogueChooseC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
-import craftingismagic.cim.villager.ReplyTone;
 
 /**
- * Idle Chatter's visual-novel-style conversation screen (README: "Idle Chatter, in more detail") -
- * a dialogue box plus a live gaze-tracking render of the pony standing in for a character
- * portrait, opened from {@link VillagerMenuScreen} instead of the old flat chat-message boost.
+ * The visual-novel-style conversation screen (README: "Idle Chatter, in more detail") - a dialogue
+ * box plus a live gaze-tracking render of the pony standing in for a character portrait. It shows
+ * whatever {@code .tale} conversation the server is running, one beat at a time
+ * ({@link DialogueBeatS2CPayload}); Idle Chatter is one such conversation.
  * <p>
  * The portrait is a real live render via {@code InventoryScreen.drawEntity} (confirmed via
  * {@code javap}: {@code drawEntity(DrawContext, int x1, int y1, int x2, int y2, int size, float
@@ -29,11 +32,12 @@ import craftingismagic.cim.villager.ReplyTone;
  * {@code mouseX}/{@code mouseY} passed in every single frame, so this screen just has to pass the
  * real cursor position through each {@link #render} call.
  * <p>
- * Three states, not two: after a reply tone is picked the buttons disappear entirely until the
- * server's reaction arrives via {@link #showReaction} (there's no "instant" reaction - it's a real
- * round trip), rather than leaving the tone buttons clickable and risking a double-send.
+ * Three states, not two: after a reply is picked the buttons disappear entirely until the server's
+ * next beat arrives via {@link #showBeat} (it's a real round trip), rather than leaving the buttons
+ * clickable and risking a double-send. Replies that are only a tone sit side by side, as Idle
+ * Chatter always has; replies with their own words stack, one per row.
  */
-public class IdleChatterScreen extends Screen {
+public class DialogueScreen extends Screen {
 	private static final int PORTRAIT_Y1 = 24;
 	private static final int PORTRAIT_HEIGHT = 90;
 	private static final int PORTRAIT_WIDTH = 160;
@@ -46,14 +50,20 @@ public class IdleChatterScreen extends Screen {
 
 	private enum State { AWAITING_REPLY, WAITING_FOR_SERVER, DONE }
 
-	private final int villagerEntityId;
+	private final int entityId;
 	private String bodyText;
-	private State state = State.AWAITING_REPLY;
+	private List<String> optionTones = List.of();
+	private List<String> optionTexts = List.of();
+	private State state;
 
-	public IdleChatterScreen(int villagerEntityId, String villagerName, String openingLine) {
-		super(Text.translatable("screen.cim.idle_chatter.title", villagerName));
-		this.villagerEntityId = villagerEntityId;
-		this.bodyText = openingLine;
+	public DialogueScreen(DialogueBeatS2CPayload beat) {
+		super(Text.translatable("screen.cim.idle_chatter.title", beat.partnerName()));
+		this.entityId = beat.entityId();
+		apply(beat);
+	}
+
+	public int entityId() {
+		return entityId;
 	}
 
 	@Override
@@ -61,22 +71,38 @@ public class IdleChatterScreen extends Screen {
 		rebuildButtons();
 	}
 
-	/** Called by the client network receiver once the server's reply-reaction round trip lands. */
-	public void showReaction(String reactionLine, String closingLine) {
-		this.bodyText = reactionLine + "\n\n" + closingLine;
-		this.state = State.DONE;
+	/** Called by the client network receiver when the server sends the next beat. */
+	public void showBeat(DialogueBeatS2CPayload beat) {
+		apply(beat);
 		rebuildButtons();
+	}
+
+	private void apply(DialogueBeatS2CPayload beat) {
+		this.bodyText = String.join("\n\n", beat.lines());
+		this.optionTones = beat.optionTones();
+		this.optionTexts = beat.optionTexts();
+		this.state = beat.ended() || beat.optionTexts().isEmpty() ? State.DONE : State.AWAITING_REPLY;
 	}
 
 	private void rebuildButtons() {
 		this.clearChildren();
 		int y = this.height - 34;
 		if (state == State.AWAITING_REPLY) {
-			int totalWidth = 3 * BUTTON_WIDTH + 2 * BUTTON_SPACING;
-			int x = (this.width - totalWidth) / 2;
-			x = addToneButton(x, y, ReplyTone.FRIENDLY, "screen.cim.idle_chatter.friendly");
-			x = addToneButton(x, y, ReplyTone.CURIOUS, "screen.cim.idle_chatter.curious");
-			addToneButton(x, y, ReplyTone.BOLD, "screen.cim.idle_chatter.bold");
+			boolean tonesOnly = optionTexts.stream().allMatch(String::isEmpty);
+			if (tonesOnly) {
+				int count = optionTexts.size();
+				int x = (this.width - (count * BUTTON_WIDTH + (count - 1) * BUTTON_SPACING)) / 2;
+				for (int i = 0; i < count; i++) {
+					addOption(i, x, y, BUTTON_WIDTH);
+					x += BUTTON_WIDTH + BUTTON_SPACING;
+				}
+			} else {
+				int x = (this.width - TEXT_MAX_WIDTH) / 2;
+				for (int i = optionTexts.size() - 1; i >= 0; i--) {
+					addOption(i, x, y, TEXT_MAX_WIDTH);
+					y -= BUTTON_HEIGHT + 2;
+				}
+			}
 		} else if (state == State.DONE) {
 			int x = (this.width - BUTTON_WIDTH) / 2;
 			this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable("screen.cim.idle_chatter.close")), button -> this.close())
@@ -84,13 +110,22 @@ public class IdleChatterScreen extends Screen {
 		}
 	}
 
-	private int addToneButton(int x, int y, ReplyTone tone, String translationKey) {
-		this.addDrawableChild(ButtonWidget.builder(CimText.style(Text.translatable(translationKey)), button -> {
+	private void addOption(int index, int x, int y, int width) {
+		this.addDrawableChild(ButtonWidget.builder(CimText.style(label(index)), button -> {
 			state = State.WAITING_FOR_SERVER;
-			ClientPlayNetworking.send(new IdleChatterReplyC2SPayload(villagerEntityId, tone));
+			ClientPlayNetworking.send(new DialogueChooseC2SPayload(entityId, index));
 			rebuildButtons();
-		}).dimensions(x, y, BUTTON_WIDTH, BUTTON_HEIGHT).build());
-		return x + BUTTON_WIDTH + BUTTON_SPACING;
+		}).dimensions(x, y, width, BUTTON_HEIGHT).build());
+	}
+
+	/** The reply's own words, or its tone ("Friendly") when it has none. */
+	private Text label(int index) {
+		String text = optionTexts.get(index);
+		if (!text.isEmpty()) {
+			return Text.literal(text);
+		}
+		String tone = optionTones.get(index);
+		return tone.isEmpty() ? Text.literal("...") : Text.translatable("screen.cim.idle_chatter." + tone);
 	}
 
 	@Override
@@ -104,7 +139,7 @@ public class IdleChatterScreen extends Screen {
 		int portraitY2 = PORTRAIT_Y1 + PORTRAIT_HEIGHT;
 
 		if (this.client != null && this.client.world != null
-				&& this.client.world.getEntityById(villagerEntityId) instanceof LivingEntity livingEntity) {
+				&& this.client.world.getEntityById(entityId) instanceof LivingEntity livingEntity) {
 			InventoryScreen.drawEntity(context, portraitX1, PORTRAIT_Y1, portraitX2, portraitY2,
 					PORTRAIT_ENTITY_SIZE, PORTRAIT_Y_OFFSET, (float) mouseX, (float) mouseY, livingEntity);
 		}
@@ -120,7 +155,7 @@ public class IdleChatterScreen extends Screen {
 
 	@Override
 	public void close() {
-		ClientPlayNetworking.send(new StopVillagerInteractionC2SPayload(villagerEntityId));
+		ClientPlayNetworking.send(new StopVillagerInteractionC2SPayload(entityId));
 		super.close();
 	}
 }

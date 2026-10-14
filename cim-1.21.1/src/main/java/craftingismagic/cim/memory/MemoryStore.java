@@ -49,13 +49,28 @@ public final class MemoryStore {
 		return entity.hasAttached(MEMORIES) ? entity.getAttached(MEMORIES) : List.of();
 	}
 
-	/** Records a memory, dropping faded trivial memories and, if still over the cap, the least
-	 * important one. */
+	/**
+	 * Records a memory, dropping faded trivial memories and, if still over the cap, the least
+	 * important one. A memory of the same type about the same subject is refreshed instead of
+	 * stored twice (decided 2026-10-14): it's one memory however often it happens, so repeats
+	 * can't crowd others out. Separate events use separate types.
+	 */
 	public static void add(Entity entity, Memory memory) {
 		long now = entity.getWorld().getTime();
 		List<Memory> memories = new ArrayList<>(getAll(entity));
 		memories.removeIf(existing -> isFaded(existing, now));
-		memories.add(memory);
+		int same = -1;
+		for (int i = 0; i < memories.size(); i++) {
+			if (memories.get(i).type().equals(memory.type()) && memories.get(i).subject().equals(memory.subject())) {
+				same = i;
+				break;
+			}
+		}
+		if (same >= 0) {
+			memories.set(same, refresh(memories.get(same), memory));
+		} else {
+			memories.add(memory);
+		}
 
 		int cap = entity instanceof PlayerEntity ? PLAYER_CAP : NPC_CAP;
 		while (memories.size() > cap) {
@@ -69,6 +84,20 @@ public final class MemoryStore {
 			memories.remove(leastImportant);
 		}
 		entity.setAttached(MEMORIES, List.copyOf(memories));
+	}
+
+	/**
+	 * The same memory, happening again: it's as recent as the new one, as important and as directly
+	 * known as the more so of the two, and keeps whichever feeling is stronger (the new one on a tie).
+	 */
+	private static Memory refresh(Memory old, Memory fresh) {
+		boolean keepOldFeeling = old.emotion().isPresent()
+				&& (fresh.emotion().isEmpty() || old.intensity().compareTo(fresh.intensity()) > 0);
+		Memory feeling = keepOldFeeling ? old : fresh;
+		MemoryImportance importance = old.importance().compareTo(fresh.importance()) > 0 ? old.importance() : fresh.importance();
+		MemoryKnowledge knowledge = old.knowledge().compareTo(fresh.knowledge()) < 0 ? old.knowledge() : fresh.knowledge();
+		return new Memory(fresh.type(), fresh.subject(), knowledge, importance, feeling.emotion(), feeling.intensity(),
+				Math.max(old.time(), fresh.time()));
 	}
 
 	/** Removes every memory matching the filter; returns how many were removed. */
