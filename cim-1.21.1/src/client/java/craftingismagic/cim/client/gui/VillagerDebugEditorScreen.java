@@ -2,8 +2,10 @@ package craftingismagic.cim.client.gui;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.DoubleConsumer;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -17,8 +19,9 @@ import net.minecraft.item.Item;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
-import craftingismagic.cim.network.DebugSetVillagerAffectionC2SPayload;
+import craftingismagic.cim.network.DebugDeleteMemoryC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerFavoriteGiftC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerFeelingC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerGeneticsC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerLifeStageC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerNameC2SPayload;
@@ -30,6 +33,8 @@ import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.villager.FavoriteGiftAttachment;
+import craftingismagic.cim.villager.Feeling;
+import craftingismagic.cim.villager.FeelingBand;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 import craftingismagic.cim.villager.PersonalityType;
@@ -60,7 +65,7 @@ public class VillagerDebugEditorScreen extends Screen {
 	private static final int CONTENT_WIDTH = 320;
 	private static final int TITLE_Y = 12;
 	private static final int TABS_Y = 28;
-	private static final int TAB_BUTTON_WIDTH = 74;
+	private static final int TAB_BUTTON_WIDTH = 66;
 	private static final int TAB_BUTTON_HEIGHT = 20;
 	private static final int TAB_SPACING = 4;
 	private static final int BODY_Y = TABS_Y + TAB_BUTTON_HEIGHT + 10;
@@ -68,13 +73,16 @@ public class VillagerDebugEditorScreen extends Screen {
 	private static final int FIELD_HEIGHT = 16;
 	private static final int COLUMN_GAP = 10;
 	private static final int LABEL_WIDTH = 70;
+	/** Room to the right of each feeling field for its current band ("medium", "devoted"...). */
+	private static final int BAND_LABEL_WIDTH = 60;
 
 	public enum Tab {
 		IDENTITY("screen.cim.villager_debug_editor.tab_identity"),
 		GENETICS("screen.cim.villager_debug_editor.tab_genetics"),
 		PERSONALITY("screen.cim.villager_debug_editor.tab_personality"),
 		RELATIONSHIP("screen.cim.villager_debug_editor.tab_relationship"),
-		FAMILY("screen.cim.villager_debug_editor.tab_family");
+		FAMILY("screen.cim.villager_debug_editor.tab_family"),
+		MEMORIES("screen.cim.villager_debug_editor.tab_memories");
 
 		private final String translationKey;
 
@@ -91,6 +99,9 @@ public class VillagerDebugEditorScreen extends Screen {
 	private final EditorState state;
 	private final Tab activeTab;
 	private final List<LabeledField> labeledFields = new ArrayList<>();
+	private final List<BandLabel> bandLabels = new ArrayList<>();
+	private final List<MemoryRow> memoryRows = new ArrayList<>();
+	private int hiddenMemoryCount;
 
 	public static VillagerDebugEditorScreen fromPayload(OpenVillagerDebugEditorS2CPayload payload) {
 		EditorState state = new EditorState();
@@ -101,7 +112,9 @@ public class VillagerDebugEditorScreen extends Screen {
 		state.changelingInfo = payload.identity().changeling();
 		state.genetics = payload.genetics();
 		state.personality = payload.personality();
-		state.affection = payload.relationship().affection();
+		state.feelings.put(Feeling.FONDNESS, payload.relationship().fondness());
+		state.feelings.put(Feeling.RESPECT, payload.relationship().respect());
+		state.feelings.put(Feeling.TRUST, payload.relationship().trust());
 		state.relationshipType = payload.relationship().relationshipType();
 		state.favoriteGift = payload.relationship().favoriteGift();
 		state.friendGroup = payload.relationship().friendGroupNames();
@@ -119,6 +132,9 @@ public class VillagerDebugEditorScreen extends Screen {
 	@Override
 	protected void init() {
 		labeledFields.clear();
+		bandLabels.clear();
+		memoryRows.clear();
+		hiddenMemoryCount = 0;
 
 		int tabsWidth = Tab.values().length * TAB_BUTTON_WIDTH + (Tab.values().length - 1) * TAB_SPACING;
 		int tabX = (this.width - tabsWidth) / 2;
@@ -137,6 +153,7 @@ public class VillagerDebugEditorScreen extends Screen {
 			case PERSONALITY -> buildPersonalityTab();
 			case RELATIONSHIP -> buildRelationshipTab();
 			case FAMILY -> buildFamilyTab();
+			case MEMORIES -> buildMemoriesTab();
 		}
 
 		this.addDrawableChild(ButtonWidget.builder(Text.translatable("screen.cim.villager_debug_editor.close"), b -> this.close())
@@ -357,17 +374,10 @@ public class VillagerDebugEditorScreen extends Screen {
 		int x = centerX - CONTENT_WIDTH / 2;
 		int y = BODY_Y;
 
-		TextFieldWidget affectionField = new TextFieldWidget(this.textRenderer, x + LABEL_WIDTH, y, CONTENT_WIDTH - LABEL_WIDTH, FIELD_HEIGHT, Text.empty());
-		affectionField.setTextPredicate(value -> value.isEmpty() || value.equals("-") || value.matches("-?[0-9]{0,9}"));
-		affectionField.setText(Integer.toString(state.affection));
-		affectionField.setChangedListener(value -> {
-			int parsed = parseIntOrKeep(value, state.affection);
-			state.affection = parsed;
-			ClientPlayNetworking.send(new DebugSetVillagerAffectionC2SPayload(villagerEntityId, parsed));
-		});
-		this.addDrawableChild(affectionField);
-		labeledFields.add(new LabeledField("screen.cim.villager_debug_editor.affection", y));
-		y += ROW_HEIGHT;
+		for (Feeling feeling : Feeling.values()) {
+			addFeelingField(x, y, feeling);
+			y += ROW_HEIGHT;
+		}
 
 		this.addDrawableChild(CyclingButtonWidget.builder((RelationshipType t) -> Text.literal(titleCase(t.name())))
 				.values(RelationshipType.values())
@@ -389,6 +399,58 @@ public class VillagerDebugEditorScreen extends Screen {
 		y += ROW_HEIGHT + 6;
 
 		buildFriendGroupChart(centerX, y);
+	}
+
+	// ---- Memories tab ----
+
+	private static final int DELETE_BUTTON_WIDTH = 20;
+
+	/** Lists what the pony remembers, newest first, each with a delete button. Adding is done with
+	 * {@code /cim debug memory add}, which is quicker than a form. */
+	private void buildMemoriesTab() {
+		int x = this.width / 2 - CONTENT_WIDTH / 2;
+		int y = BODY_Y;
+		int maxRows = Math.max(1, (this.height - BODY_Y - 40) / ROW_HEIGHT);
+		List<String> memories = state.memories;
+		for (int shown = 0, index = memories.size() - 1; index >= 0 && shown < maxRows; index--, shown++) {
+			int memoryIndex = index;
+			this.addDrawableChild(ButtonWidget.builder(Text.literal("x"),
+							b -> ClientPlayNetworking.send(new DebugDeleteMemoryC2SPayload(villagerEntityId, memoryIndex)))
+					.dimensions(x + CONTENT_WIDTH - DELETE_BUTTON_WIDTH, y, DELETE_BUTTON_WIDTH, FIELD_HEIGHT)
+					.build());
+			memoryRows.add(new MemoryRow(memories.get(index), y));
+			y += ROW_HEIGHT;
+		}
+		hiddenMemoryCount = Math.max(0, memories.size() - maxRows);
+	}
+
+	/** Called when the server sends a fresh memory list (on open, and after every deletion). */
+	public void receiveMemories(int entityId, List<String> lines) {
+		if (entityId != villagerEntityId) {
+			return;
+		}
+		state.memories = List.copyOf(lines);
+		if (activeTab == Tab.MEMORIES) {
+			this.clearAndInit();
+		}
+	}
+
+	/** One editable row per {@link Feeling}. The band it currently falls in is drawn beside the field
+	 * (see {@link #render}), so dialogue thresholds like {@code trust >= medium} can be lined up while
+	 * testing. */
+	private void addFeelingField(int x, int y, Feeling feeling) {
+		TextFieldWidget field = new TextFieldWidget(this.textRenderer, x + LABEL_WIDTH, y, CONTENT_WIDTH - LABEL_WIDTH - BAND_LABEL_WIDTH,
+				FIELD_HEIGHT, Text.empty());
+		field.setTextPredicate(value -> value.isEmpty() || value.equals("-") || value.matches("-?[0-9]{0,9}"));
+		field.setText(Integer.toString(state.feelings.get(feeling)));
+		field.setChangedListener(value -> {
+			int parsed = parseIntOrKeep(value, state.feelings.get(feeling));
+			state.feelings.put(feeling, parsed);
+			ClientPlayNetworking.send(new DebugSetVillagerFeelingC2SPayload(villagerEntityId, feeling, parsed));
+		});
+		this.addDrawableChild(field);
+		labeledFields.add(new LabeledField("screen.cim.villager_debug_editor." + feeling.name().toLowerCase(Locale.ROOT), y));
+		bandLabels.add(new BandLabel(feeling, x + CONTENT_WIDTH - BAND_LABEL_WIDTH + 4, y));
 	}
 
 	/** Read-only, same reasoning as the Family tab's chart (see {@link #buildFamilyTab}) - editing
@@ -641,6 +703,22 @@ public class VillagerDebugEditorScreen extends Screen {
 		for (LabeledField field : labeledFields) {
 			context.drawTextWithShadow(this.textRenderer, Text.translatable(field.translationKey()), x, field.y() + 4, 0xAAAAAA);
 		}
+		for (MemoryRow row : memoryRows) {
+			String text = this.textRenderer.trimToWidth(row.text(), CONTENT_WIDTH - DELETE_BUTTON_WIDTH - 6);
+			context.drawTextWithShadow(this.textRenderer, Text.literal(text), x, row.y() + 4, 0xDDDDDD);
+		}
+		if (activeTab == Tab.MEMORIES && memoryRows.isEmpty()) {
+			context.drawTextWithShadow(this.textRenderer, Text.translatable("screen.cim.villager_debug_editor.no_memories"), x, BODY_Y + 4, 0xAAAAAA);
+		}
+		if (hiddenMemoryCount > 0) {
+			int y = BODY_Y + memoryRows.size() * ROW_HEIGHT + 2;
+			context.drawTextWithShadow(this.textRenderer,
+					Text.translatable("screen.cim.villager_debug_editor.more_memories", hiddenMemoryCount), x, y, 0xAAAAAA);
+		}
+		for (BandLabel band : bandLabels) {
+			String bandName = FeelingBand.of(state.feelings.get(band.feeling())).name().toLowerCase(Locale.ROOT);
+			context.drawTextWithShadow(this.textRenderer, Text.literal(bandName), band.x(), band.y() + 4, 0xFFE080);
+		}
 
 		if (activeTab == Tab.FAMILY) {
 			renderTree(context, familyTreeNodes, familyTreeLines);
@@ -672,6 +750,12 @@ public class VillagerDebugEditorScreen extends Screen {
 	private record LabeledField(String translationKey, int y) {
 	}
 
+	private record BandLabel(Feeling feeling, int x, int y) {
+	}
+
+	private record MemoryRow(String text, int y) {
+	}
+
 	private static final class EditorState {
 		String name;
 		Species species;
@@ -679,7 +763,9 @@ public class VillagerDebugEditorScreen extends Screen {
 		int growthTicks;
 		PonyGenetics genetics;
 		Personality personality;
-		int affection;
+		final Map<Feeling, Integer> feelings = new EnumMap<>(Feeling.class);
+		/** One readable line per memory, oldest first - filled by the server right after the editor opens. */
+		List<String> memories = List.of();
 		RelationshipType relationshipType;
 		Item favoriteGift;
 		List<String> friendGroup;

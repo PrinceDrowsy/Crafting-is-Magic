@@ -2,6 +2,7 @@ package craftingismagic.cim.villager;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.mojang.serialization.Codec;
@@ -16,25 +17,23 @@ import net.minecraft.util.Uuids;
 import craftingismagic.cim.Cim;
 
 /**
- * Per-player relationship state with an entity - affection, gift-cooldown tracking, and
- * {@link RelationshipType} - typed to {@code Entity} rather than {@code VillagerEntity} so
+ * Per-player relationship state with an entity - the three {@link Feeling}s, gift-cooldown tracking,
+ * and {@link RelationshipType} - typed to {@code Entity} rather than {@code VillagerEntity} so
  * {@code RoguePonyEntity} can reuse the exact same relationship-type tracking (specifically
- * {@code ENEMY}/{@code FRENEMIES}) despite not being a villager; affection/gifting stay
- * villager-flavored in practice, but nothing here stops a hostile mob from using them too. Fabric
- * attachments are one-value-per-entity, so unlike
- * {@link craftingismagic.cim.species.SpeciesAttachment} (a single value shared by everyone), the
- * per-player nature here lives in the attachment's own value type - a map keyed by player UUID,
- * same overall shape otherwise.
+ * {@code ENEMY}/{@code FRENEMIES}) despite not being a villager. Fabric attachments are
+ * one-value-per-entity, so the per-player nature lives in the attachment's own value type - a map
+ * keyed by player UUID.
  * <p>
  * Server-only - deliberately never synced. It used to sync the whole map to every tracking player
  * on every change, which cost bandwidth and leaked one player's relationship data (and, with the
  * memory system coming, their secrets) onto other players' clients. Screens that need it get what
- * they need in their own open payloads instead (see {@code OpenVillagerMenuS2CPayload}).
+ * they need in their own open payloads instead.
  */
 public final class FriendshipAttachment {
 	private static final int MAX_GIFTS_PER_DAY = 3;
 
 	public static final AttachmentType<Map<UUID, RelationshipData>> AFFECTION = AttachmentRegistry.create(
+			// The id predates the three feelings - kept as "affection" so existing saves still load.
 			Identifier.of(Cim.MOD_ID, "affection"),
 			builder -> builder.persistent(Codec.unboundedMap(Uuids.STRING_CODEC, RelationshipData.CODEC))
 					// For a mob, "death" also covers conversion (villager -> zombie villager -> cured villager,
@@ -44,54 +43,58 @@ public final class FriendshipAttachment {
 	private FriendshipAttachment() {
 	}
 
-	public static int getAffection(Entity entity, UUID player) {
-		return getData(entity, player).affection();
-	}
-
-	public static void addAffection(Entity entity, UUID player, int delta) {
-		RelationshipData data = getData(entity, player);
-		setData(entity, player, new RelationshipData(data.affection() + delta, data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType()));
-	}
-
-	/** Sets affection to an absolute value rather than a delta - only meant for the Creative-only
-	 * villager debug editor ({@code VillagerDebugEditorHandler}); normal gameplay always goes
-	 * through {@link #addAffection}. */
-	public static void setAffection(Entity entity, UUID player, int affection) {
-		RelationshipData data = getData(entity, player);
-		setData(entity, player, new RelationshipData(affection, data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType()));
-	}
-
-	public static RelationshipType getRelationshipType(Entity entity, UUID player) {
-		return getData(entity, player).relationshipType();
-	}
-
-	/** Not yet set by any real gameplay trigger for a villager - see {@link RelationshipType}'s own
-	 * docs. {@code RoguePonyEntity} is the one caller that DOES set this for real, outside the
-	 * Creative-only debug editor. */
-	public static void setRelationshipType(Entity entity, UUID player, RelationshipType relationshipType) {
-		RelationshipData data = getData(entity, player);
-		setData(entity, player, new RelationshipData(data.affection(), data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType));
-	}
-
-	public static boolean canGiftToday(Entity entity, UUID player, long currentDay) {
-		RelationshipData data = getData(entity, player);
-		return data.lastGiftDay() != currentDay || data.giftsGivenThatDay() < MAX_GIFTS_PER_DAY;
-	}
-
-	public static void recordGift(Entity entity, UUID player, long currentDay) {
-		RelationshipData data = getData(entity, player);
-		int giftsToday = data.lastGiftDay() == currentDay ? data.giftsGivenThatDay() + 1 : 1;
-		setData(entity, player, new RelationshipData(data.affection(), currentDay, giftsToday, data.relationshipType()));
-	}
-
-	private static RelationshipData getData(Entity entity, UUID player) {
+	public static RelationshipData get(Entity entity, UUID player) {
 		if (!entity.hasAttached(AFFECTION)) {
 			return RelationshipData.EMPTY;
 		}
 		return entity.getAttached(AFFECTION).getOrDefault(player, RelationshipData.EMPTY);
 	}
 
-	private static void setData(Entity entity, UUID player, RelationshipData data) {
+	public static int getFeeling(Entity entity, UUID player, Feeling feeling) {
+		return get(entity, player).feeling(feeling);
+	}
+
+	public static FeelingBand getBand(Entity entity, UUID player, Feeling feeling) {
+		return FeelingBand.of(getFeeling(entity, player, feeling));
+	}
+
+	public static void addFeeling(Entity entity, UUID player, Feeling feeling, int delta) {
+		RelationshipData data = get(entity, player);
+		set(entity, player, data.withFeeling(feeling, data.feeling(feeling) + delta));
+	}
+
+	/** Sets a feeling to an absolute value rather than a delta - only meant for debug tools; normal
+	 * gameplay always goes through {@link #addFeeling}. */
+	public static void setFeeling(Entity entity, UUID player, Feeling feeling, int value) {
+		set(entity, player, get(entity, player).withFeeling(feeling, value));
+	}
+
+	public static RelationshipType getRelationshipType(Entity entity, UUID player) {
+		return get(entity, player).relationshipType();
+	}
+
+	/** Not yet set by any real gameplay trigger for a villager - see {@link RelationshipType}'s own
+	 * docs. {@code RoguePonyEntity} is the one caller that DOES set this for real, outside the
+	 * Creative-only debug editor. */
+	public static void setRelationshipType(Entity entity, UUID player, RelationshipType relationshipType) {
+		RelationshipData data = get(entity, player);
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
+				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType));
+	}
+
+	public static boolean canGiftToday(Entity entity, UUID player, long currentDay) {
+		RelationshipData data = get(entity, player);
+		return data.lastGiftDay() != currentDay || data.giftsGivenThatDay() < MAX_GIFTS_PER_DAY;
+	}
+
+	public static void recordGift(Entity entity, UUID player, long currentDay) {
+		RelationshipData data = get(entity, player);
+		int giftsToday = data.lastGiftDay() == currentDay ? data.giftsGivenThatDay() + 1 : 1;
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
+				currentDay, giftsToday, data.relationshipType()));
+	}
+
+	private static void set(Entity entity, UUID player, RelationshipData data) {
 		Map<UUID, RelationshipData> relationships = entity.hasAttached(AFFECTION)
 				? new HashMap<>(entity.getAttached(AFFECTION))
 				: new HashMap<>();
@@ -99,19 +102,42 @@ public final class FriendshipAttachment {
 		entity.setAttached(AFFECTION, relationships);
 	}
 
-	public record RelationshipData(int affection, long lastGiftDay, int giftsGivenThatDay, RelationshipType relationshipType) {
-		public static final RelationshipData EMPTY = new RelationshipData(0, -1, 0, RelationshipType.ACQUAINTANCE);
+	public record RelationshipData(int fondness, int respect, int trust, long lastGiftDay, int giftsGivenThatDay,
+			RelationshipType relationshipType) {
+		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE);
 
-		/** {@code relationship_type} uses {@code optionalFieldOf} with a default, not {@code
-		 * fieldOf} - relationship data already saved to disk before this field existed is missing
-		 * that key entirely, and a mandatory field would fail the whole record's decode, silently
-		 * dropping a player's real affection/gift history (see [[project_fabric_attachment_gotchas]] -
-		 * the same bug already hit once this session with the genetics tail fields). */
+		/**
+		 * Migrates old saves: before the three feelings, this stored a single {@code affection} value.
+		 * A record with no {@code fondness} key but an {@code affection} key loads that affection as
+		 * Fondness - the closest of the three to what affection meant - and Respect and Trust start at
+		 * 0. New saves only ever write {@code fondness}. Every field is {@code optionalFieldOf} so a
+		 * missing key never fails the whole record's decode (see [[project_fabric_attachment_gotchas]]).
+		 */
 		public static final Codec<RelationshipData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-				Codec.INT.fieldOf("affection").forGetter(RelationshipData::affection),
-				Codec.LONG.fieldOf("last_gift_day").forGetter(RelationshipData::lastGiftDay),
-				Codec.INT.fieldOf("gifts_given_that_day").forGetter(RelationshipData::giftsGivenThatDay),
+				Codec.INT.optionalFieldOf("fondness").forGetter(data -> Optional.of(data.fondness())),
+				Codec.INT.optionalFieldOf("affection").forGetter(data -> Optional.empty()),
+				Codec.INT.optionalFieldOf("respect", 0).forGetter(RelationshipData::respect),
+				Codec.INT.optionalFieldOf("trust", 0).forGetter(RelationshipData::trust),
+				Codec.LONG.optionalFieldOf("last_gift_day", -1L).forGetter(RelationshipData::lastGiftDay),
+				Codec.INT.optionalFieldOf("gifts_given_that_day", 0).forGetter(RelationshipData::giftsGivenThatDay),
 				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType)
-		).apply(instance, RelationshipData::new));
+		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType) ->
+				new RelationshipData(fondness.orElse(legacyAffection.orElse(0)), respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType)));
+
+		public int feeling(Feeling feeling) {
+			return switch (feeling) {
+				case FONDNESS -> fondness;
+				case RESPECT -> respect;
+				case TRUST -> trust;
+			};
+		}
+
+		public RelationshipData withFeeling(Feeling feeling, int value) {
+			return switch (feeling) {
+				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType);
+				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType);
+				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType);
+			};
+		}
 	}
 }

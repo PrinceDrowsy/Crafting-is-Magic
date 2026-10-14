@@ -9,7 +9,15 @@
     },
     {
       "type": "reference",
-      "id": "minecraft:default"
+      "id": "minecraft:include/space"
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/default"
+    },
+    {
+      "type": "reference",
+      "id": "minecraft:include/unifont"
     }
   ]
 }

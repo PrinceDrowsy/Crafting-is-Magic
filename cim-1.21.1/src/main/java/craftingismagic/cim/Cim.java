@@ -30,11 +30,12 @@ import craftingismagic.cim.entity.CimEntities;
 import craftingismagic.cim.item.CimItemGroups;
 import craftingismagic.cim.item.CimItems;
 import craftingismagic.cim.levitation.LevitationManager;
+import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.network.AdjustLevitationDistanceC2SPayload;
 import craftingismagic.cim.network.AdjustLevitationSelectionCountC2SPayload;
 import craftingismagic.cim.network.CancelTeleportChargeC2SPayload;
 import craftingismagic.cim.network.ConfirmLevitationSelectionC2SPayload;
-import craftingismagic.cim.network.DebugSetVillagerAffectionC2SPayload;
+import craftingismagic.cim.network.DebugSetVillagerFeelingC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerFavoriteGiftC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerGeneticsC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerLifeStageC2SPayload;
@@ -43,7 +44,9 @@ import craftingismagic.cim.network.DebugSetVillagerPersonalityC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerRelationshipTypeC2SPayload;
 import craftingismagic.cim.network.DebugSetVillagerSpeciesC2SPayload;
 import craftingismagic.cim.network.DebugDrainStaminaC2SPayload;
+import craftingismagic.cim.network.DebugDeleteMemoryC2SPayload;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
+import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.DebugOverlayToggleC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
@@ -89,6 +92,7 @@ import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment.StaminaColors;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.stamina.StaminaSync;
+import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.unicorn.TeleportManager;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
@@ -174,7 +178,7 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerLifeStageC2SPayload.ID, DebugSetVillagerLifeStageC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerGeneticsC2SPayload.ID, DebugSetVillagerGeneticsC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerPersonalityC2SPayload.ID, DebugSetVillagerPersonalityC2SPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(DebugSetVillagerAffectionC2SPayload.ID, DebugSetVillagerAffectionC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugSetVillagerFeelingC2SPayload.ID, DebugSetVillagerFeelingC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerRelationshipTypeC2SPayload.ID, DebugSetVillagerRelationshipTypeC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetVillagerFavoriteGiftC2SPayload.ID, DebugSetVillagerFavoriteGiftC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugToggleChangelingDisguiseC2SPayload.ID, DebugToggleChangelingDisguiseC2SPayload.CODEC);
@@ -184,6 +188,8 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(StaminaSyncS2CPayload.ID, StaminaSyncS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugOverlayToggleC2SPayload.ID, DebugOverlayToggleC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DebugInfoS2CPayload.ID, DebugInfoS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(DebugMemoriesS2CPayload.ID, DebugMemoriesS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DebugDeleteMemoryC2SPayload.ID, DebugDeleteMemoryC2SPayload.CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(SelectSpeciesC2SPayload.ID, (payload, context) -> {
 			// Species is a one-time, game-start choice - the selection screen is only ever opened for
@@ -245,8 +251,8 @@ public class Cim implements ModInitializer {
 				VillagerDebugEditorHandler.setGenetics(context.player(), payload.villagerEntityId(), payload.genetics()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerPersonalityC2SPayload.ID, (payload, context) ->
 				VillagerDebugEditorHandler.setPersonality(context.player(), payload.villagerEntityId(), payload.personality()));
-		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerAffectionC2SPayload.ID, (payload, context) ->
-				VillagerDebugEditorHandler.setAffection(context.player(), payload.villagerEntityId(), payload.affection()));
+		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerFeelingC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.setFeeling(context.player(), payload.villagerEntityId(), payload.feeling(), payload.value()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerRelationshipTypeC2SPayload.ID, (payload, context) ->
 				VillagerDebugEditorHandler.setRelationshipType(context.player(), payload.villagerEntityId(), payload.relationshipType()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerFavoriteGiftC2SPayload.ID, (payload, context) ->
@@ -260,6 +266,8 @@ public class Cim implements ModInitializer {
 				StaminaManager.drain(context.player(), 10.0f);
 			}
 		});
+		ServerPlayNetworking.registerGlobalReceiver(DebugDeleteMemoryC2SPayload.ID, (payload, context) ->
+				VillagerDebugEditorHandler.deleteMemory(context.player(), payload.villagerEntityId(), payload.index()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugOverlayToggleC2SPayload.ID,
 				(payload, context) -> DebugOverlay.setSubscribed(context.player(), payload.enabled()));
 		ServerPlayNetworking.registerGlobalReceiver(SetStaminaColorC2SPayload.ID, (payload, context) ->
@@ -368,6 +376,9 @@ public class Cim implements ModInitializer {
 				TeleportShortcutAttachment.TELEPORT_SHORTCUTS,
 				VoiceMimicryConsentAttachment.VOICE_MIMICRY_CONSENT,
 				DisguiseTargetAttachment.DISGUISE_TARGET,
+				MemoryStore.MEMORIES,
+				StoryFacts.PERSONAL_FACTS,
+				StoryFacts.RELATIONSHIP_FACTS,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

@@ -52,10 +52,14 @@ import craftingismagic.cim.villager.PersonalityAttachment.Personality;
  * only fires on an intentional close.
  */
 public final class VillagerInteractionHandler {
-	private static final int IDLE_CHATTER_AFFECTION_BOOST = 5;
+	private static final int IDLE_CHATTER_FONDNESS_BOOST = 5;
 	private static final int IDLE_CHATTER_TONE_MATCH_BONUS = 3;
-	private static final int FAVORITE_GIFT_AFFECTION_BOOST = 20;
-	private static final int GENERIC_GIFT_AFFECTION_BOOST = 5;
+	private static final int FAVORITE_GIFT_FONDNESS_BOOST = 20;
+	/** A favorite gift answers something the pony told you in conversation (Idle Chatter's closing
+	 * line reveals it) - a gift that shows you listened builds Trust, not just Fondness (README:
+	 * Friendship, deepened - "Gifts reward thoughtfulness over value"). */
+	private static final int FAVORITE_GIFT_TRUST_BOOST = 3;
+	private static final int GENERIC_GIFT_FONDNESS_BOOST = 5;
 	/** Sanity check on the client-supplied entity id - the player must actually be near it. */
 	private static final double MAX_INTERACT_DISTANCE_SQUARED = 8.0 * 8.0;
 
@@ -86,11 +90,10 @@ public final class VillagerInteractionHandler {
 			}
 
 			if (entity instanceof VillagerEntity villager) {
-				int affection = FriendshipAttachment.getAffection(villager, player.getUuid());
 				boolean canTrade = villager.getVillagerData().getProfession() != VillagerProfession.NONE;
 				freeze(villager, serverPlayer);
 				ServerPlayNetworking.send(serverPlayer,
-						new OpenVillagerMenuS2CPayload(villager.getId(), affection, canTrade, villager.getName().getString()));
+						new OpenVillagerMenuS2CPayload(villager.getId(), canTrade, villager.getName().getString()));
 				return ActionResult.SUCCESS;
 			}
 			return ActionResult.PASS;
@@ -138,7 +141,7 @@ public final class VillagerInteractionHandler {
 	}
 
 	/**
-	 * Grants the base affection boost, plus a match bonus if the picked tone lines up with the
+	 * Grants the base Fondness boost, plus a match bonus if the picked tone lines up with the
 	 * pony's {@link PersonalityType#toneAffinity()} - the concrete mechanical hook behind the
 	 * Personality system (README: Personality system, Mechanical hook).
 	 */
@@ -150,8 +153,8 @@ public final class VillagerInteractionHandler {
 
 		Personality personality = resolvePersonality(villager);
 		boolean matched = personality.baseType().toneAffinity().map(affinity -> affinity == tone).orElse(false);
-		int boost = IDLE_CHATTER_AFFECTION_BOOST + (matched ? IDLE_CHATTER_TONE_MATCH_BONUS : 0);
-		FriendshipAttachment.addAffection(villager, player.getUuid(), boost);
+		int boost = IDLE_CHATTER_FONDNESS_BOOST + (matched ? IDLE_CHATTER_TONE_MATCH_BONUS : 0);
+		FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.FONDNESS, boost);
 
 		Random random = villager.getRandom();
 		String reactionLine = IdleChatterDialogue.reactionLine(personality, tone, matched, random);
@@ -202,7 +205,11 @@ public final class VillagerInteractionHandler {
 				&& held.getItem() == FavoriteGiftAttachment.getFavorite(villager);
 
 		held.decrement(1);
-		FriendshipAttachment.addAffection(villager, player.getUuid(), isFavorite ? FAVORITE_GIFT_AFFECTION_BOOST : GENERIC_GIFT_AFFECTION_BOOST);
+		FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.FONDNESS,
+				isFavorite ? FAVORITE_GIFT_FONDNESS_BOOST : GENERIC_GIFT_FONDNESS_BOOST);
+		if (isFavorite) {
+			FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST);
+		}
 		FriendshipAttachment.recordGift(villager, player.getUuid(), today);
 
 		player.sendMessage(Text.translatable(isFavorite ? "message.cim.gift_favorite" : "message.cim.gift_generic"), true);

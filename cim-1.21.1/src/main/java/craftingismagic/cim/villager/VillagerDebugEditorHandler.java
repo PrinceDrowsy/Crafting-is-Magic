@@ -17,6 +17,10 @@ import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.random.Random;
 
+import craftingismagic.cim.memory.Memory;
+import craftingismagic.cim.memory.MemoryDescriptions;
+import craftingismagic.cim.memory.MemoryStore;
+import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
 import craftingismagic.cim.rogue.RoguePonyEntity;
 import craftingismagic.cim.species.Species;
@@ -92,9 +96,10 @@ public final class VillagerDebugEditorHandler {
 		Species species = SpeciesAttachment.hasChosenSpecies(entity) ? SpeciesAttachment.getSpecies(entity) : Species.EARTH_PONY;
 		OpenVillagerDebugEditorS2CPayload.Identity identity = new OpenVillagerDebugEditorS2CPayload.Identity(
 				entity.getName().getString(), species, lifeStageOf(entity), growthTicksOf(entity), changelingInfoOf(entity));
+		FriendshipAttachment.RelationshipData feelings = FriendshipAttachment.get(entity, player.getUuid());
 		OpenVillagerDebugEditorS2CPayload.Relationship relationship = new OpenVillagerDebugEditorS2CPayload.Relationship(
-				FriendshipAttachment.getAffection(entity, player.getUuid()),
-				FriendshipAttachment.getRelationshipType(entity, player.getUuid()),
+				feelings.fondness(), feelings.respect(), feelings.trust(),
+				feelings.relationshipType(),
 				FavoriteGiftAttachment.hasFavorite(entity) ? FavoriteGiftAttachment.getFavorite(entity) : Items.APPLE,
 				buildFriendGroupSummary(entity, world));
 
@@ -104,6 +109,31 @@ public final class VillagerDebugEditorHandler {
 				PersonalityAttachment.getPersonality(entity),
 				relationship,
 				buildFamilySummary(entity, world)));
+		sendMemories(player, entity);
+	}
+
+	/** Sends the Memories tab its list - on open, and again after every change so the tab always
+	 * matches what the pony actually holds. */
+	private static void sendMemories(ServerPlayerEntity player, Entity entity) {
+		long now = entity.getWorld().getTime();
+		List<String> lines = new ArrayList<>();
+		for (Memory memory : MemoryStore.getAll(entity)) {
+			lines.add(MemoryDescriptions.describe(memory, now));
+		}
+		ServerPlayNetworking.send(player, new DebugMemoriesS2CPayload(entity.getId(), lines));
+	}
+
+	public static void deleteMemory(ServerPlayerEntity player, int villagerEntityId, int index) {
+		Entity entity = resolveEntity(player, villagerEntityId);
+		if (entity == null) {
+			return;
+		}
+		List<Memory> memories = MemoryStore.getAll(entity);
+		if (index >= 0 && index < memories.size()) {
+			Memory target = memories.get(index);
+			MemoryStore.remove(entity, memory -> memory == target);
+		}
+		sendMemories(player, entity);
 	}
 
 	/** {@code FAMILY_VIEW_RADIUS} is deliberately wider than {@code
@@ -260,10 +290,10 @@ public final class VillagerDebugEditorHandler {
 		}
 	}
 
-	public static void setAffection(ServerPlayerEntity player, int villagerEntityId, int affection) {
+	public static void setFeeling(ServerPlayerEntity player, int villagerEntityId, Feeling feeling, int value) {
 		Entity entity = resolveEntity(player, villagerEntityId);
 		if (entity != null) {
-			FriendshipAttachment.setAffection(entity, player.getUuid(), affection);
+			FriendshipAttachment.setFeeling(entity, player.getUuid(), feeling, value);
 		}
 	}
 

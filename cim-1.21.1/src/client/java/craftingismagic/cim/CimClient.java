@@ -46,6 +46,7 @@ import craftingismagic.cim.client.villager.ChangelingTrueFormSkins;
 import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
+import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.IdleChatterReactionS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
@@ -72,7 +73,7 @@ public class CimClient implements ClientModInitializer {
 				(payload, context) -> LevitationClientState.setSelectionBox(payload.min(), payload.max()));
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerMenuS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(
-						new VillagerMenuScreen(payload.villagerEntityId(), payload.affection(), payload.canTrade(), payload.villagerName()))));
+						new VillagerMenuScreen(payload.villagerEntityId(), payload.canTrade(), payload.villagerName()))));
 		ClientPlayNetworking.registerGlobalReceiver(OpenIdleChatterS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(
 						new IdleChatterScreen(payload.villagerEntityId(), payload.villagerName(), payload.openingLine()))));
@@ -87,6 +88,11 @@ public class CimClient implements ClientModInitializer {
 
 		ClientPlayNetworking.registerGlobalReceiver(StaminaSyncS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> ClientStaminaState.set(payload.stamina())));
+		ClientPlayNetworking.registerGlobalReceiver(DebugMemoriesS2CPayload.ID, (payload, context) -> context.client().execute(() -> {
+			if (context.client().currentScreen instanceof VillagerDebugEditorScreen editor) {
+				editor.receiveMemories(payload.villagerEntityId(), payload.lines());
+			}
+		}));
 		ClientPlayNetworking.registerGlobalReceiver(DebugInfoS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> DebugOverlayHud.setServerLines(payload.lines())));
 		DebugOverlayHud.register();

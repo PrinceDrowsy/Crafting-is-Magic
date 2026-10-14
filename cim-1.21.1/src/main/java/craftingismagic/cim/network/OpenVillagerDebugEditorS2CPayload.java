@@ -71,9 +71,12 @@ public record OpenVillagerDebugEditorS2CPayload(
 				ChangelingInfo::new);
 	}
 
-	public record Relationship(int affection, RelationshipType relationshipType, Item favoriteGift, List<String> friendGroupNames) {
+	public record Relationship(int fondness, int respect, int trust, RelationshipType relationshipType, Item favoriteGift,
+			List<String> friendGroupNames) {
 		public static final PacketCodec<RegistryByteBuf, Relationship> PACKET_CODEC = PacketCodec.tuple(
-				PacketCodecs.INTEGER.cast(), Relationship::affection,
+				PacketCodecs.INTEGER.cast(), Relationship::fondness,
+				PacketCodecs.INTEGER.cast(), Relationship::respect,
+				PacketCodecs.INTEGER.cast(), Relationship::trust,
 				RelationshipType.PACKET_CODEC.cast(), Relationship::relationshipType,
 				PacketCodecs.registryValue(RegistryKeys.ITEM), Relationship::favoriteGift,
 				PacketCodecs.collection(ArrayList::new, PacketCodecs.STRING.cast()), Relationship::friendGroupNames,

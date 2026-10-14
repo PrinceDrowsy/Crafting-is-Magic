@@ -34,18 +34,15 @@ public class VillagerMenuScreen extends Screen {
 	private static final int BUTTON_SPACING = 4;
 	private static final int BUTTON_COUNT = 6;
 	private static final int TITLE_Y = 14;
-	private static final int AFFECTION_Y = 30;
 
 	private final int villagerEntityId;
-	private final int affection;
 	private final boolean canTrade;
 	private boolean handingOffToTrade;
 	private boolean handingOffToChat;
 
-	public VillagerMenuScreen(int villagerEntityId, int affection, boolean canTrade, String villagerName) {
+	public VillagerMenuScreen(int villagerEntityId, boolean canTrade, String villagerName) {
 		super(Text.translatable("screen.cim.villager_menu.title", villagerName));
 		this.villagerEntityId = villagerEntityId;
-		this.affection = affection;
 		this.canTrade = canTrade;
 	}
 
@@ -90,11 +87,8 @@ public class VillagerMenuScreen extends Screen {
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
 		super.render(context, mouseX, mouseY, delta);
+		// No feeling values shown here - the friendship system never shows numbers to players.
 		CimText.drawCentered(context, this.textRenderer, this.getTitle(), this.width / 2, TITLE_Y, 0xFFFFFF);
-		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
-		int affectionY = Math.max(AFFECTION_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 6);
-		CimText.drawCentered(context, this.textRenderer,
-				Text.translatable("screen.cim.villager_menu.affection", affection), this.width / 2, affectionY, 0xAAAAAA);
 	}
 
 	@Override

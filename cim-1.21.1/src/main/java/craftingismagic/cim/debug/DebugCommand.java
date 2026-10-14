@@ -1,26 +1,46 @@
 package craftingismagic.cim.debug;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 
 import net.minecraft.command.CommandRegistryAccess;
+import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.EntityArgumentType;
+import net.minecraft.command.argument.IdentifierArgumentType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.VillagerEntity;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
+import craftingismagic.cim.memory.Emotion;
+import craftingismagic.cim.memory.EmotionIntensity;
+import craftingismagic.cim.memory.Memory;
+import craftingismagic.cim.memory.MemoryDescriptions;
+import craftingismagic.cim.memory.MemoryImportance;
+import craftingismagic.cim.memory.MemoryKnowledge;
+import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 import craftingismagic.cim.stamina.StaminaManager;
+import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 
@@ -32,6 +52,8 @@ import craftingismagic.cim.villager.VillagerFamilyHandler;
  * <li>{@code stamina show|set|max|exhaust|wake} - exercise Stamina without waiting on regen or a
  * night's sleep.</li>
  * <li>{@code grow <villagers>} - push villagers to their next life stage.</li>
+ * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories.</li>
+ * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
  * </ul>
  */
 public final class DebugCommand {
@@ -44,6 +66,8 @@ public final class DebugCommand {
 				.then(CommandManager.literal("debug")
 						.requires(CimDebug::allowed)
 						.then(staminaBranch())
+						.then(memoryBranch())
+						.then(factBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
@@ -83,6 +107,231 @@ public final class DebugCommand {
 							StaminaManager.onWokeUp(player);
 							context.getSource().sendFeedback(() -> describe(player), false);
 						})));
+	}
+
+	/**
+	 * {@code memory add <target> <type> [importance] [emotion] [intensity]}, {@code memory list <target>},
+	 * {@code memory clear <target>}. A memory added here is about whoever ran the command (if a player),
+	 * and witnessed - the shape of a Shared Memory between them.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> memoryBranch() {
+		return CommandManager.literal("memory")
+				.then(CommandManager.literal("add")
+						.then(CommandManager.argument("target", EntityArgumentType.entity())
+								.then(CommandManager.argument("type", IdentifierArgumentType.identifier())
+										.executes(context -> addMemory(context, MemoryImportance.NOTABLE, null, EmotionIntensity.CLEAR))
+										.then(enumArgument("importance", MemoryImportance.values())
+												.executes(context -> addMemory(context, enumValue(context, "importance", MemoryImportance.class), null, EmotionIntensity.CLEAR))
+												.then(enumArgument("emotion", Emotion.values())
+														.executes(context -> addMemory(context, enumValue(context, "importance", MemoryImportance.class),
+																enumValue(context, "emotion", Emotion.class), EmotionIntensity.CLEAR))
+														.then(enumArgument("intensity", EmotionIntensity.values())
+																.executes(context -> addMemory(context, enumValue(context, "importance", MemoryImportance.class),
+																		enumValue(context, "emotion", Emotion.class),
+																		enumValue(context, "intensity", EmotionIntensity.class)))))))))
+				.then(CommandManager.literal("list")
+						.then(CommandManager.argument("target", EntityArgumentType.entity())
+								.executes(DebugCommand::listMemories)))
+				.then(CommandManager.literal("clear")
+						.then(CommandManager.argument("target", EntityArgumentType.entity())
+								.executes(context -> {
+									Entity target = EntityArgumentType.getEntity(context, "target");
+									int count = MemoryStore.getAll(target).size();
+									MemoryStore.clear(target);
+									context.getSource().sendFeedback(() -> Text.literal("Cleared " + count + " memories from " + target.getName().getString()), false);
+									return count;
+								})));
+	}
+
+	/** One scope of story facts, resolved from the command's arguments. */
+	private interface FactScope {
+		void set(Identifier fact) throws CommandSyntaxException;
+
+		boolean clear(Identifier fact) throws CommandSyntaxException;
+
+		boolean has(Identifier fact) throws CommandSyntaxException;
+
+		Map<Identifier, Long> all() throws CommandSyntaxException;
+
+		String describe() throws CommandSyntaxException;
+	}
+
+	@FunctionalInterface
+	private interface ScopeResolver {
+		FactScope resolve(CommandContext<ServerCommandSource> context) throws CommandSyntaxException;
+	}
+
+	/**
+	 * {@code fact world <set|clear|has> <id>}, {@code fact player <player> ...}, {@code fact relationship
+	 * <pony> ...} (between whoever runs it and that pony), each also with {@code list}.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> factBranch() {
+		ScopeResolver world = context -> {
+			MinecraftServer server = context.getSource().getServer();
+			return new FactScope() {
+				public void set(Identifier fact) {
+					StoryFacts.setWorld(server, fact);
+				}
+
+				public boolean clear(Identifier fact) {
+					return StoryFacts.clearWorld(server, fact);
+				}
+
+				public boolean has(Identifier fact) {
+					return StoryFacts.hasWorld(server, fact);
+				}
+
+				public Map<Identifier, Long> all() {
+					return StoryFacts.worldFacts(server);
+				}
+
+				public String describe() {
+					return "the world";
+				}
+			};
+		};
+		ScopeResolver personal = context -> {
+			ServerPlayerEntity player = EntityArgumentType.getPlayer(context, "player");
+			return new FactScope() {
+				public void set(Identifier fact) {
+					StoryFacts.setPersonal(player, fact);
+				}
+
+				public boolean clear(Identifier fact) {
+					return StoryFacts.clearPersonal(player, fact);
+				}
+
+				public boolean has(Identifier fact) {
+					return StoryFacts.hasPersonal(player, fact);
+				}
+
+				public Map<Identifier, Long> all() {
+					return StoryFacts.personalFacts(player);
+				}
+
+				public String describe() {
+					return player.getName().getString();
+				}
+			};
+		};
+		ScopeResolver relationship = context -> {
+			Entity pony = EntityArgumentType.getEntity(context, "pony");
+			ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+			return new FactScope() {
+				public void set(Identifier fact) {
+					StoryFacts.setRelationship(pony, player.getUuid(), fact);
+				}
+
+				public boolean clear(Identifier fact) {
+					return StoryFacts.clearRelationship(pony, player.getUuid(), fact);
+				}
+
+				public boolean has(Identifier fact) {
+					return StoryFacts.hasRelationship(pony, player.getUuid(), fact);
+				}
+
+				public Map<Identifier, Long> all() {
+					return StoryFacts.relationshipFacts(pony, player.getUuid());
+				}
+
+				public String describe() {
+					return player.getName().getString() + " and " + pony.getName().getString();
+				}
+			};
+		};
+
+		return CommandManager.literal("fact")
+				.then(factActions(CommandManager.literal("world"), world))
+				.then(CommandManager.literal("player")
+						.then(factActions(CommandManager.argument("player", EntityArgumentType.player()), personal)))
+				.then(CommandManager.literal("relationship")
+						.then(factActions(CommandManager.argument("pony", EntityArgumentType.entity()), relationship)));
+	}
+
+	private static <T extends com.mojang.brigadier.builder.ArgumentBuilder<ServerCommandSource, T>> T factActions(T node, ScopeResolver resolver) {
+		return node
+				.then(CommandManager.literal("set").then(CommandManager.argument("fact", IdentifierArgumentType.identifier())
+						.executes(context -> {
+							FactScope scope = resolver.resolve(context);
+							Identifier fact = IdentifierArgumentType.getIdentifier(context, "fact");
+							scope.set(fact);
+							String who = scope.describe();
+							context.getSource().sendFeedback(() -> Text.literal("Set " + fact + " for " + who), false);
+							return 1;
+						})))
+				.then(CommandManager.literal("clear").then(CommandManager.argument("fact", IdentifierArgumentType.identifier())
+						.executes(context -> {
+							FactScope scope = resolver.resolve(context);
+							Identifier fact = IdentifierArgumentType.getIdentifier(context, "fact");
+							boolean removed = scope.clear(fact);
+							String who = scope.describe();
+							context.getSource().sendFeedback(() -> Text.literal((removed ? "Cleared " : "Wasn't set: ") + fact + " for " + who), false);
+							return removed ? 1 : 0;
+						})))
+				.then(CommandManager.literal("has").then(CommandManager.argument("fact", IdentifierArgumentType.identifier())
+						.executes(context -> {
+							FactScope scope = resolver.resolve(context);
+							Identifier fact = IdentifierArgumentType.getIdentifier(context, "fact");
+							boolean has = scope.has(fact);
+							String who = scope.describe();
+							context.getSource().sendFeedback(() -> Text.literal(fact + (has ? " is set" : " is not set") + " for " + who), false);
+							return has ? 1 : 0;
+						})))
+				.then(CommandManager.literal("list")
+						.executes(context -> {
+							FactScope scope = resolver.resolve(context);
+							Map<Identifier, Long> facts = scope.all();
+							String who = scope.describe();
+							long now = context.getSource().getWorld().getTime();
+							context.getSource().sendFeedback(() -> Text.literal(facts.size() + " facts for " + who + ":"), false);
+							facts.forEach((fact, time) -> context.getSource().sendFeedback(
+									() -> Text.literal("  " + fact + " (" + Math.max(0, (now - time) / 24000L) + " days ago)"), false));
+							return facts.size();
+						}));
+	}
+
+	private static int addMemory(CommandContext<ServerCommandSource> context, MemoryImportance importance, Emotion emotion,
+			EmotionIntensity intensity) throws CommandSyntaxException {
+		Entity target = EntityArgumentType.getEntity(context, "target");
+		Identifier type = IdentifierArgumentType.getIdentifier(context, "type");
+		ServerPlayerEntity player = context.getSource().getPlayer();
+		Memory memory = new Memory(type, Optional.ofNullable(player).map(Entity::getUuid), MemoryKnowledge.WITNESSED,
+				importance, Optional.ofNullable(emotion), intensity, target.getWorld().getTime());
+		MemoryStore.add(target, memory);
+		context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " now remembers "
+				+ MemoryDescriptions.describe(memory, target.getWorld().getTime())), false);
+		return 1;
+	}
+
+	private static int listMemories(CommandContext<ServerCommandSource> context) throws CommandSyntaxException {
+		Entity target = EntityArgumentType.getEntity(context, "target");
+		List<Memory> memories = MemoryStore.getAll(target);
+		context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " holds " + memories.size() + " memories:"), false);
+		long now = target.getWorld().getTime();
+		for (Memory memory : memories) {
+			context.getSource().sendFeedback(() -> Text.literal("  " + MemoryDescriptions.describe(memory, now)), false);
+		}
+		return memories.size();
+	}
+
+	private static String lower(Enum<?> value) {
+		return value.name().toLowerCase(Locale.ROOT);
+	}
+
+	private static <E extends Enum<E>> RequiredArgumentBuilder<ServerCommandSource, String> enumArgument(String name, E[] values) {
+		return CommandManager.argument(name, StringArgumentType.word())
+				.suggests((context, builder) -> CommandSource.suggestMatching(
+						Arrays.stream(values).map(DebugCommand::lower), builder));
+	}
+
+	private static <E extends Enum<E>> E enumValue(CommandContext<ServerCommandSource> context, String name, Class<E> type)
+			throws CommandSyntaxException {
+		String raw = StringArgumentType.getString(context, name);
+		try {
+			return Enum.valueOf(type, raw.toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException e) {
+			throw new SimpleCommandExceptionType(Text.literal("Unknown " + name + ": " + raw)).create();
+		}
 	}
 
 	private static int forSelf(CommandContext<ServerCommandSource> context, Consumer<ServerPlayerEntity> action) throws CommandSyntaxException {
