@@ -87,11 +87,19 @@ public final class TaleRuntime {
 	 * holds, weighted by {@code weight:}. Empty when none fit.
 	 */
 	public static Optional<Node> pickOpener(String context, TaleContext tale) {
+		return pickOpener(context, tale, null);
+	}
+
+	/**
+	 * Like {@link #pickOpener(String, TaleContext)}, but only among nodes of exactly {@code tone} (empty
+	 * for untoned) - how a greeting is matched to the conversation it opens. {@code null} takes any tone.
+	 */
+	public static Optional<Node> pickOpener(String context, TaleContext tale, Optional<String> tone) {
 		List<Node> candidates = new ArrayList<>();
 		List<Integer> weights = new ArrayList<>();
 		int total = 0;
 		for (Node node : TaleLibrary.get().nodes().values()) {
-			if (!node.start().contains(context) || !allHold(node.when(), tale)) {
+			if (!node.start().contains(context) || (tone != null && !node.tone().equals(tone)) || !allHold(node.when(), tale)) {
 				continue;
 			}
 			int weight = node.weight();
@@ -120,6 +128,19 @@ public final class TaleRuntime {
 	}
 
 	public static Conversation start(Node node, TaleContext tale) {
+		return new Conversation(node, tale, Optional.empty());
+	}
+
+	/** Opens at {@code node} after {@code leadIn} (a greeting, say) has said its piece. */
+	public static Conversation start(Node node, TaleContext tale, Optional<Node> leadIn) {
+		return new Conversation(node, tale, leadIn);
+	}
+
+	/**
+	 * Plays {@code node} as speech only - its lines and effects, never its replies or jumps - and ends.
+	 * For speak-only contexts like farewells: the pony's goodbye, then the conversation is over.
+	 */
+	public static Conversation speakOnly(Node node, TaleContext tale) {
 		return new Conversation(node, tale);
 	}
 
@@ -132,11 +153,44 @@ public final class TaleRuntime {
 		private final List<Identifier> visited = new ArrayList<>();
 		private Beat beat;
 
+		private Conversation(Node node, TaleContext tale, Optional<Node> leadIn) {
+			this.tale = tale;
+			this.node = node;
+			List<Line> lines = new ArrayList<>();
+			leadIn.ifPresent(greeting -> leadIn(greeting, lines));
+			this.beat = run(node, lines, new int[] {0});
+		}
+
+		/** Speech only: {@code node}'s lines and effects, then the end. */
 		private Conversation(Node node, TaleContext tale) {
 			this.tale = tale;
 			this.node = node;
 			List<Line> lines = new ArrayList<>();
-			this.beat = run(node, lines, new int[] {0});
+			leadIn(node, lines);
+			this.beat = new Beat(List.copyOf(lines), List.of(), true);
+		}
+
+		/** A lead-in only speaks and runs effects; its replies and jumps are skipped (the validator warns). */
+		private void leadIn(Node from, List<Line> lines) {
+			visited.add(from.id());
+			for (Statement statement : from.body()) {
+				switch (statement) {
+					case Spoken spoken -> lines.add(line(spoken));
+					case EffectStatement effect -> {
+						if (allHold(effect.conditions(), tale)) {
+							apply(effect.effect(), tale);
+						}
+					}
+					case Interjection interjection -> {
+						if (hears(interjection.voice(), interjection.tier())) {
+							lines.add(new Line(LineKind.VOICE, "", false, fill(interjection.text(), tale, false),
+									TaleVocabulary.normalize(interjection.voice())));
+						}
+					}
+					default -> {
+					}
+				}
+			}
 		}
 
 		public Beat beat() {

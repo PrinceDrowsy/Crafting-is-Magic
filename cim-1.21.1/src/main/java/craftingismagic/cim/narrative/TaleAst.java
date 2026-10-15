@@ -29,9 +29,11 @@ public final class TaleAst {
 	 *                nodes only reached by a jump
 	 * @param weight  how likely this opener is picked against the others, before bonuses
 	 * @param bonuses {@code weight: +N if ...} lines
+	 * @param tone    {@code tone: gentle} - the feel of the conversation; a lead-in (greeting) only opens
+	 *                a conversation of the same tone, so a joke never opens bad news. Empty is the default.
 	 */
 	public record Node(String name, Identifier id, int line, List<String> start, int weight, List<WeightBonus> bonuses,
-			List<ConditionCall> when, List<Statement> body) {
+			List<ConditionCall> when, List<Statement> body, Optional<String> tone) {
 	}
 
 	/** {@code weight: +3 if personality(lazy)} - all conditions must hold for the bonus to count. */

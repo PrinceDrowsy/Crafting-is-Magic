@@ -61,6 +61,11 @@ import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
+import craftingismagic.cim.speech.HumDirector;
+import craftingismagic.cim.speech.HumLibrary;
+import craftingismagic.cim.speech.PrincessVoices;
+import craftingismagic.cim.speech.SpeakingVoice;
+import craftingismagic.cim.speech.SpeakingVoices;
 import craftingismagic.cim.voice.CimVoices;
 import craftingismagic.cim.voice.VoiceLeanings;
 
@@ -74,10 +79,13 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code grow <villagers>} - push villagers to their next life stage.</li>
  * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories.</li>
  * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
- * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems.</li>
+ * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems;
+ * {@code tale export} - the vocabulary for the {@code .tale} editor.</li>
  * <li>{@code dialogue test <node> <pony>} - play any node as a conversation.</li>
  * <li>{@code thread status|start|advance|reset|fire} - see and move your threads, and fake their events.</li>
  * <li>{@code voice show|set|add|dice} - your inner voices, and forcing rolls.</li>
+ * <li>{@code speech show|set|princess|roll <target>} - how a pony or player sounds when they talk.</li>
+ * <li>{@code hum <pony> [tune]} - a pony hums right now.</li>
  * <li>{@code mood show [entity]}, {@code moment play|stop} - feelings from memories, and scene-setting moments.</li>
  * </ul>
  */
@@ -96,6 +104,8 @@ public final class DebugCommand {
 						.then(taleBranch())
 						.then(dialogueBranch())
 						.then(threadBranch())
+						.then(speechBranch())
+						.then(humBranch())
 						.then(voiceBranch())
 						.then(moodBranch())
 						.then(momentBranch())
@@ -349,6 +359,13 @@ public final class DebugCommand {
 							}
 							return (int) errors;
 						}))
+				.then(CommandManager.literal("export")
+						.executes(context -> {
+							java.nio.file.Path file = exportVocabulary();
+							context.getSource().sendFeedback(() -> Text.literal(file == null ? "Export failed - see the log"
+									: "Wrote the .tale vocabulary for the editor to " + file), false);
+							return file == null ? 0 : 1;
+						}))
 				.then(CommandManager.literal("list")
 						.executes(context -> {
 							ServerCommandSource source = context.getSource();
@@ -521,6 +538,96 @@ public final class DebugCommand {
 	}
 
 	/**
+	 * Speaking voices (README: Speaking voices) - how a pony or player sounds when they talk.
+	 * {@code speech show <target>}; {@code speech set <target> <sound> [pitch]} takes any sound ID
+	 * (what the character creator will offer players); {@code speech roll <target>} forgets the voice
+	 * so a new one is rolled or inherited.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> speechBranch() {
+		return CommandManager.literal("speech")
+				.then(CommandManager.literal("show").then(CommandManager.argument("target", EntityArgumentType.entity()).executes(context -> {
+					Entity target = EntityArgumentType.getEntity(context, "target");
+					SpeakingVoice voice = SpeakingVoices.of(target);
+					SpeakingVoice heard = SpeakingVoices.heard(target);
+					context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " speaks with " + voice.sound()
+							+ " at pitch " + String.format(java.util.Locale.ROOT, "%.2f", voice.pitch())
+							+ (heard.pitch() != voice.pitch() ? String.format(java.util.Locale.ROOT, " (%.2f while young)", heard.pitch()) : "")), false);
+					return 1;
+				})))
+				.then(CommandManager.literal("set").then(CommandManager.argument("target", EntityArgumentType.entity())
+						.then(CommandManager.argument("sound", net.minecraft.command.argument.IdentifierArgumentType.identifier())
+								.suggests(net.minecraft.command.suggestion.SuggestionProviders.AVAILABLE_SOUNDS)
+								.executes(context -> setSpeech(context, SpeakingVoices.of(EntityArgumentType.getEntity(context, "target")).pitch()))
+								.then(CommandManager.argument("pitch", com.mojang.brigadier.arguments.FloatArgumentType.floatArg(
+												SpeakingVoice.MIN_PITCH, SpeakingVoice.MAX_PITCH))
+										.executes(context -> setSpeech(context,
+												com.mojang.brigadier.arguments.FloatArgumentType.getFloat(context, "pitch")))))))
+				.then(CommandManager.literal("princess").then(CommandManager.argument("target", EntityArgumentType.entity())
+						.then(CommandManager.argument("princess", StringArgumentType.word())
+								.suggests((context, builder) -> net.minecraft.command.CommandSource.suggestMatching(PrincessVoices.ALL.keySet(), builder))
+								.executes(context -> {
+									Entity target = EntityArgumentType.getEntity(context, "target");
+									String name = StringArgumentType.getString(context, "princess").toLowerCase(java.util.Locale.ROOT);
+									SpeakingVoice voice = PrincessVoices.ALL.get(name);
+									if (voice == null) {
+										context.getSource().sendError(Text.literal("No princess voice \"" + name + "\" - try: "
+												+ String.join(", ", new java.util.TreeSet<>(PrincessVoices.ALL.keySet()))));
+										return 0;
+									}
+									SpeakingVoices.set(target, voice);
+									context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " now speaks with "
+											+ name + "'s voice (provisional)"), false);
+									return 1;
+								}))))
+				.then(CommandManager.literal("roll").then(CommandManager.argument("target", EntityArgumentType.entity()).executes(context -> {
+					Entity target = EntityArgumentType.getEntity(context, "target");
+					SpeakingVoices.forget(target);
+					SpeakingVoice voice = SpeakingVoices.of(target);
+					context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " now speaks with " + voice.sound()
+							+ String.format(java.util.Locale.ROOT, " at pitch %.2f", voice.pitch())), false);
+					return 1;
+				})));
+	}
+
+	/** {@code hum <pony> [tune]} - the pony hums now (README: Humming), a tune that fits or the one named. */
+	private static LiteralArgumentBuilder<ServerCommandSource> humBranch() {
+		return CommandManager.literal("hum").then(CommandManager.argument("pony", EntityArgumentType.entity())
+				.executes(context -> hum(context, java.util.Optional.empty()))
+				.then(CommandManager.argument("tune", net.minecraft.command.argument.IdentifierArgumentType.identifier())
+						.suggests((context, builder) -> net.minecraft.command.CommandSource.suggestIdentifiers(
+								HumLibrary.all().stream().map(HumLibrary.Hum::id), builder))
+						.executes(context -> hum(context, java.util.Optional.of(
+								net.minecraft.command.argument.IdentifierArgumentType.getIdentifier(context, "tune"))))));
+	}
+
+	private static int hum(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context,
+			java.util.Optional<net.minecraft.util.Identifier> tune) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		Entity target = EntityArgumentType.getEntity(context, "pony");
+		ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+		if (!(target instanceof net.minecraft.entity.passive.VillagerEntity pony)) {
+			context.getSource().sendError(Text.literal("Only ponies hum."));
+			return 0;
+		}
+		java.util.Optional<HumLibrary.Hum> hummed = HumDirector.humNow(player, pony, tune);
+		if (hummed.isEmpty()) {
+			context.getSource().sendError(Text.literal(tune.isPresent() ? "No hum called " + tune.get() : "No hum fits right now"));
+			return 0;
+		}
+		context.getSource().sendFeedback(() -> Text.literal(pony.getName().getString() + " hums " + hummed.get().id()), false);
+		return 1;
+	}
+
+	private static int setSpeech(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, float pitch)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		Entity target = EntityArgumentType.getEntity(context, "target");
+		net.minecraft.util.Identifier sound = net.minecraft.command.argument.IdentifierArgumentType.getIdentifier(context, "sound");
+		SpeakingVoices.set(target, new SpeakingVoice(sound, pitch));
+		context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " now speaks with " + sound
+				+ String.format(java.util.Locale.ROOT, " at pitch %.2f", SpeakingVoices.of(target).pitch())), false);
+		return 1;
+	}
+
+	/**
 	 * {@code mood show [entity]} - what they feel now, from their memories; {@code moment play <id>} -
 	 * plays a scene-setting moment on your own screen; {@code moment stop}.
 	 */
@@ -653,6 +760,22 @@ public final class DebugCommand {
 	private static RequiredArgumentBuilder<ServerCommandSource, Identifier> threadArgument() {
 		return CommandManager.argument("thread", IdentifierArgumentType.identifier())
 				.suggests((context, builder) -> CommandSource.suggestIdentifiers(TaleLibrary.get().threads().keySet(), builder));
+	}
+
+	/**
+	 * Writes the .tale vocabulary (every word and its argument rules) to {@code cim-vocabulary.json}
+	 * in the game folder, for the editor in {@code tools/tale-editor}. Also runs on its own when a world
+	 * opens with debug tools on. Returns where it wrote, or null on failure.
+	 */
+	public static java.nio.file.Path exportVocabulary() {
+		java.nio.file.Path file = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("cim-vocabulary.json");
+		try {
+			craftingismagic.cim.narrative.TaleVocabularyExport.write(file);
+			return file;
+		} catch (java.io.IOException e) {
+			craftingismagic.cim.Cim.LOGGER.error("Couldn't write the .tale vocabulary to {}", file, e);
+			return null;
+		}
 	}
 
 	private static int addMemory(CommandContext<ServerCommandSource> context, MemoryImportance importance, Emotion emotion,

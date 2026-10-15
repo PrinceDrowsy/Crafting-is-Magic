@@ -1,0 +1,61 @@
+// Farewells: what a pony says back when you say "See you later." - then the conversation closes.
+// Like greetings, they only speak (and run effects); replies and jumps don't belong here.
+// One is picked among those whose "when:" holds, by weight - the more particular, the heavier.
+//
+// PLACEHOLDER LINES - a scaffold showing the shape; every line here is meant to be rewritten.
+
+
+=== bye
+start: farewell
+{pony}: See you, {player}!
+    or: Bye for now!
+    or: Take care!
+
+=== night
+start: farewell
+weight: 3
+when: time_of_day(night)
+{pony}: Get home safe, okay?
+
+=== bat_pony_bedtime
+start: farewell
+weight: 4
+when: species(bat_pony), time_of_day(night)
+// A bat pony's "night" is everyone else's daytime - they're off to bed.
+{pony}: *yawns* Finally, bedtime. Night, {player}.
+
+=== close_friend
+start: farewell
+weight: 4
+when: fondness >= high
+{pony}: Come back soon, okay? I mean it!
+
+=== cranky
+start: farewell
+weight: 3
+when: personality(cranky)
+{pony}: Yeah, yeah. Go on.
+
+=== peppy
+start: farewell
+weight: 3
+when: personality(peppy)
+{pony}: Bye bye! This was the BEST!
+
+=== grieving_pony
+start: farewell
+weight: 8
+when: mood(grief, clear)
+{pony}: ...Thanks for stopping by.
+
+=== grieving_player
+start: farewell
+weight: 8
+when: player.mood(grief, clear)
+{pony}: Take care of yourself, {player}. Really.
+
+=== rain
+start: farewell
+weight: 2
+when: raining
+{pony}: Stay dry out there!

@@ -9,6 +9,7 @@ import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.server.world.ServerWorld;
 
+import craftingismagic.cim.speech.SpeakingVoices;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyKinship;
@@ -71,6 +72,8 @@ public abstract class VillagerBreedingMixin {
 		VillagerEntity child = cir.getReturnValue();
 		if (child != null) {
 			VillagerFamilyHandler.assignBredChild(child, (VillagerEntity) (Object) this, partner);
+			// Both parents are right here, so the foal's voice takes after them now (README: Speaking voices).
+			SpeakingVoices.inheritAtBirth(child, (VillagerEntity) (Object) this, partner);
 		}
 	}
 }

@@ -9,13 +9,14 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.speech.SpeakingVoice;
 
 /**
  * One beat of a conversation for the dialogue screen: the lines to show, and either the replies to
  * pick from or the end. Opens the screen if it isn't open yet.
  */
 public record DialogueBeatS2CPayload(int entityId, String partnerName, List<LineData> lines, List<OptionData> options,
-		boolean ended) implements CustomPayload {
+		boolean ended, Scene scene) implements CustomPayload {
 	public static final Id<DialogueBeatS2CPayload> ID = new Id<>(Identifier.of(Cim.MOD_ID, "dialogue_beat"));
 
 	/** Line kinds, matching {@code TaleRuntime.LineKind}. */
@@ -57,12 +58,44 @@ public record DialogueBeatS2CPayload(int entityId, String partnerName, List<Line
 				OptionData::new);
 	}
 
+	/**
+	 * Something the player can bring up in conversation (README: Conversations replace the interact menu).
+	 *
+	 * @param id        the request, e.g. {@code cim:gift}; its words are {@code request.<namespace>.<path>}
+	 * @param needsItem whether the player picks an item from their inventory first (a gift)
+	 */
+	public record RequestData(Identifier id, boolean needsItem) {
+		public static final PacketCodec<RegistryByteBuf, RequestData> CODEC = PacketCodec.tuple(
+				Identifier.PACKET_CODEC, RequestData::id,
+				PacketCodecs.BOOL.cast(), RequestData::needsItem,
+				RequestData::new);
+	}
+
+	/**
+	 * Everything around the lines: how the pony and the player sound (README: Speaking voices), what
+	 * the player can bring up, and what happens once the lines are read.
+	 *
+	 * @param followUp "" for nothing; {@code action} for something the screen asks the server to do once
+	 *                 the lines have shown and had a moment to sink in (the trade screen opening, so
+	 *                 "Sure, take a look!" is read first); {@code close} when these lines are the pony's
+	 *                 goodbye, and the screen closes after them
+	 */
+	public record Scene(SpeakingVoice partner, SpeakingVoice you, List<RequestData> requests, String followUp) {
+		public static final PacketCodec<RegistryByteBuf, Scene> CODEC = PacketCodec.tuple(
+				SpeakingVoice.PACKET_CODEC, Scene::partner,
+				SpeakingVoice.PACKET_CODEC, Scene::you,
+				RequestData.CODEC.collect(PacketCodecs.toList()), Scene::requests,
+				PacketCodecs.STRING.cast(), Scene::followUp,
+				Scene::new);
+	}
+
 	public static final PacketCodec<RegistryByteBuf, DialogueBeatS2CPayload> CODEC = PacketCodec.tuple(
 			PacketCodecs.INTEGER.cast(), DialogueBeatS2CPayload::entityId,
 			PacketCodecs.STRING.cast(), DialogueBeatS2CPayload::partnerName,
 			LineData.CODEC.collect(PacketCodecs.toList()), DialogueBeatS2CPayload::lines,
 			OptionData.CODEC.collect(PacketCodecs.toList()), DialogueBeatS2CPayload::options,
 			PacketCodecs.BOOL.cast(), DialogueBeatS2CPayload::ended,
+			Scene.CODEC, DialogueBeatS2CPayload::scene,
 			DialogueBeatS2CPayload::new);
 
 	@Override

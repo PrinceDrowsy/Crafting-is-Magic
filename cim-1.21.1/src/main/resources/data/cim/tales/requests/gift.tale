@@ -1,0 +1,42 @@
+// Gifts: the player picked something from their inventory and offered it ("I brought you something").
+// {gift} is the item's name. "~ take_gift" is when the pony actually takes it - one of it, with the
+// feelings that come with it (more for their favorite). Without it, the player keeps the item.
+//
+// gift(favorite) is the pony's favorite; gift(minecraft:poppy, #minecraft:flowers) matches items.
+// can_take_gift is false once they've had enough gifts from you today - they can say so.
+//
+// PLACEHOLDER LINES - a scaffold showing the shape; every line here is meant to be rewritten.
+
+
+=== too_many_today
+start: gift
+weight: 100
+when: not can_take_gift
+{pony}: Oh, you've already given me so much today! Keep it, really.
+
+=== favorite
+start: gift
+when: can_take_gift, gift(favorite)
+{pony}: Is that... a {gift}? It's my favorite! Thank you!
+~ take_gift
+
+=== thanks
+start: gift
+when: can_take_gift, not gift(favorite)
+{pony}: A {gift}? That's sweet of you. Thank you!
+    or: Oh! For me? Thanks, {player}.
+~ take_gift
+
+=== cranky_thanks
+start: gift
+weight: 3
+when: can_take_gift, not gift(favorite), personality(cranky)
+{pony}: Hmph. A {gift}. ...Thanks, I suppose.
+~ take_gift
+
+=== grieving_thanks
+start: gift
+weight: 5
+when: can_take_gift, mood(grief, clear)
+{pony}: *quietly* Thank you. That means a lot right now.
+~ take_gift

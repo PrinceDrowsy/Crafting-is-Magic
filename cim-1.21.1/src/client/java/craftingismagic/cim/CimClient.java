@@ -17,7 +17,6 @@ import craftingismagic.cim.client.debug.DebugOverlayHud;
 import craftingismagic.cim.client.gui.DialogueScreen;
 import craftingismagic.cim.client.gui.SpeciesSelectScreen;
 import craftingismagic.cim.client.gui.VillagerDebugEditorScreen;
-import craftingismagic.cim.client.gui.VillagerMenuScreen;
 import craftingismagic.cim.client.journal.JournalKeyBinding;
 import craftingismagic.cim.client.journal.JournalOpener;
 import craftingismagic.cim.client.levitation.LevitationAuraEffectHandler;
@@ -47,14 +46,17 @@ import craftingismagic.cim.client.villager.MineLpVillagerSkins;
 import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
+import craftingismagic.cim.client.dialogue.SpeechSounds;
+import craftingismagic.cim.network.ChatVoiceS2CPayload;
+import craftingismagic.cim.network.HumS2CPayload;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import craftingismagic.cim.network.MomentS2CPayload;
 import craftingismagic.cim.client.mood.MomentDirector;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
-import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.network.StaminaSyncS2CPayload;
 import craftingismagic.cim.network.TeleportChargeEndS2CPayload;
 import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
@@ -72,9 +74,6 @@ public class CimClient implements ClientModInitializer {
 				(payload, context) -> LevitationClientState.set(payload.state()));
 		ClientPlayNetworking.registerGlobalReceiver(LevitationSelectionBoxS2CPayload.ID,
 				(payload, context) -> LevitationClientState.setSelectionBox(payload.min(), payload.max()));
-		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerMenuS2CPayload.ID, (payload, context) -> context.client()
-				.execute(() -> context.client().setScreen(
-						new VillagerMenuScreen(payload.villagerEntityId(), payload.canTrade(), payload.villagerName()))));
 		MomentDirector.register();
 		ClientPlayNetworking.registerGlobalReceiver(MomentS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> MomentDirector.play(payload.moment())));
@@ -86,6 +85,11 @@ public class CimClient implements ClientModInitializer {
 						context.client().setScreen(new DialogueScreen(payload));
 					}
 				}));
+		ClientPlayNetworking.registerGlobalReceiver(ChatVoiceS2CPayload.ID,
+				(payload, context) -> context.client().execute(() -> SpeechSounds.chatted(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(HumS2CPayload.ID,
+				(payload, context) -> context.client().execute(() -> SpeechSounds.hummed(payload)));
+		ClientTickEvents.END_CLIENT_TICK.register(SpeechSounds::tick);
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(VillagerDebugEditorScreen.fromPayload(payload))));
 

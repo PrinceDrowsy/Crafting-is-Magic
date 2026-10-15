@@ -96,8 +96,18 @@ public final class TaleValidator {
 						+ String.join(", ", TaleVocabulary.startContexts()) + ".");
 			}
 		}
+		node.start().stream().filter(TaleVocabulary::isLeadInContext).findFirst().ifPresent(leadIn -> {
+			for (Statement statement : node.body()) {
+				if (statement instanceof Reply || statement instanceof Jump) {
+					warning(file, statement.line(), "A \"start: " + leadIn + "\" node only speaks - replies and jumps here are skipped.");
+				}
+			}
+		});
 		if (node.start().isEmpty() && (node.weight() != 1 || !node.bonuses().isEmpty())) {
 			warning(file, node.line(), "\"weight:\" only matters on a node with \"start:\".");
+		}
+		if (node.start().isEmpty() && node.tone().isPresent()) {
+			warning(file, node.line(), "\"tone:\" only matters on a node with \"start:\".");
 		}
 		node.bonuses().forEach(bonus -> bonus.conditions().forEach(condition -> checkCondition(file, condition)));
 		node.when().forEach(condition -> checkCondition(file, condition));

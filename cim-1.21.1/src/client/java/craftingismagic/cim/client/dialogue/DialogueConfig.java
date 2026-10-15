@@ -50,10 +50,31 @@ public final class DialogueConfig {
 		}
 	}
 
+	/** How much ponies hum around town (README: Humming): off, the occasional soft hum, or lively and frequent. */
+	public enum Humming {
+		OFF(0f),
+		// Under one's breath - humming, not performing.
+		SOFT(0.22f),
+		LIVELY(0.34f);
+
+		public final float volume;
+
+		Humming(float volume) {
+			this.volume = volume;
+		}
+	}
+
 	public VoiceLines voiceLines = VoiceLines.NORMAL;
+	public Humming humming = Humming.SOFT;
+
+	public Humming humming() {
+		return humming == null ? Humming.SOFT : humming;
+	}
 	public RevealSpeed revealSpeed = RevealSpeed.NORMAL;
-	/** A soft sound as each line starts. */
+	/** NPC voices: ponies (and inner voices) blip as they talk. The name predates speaking voices - kept so saves load. */
 	public boolean revealSound = true;
+	/** Player voices: your own replies in dialogue, and other players murmuring when they chat nearby. */
+	public boolean playerVoices = true;
 
 	public RevealSpeed revealSpeed() {
 		return revealSpeed == null ? RevealSpeed.NORMAL : revealSpeed;

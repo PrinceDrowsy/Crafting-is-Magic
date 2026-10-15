@@ -62,6 +62,7 @@ public final class TaleParser {
 	private List<WeightBonus> nodeBonuses;
 	private List<ConditionCall> nodeWhen;
 	private List<Statement> nodeBody;
+	private String nodeTone;
 	// Reply being built (inside a node)
 	private ReplyBuilder reply;
 	// Thread being built
@@ -76,6 +77,14 @@ public final class TaleParser {
 		this.fileId = fileId;
 		this.source = source;
 		this.problems = problems;
+	}
+
+	/**
+	 * Reads a comma-separated condition list on its own - for other data that borrows the .tale condition
+	 * grammar, like hums ({@code "when": "time_of_day(morning), personality(peppy)"}). Problems are appended.
+	 */
+	public static List<ConditionCall> parseConditions(Identifier fileId, String source, String text, List<TaleProblem> problems) {
+		return new TaleParser(fileId, source, problems).conditions(1, text);
 	}
 
 	/** Parses one file's text. Problems are appended to {@code problems}. */
@@ -138,12 +147,13 @@ public final class TaleParser {
 		nodeBonuses = new ArrayList<>();
 		nodeWhen = new ArrayList<>();
 		nodeBody = new ArrayList<>();
+		nodeTone = null;
 	}
 
 	// ---- Conversation nodes ----
 
 	private void nodeLine(int lineNumber, String content, boolean indented) {
-		if (content.startsWith("when:") || content.startsWith("start:") || content.startsWith("weight:")) {
+		if (content.startsWith("when:") || content.startsWith("start:") || content.startsWith("weight:") || content.startsWith("tone:")) {
 			int colon = content.indexOf(':');
 			if (!nodeBody.isEmpty()) {
 				error(lineNumber, "\"" + content.substring(0, colon + 1) + "\" has to come right after the node's \"===\" line.");
@@ -152,6 +162,7 @@ public final class TaleParser {
 			switch (content.substring(0, colon)) {
 				case "when" -> nodeWhen.addAll(conditions(lineNumber, rest));
 				case "start" -> startLine(lineNumber, rest);
+				case "tone" -> toneLine(lineNumber, rest);
 				default -> weightLine(lineNumber, rest);
 			}
 			return;
@@ -187,6 +198,16 @@ public final class TaleParser {
 		}
 		if (nodeStart.isEmpty()) {
 			error(lineNumber, "\"start:\" needs at least one name, like \"start: chatter\".");
+		}
+	}
+
+	private void toneLine(int lineNumber, String rest) {
+		if (!NAME.matcher(rest).matches()) {
+			error(lineNumber, "\"tone:\" takes one lowercase name, like \"tone: gentle\" - got \"" + rest + "\".");
+		} else if (nodeTone != null) {
+			error(lineNumber, "A node has one tone - it already says \"tone: " + nodeTone + "\".");
+		} else {
+			nodeTone = rest;
 		}
 	}
 
@@ -333,7 +354,7 @@ public final class TaleParser {
 			id = Identifier.of(fileId.getNamespace(), fileId.getPath() + "/invalid_node_" + nodeLine);
 		}
 		nodes.add(new Node(nodeName, id, nodeLine, List.copyOf(nodeStart), nodeWeight, List.copyOf(nodeBonuses),
-				List.copyOf(nodeWhen), List.copyOf(nodeBody)));
+				List.copyOf(nodeWhen), List.copyOf(nodeBody), Optional.ofNullable(nodeTone)));
 		nodeName = null;
 	}
 

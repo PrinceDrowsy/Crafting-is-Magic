@@ -79,7 +79,18 @@ public final class FriendshipAttachment {
 	public static void setRelationshipType(Entity entity, UUID player, RelationshipType relationshipType) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType));
+				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType, data.lastTalked()));
+	}
+
+	/** When this pony last talked with the player (world time in ticks), or -1 if they never have. */
+	public static long getLastTalked(Entity entity, UUID player) {
+		return get(entity, player).lastTalked();
+	}
+
+	public static void recordTalk(Entity entity, UUID player, long worldTime) {
+		RelationshipData data = get(entity, player);
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
+				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), worldTime));
 	}
 
 	public static boolean canGiftToday(Entity entity, UUID player, long currentDay) {
@@ -91,7 +102,7 @@ public final class FriendshipAttachment {
 		RelationshipData data = get(entity, player);
 		int giftsToday = data.lastGiftDay() == currentDay ? data.giftsGivenThatDay() + 1 : 1;
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				currentDay, giftsToday, data.relationshipType()));
+				currentDay, giftsToday, data.relationshipType(), data.lastTalked()));
 	}
 
 	private static void set(Entity entity, UUID player, RelationshipData data) {
@@ -102,9 +113,10 @@ public final class FriendshipAttachment {
 		entity.setAttached(AFFECTION, relationships);
 	}
 
+	/** @param lastTalked world time of their last conversation, -1 for never (greetings read it) */
 	public record RelationshipData(int fondness, int respect, int trust, long lastGiftDay, int giftsGivenThatDay,
-			RelationshipType relationshipType) {
-		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE);
+			RelationshipType relationshipType, long lastTalked) {
+		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE, -1);
 
 		/**
 		 * Migrates old saves: before the three feelings, this stored a single {@code affection} value.
@@ -120,9 +132,11 @@ public final class FriendshipAttachment {
 				Codec.INT.optionalFieldOf("trust", 0).forGetter(RelationshipData::trust),
 				Codec.LONG.optionalFieldOf("last_gift_day", -1L).forGetter(RelationshipData::lastGiftDay),
 				Codec.INT.optionalFieldOf("gifts_given_that_day", 0).forGetter(RelationshipData::giftsGivenThatDay),
-				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType)
-		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType) ->
-				new RelationshipData(fondness.orElse(legacyAffection.orElse(0)), respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType)));
+				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType),
+				Codec.LONG.optionalFieldOf("last_talked", -1L).forGetter(RelationshipData::lastTalked)
+		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked) ->
+				new RelationshipData(fondness.orElse(legacyAffection.orElse(0)), respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType,
+						lastTalked)));
 
 		public int feeling(Feeling feeling) {
 			return switch (feeling) {
@@ -134,9 +148,9 @@ public final class FriendshipAttachment {
 
 		public RelationshipData withFeeling(Feeling feeling, int value) {
 			return switch (feeling) {
-				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType);
-				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType);
-				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType);
+				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
+				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
+				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
 			};
 		}
 	}

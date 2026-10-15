@@ -1,0 +1,39 @@
+// Trading: the player asked "Want to trade?". "~ open_trade" opens the trade screen once the pony's
+// lines have been read. A pony can turn you down in their own words - that's a consequence, not a
+// punishment: it tells you something about them.
+//
+// PLACEHOLDER LINES - a scaffold showing the shape; every line here is meant to be rewritten.
+
+
+=== nothing_to_trade
+start: trade
+weight: 100
+when: profession(none)
+{pony}: Trade? Oh, I don't really have anything to sell.
+
+=== not_today
+start: trade
+weight: 50
+when: not profession(none), mood(grief, strong)
+{pony}: ...Not today. I'm sorry.
+
+=== sure
+start: trade
+when: not profession(none), not mood(grief, strong)
+{pony}: Sure! Take a look.
+    or: Of course - see anything you like?
+~ open_trade
+
+=== cranky
+start: trade
+weight: 3
+when: not profession(none), not mood(grief, strong), personality(cranky)
+{pony}: Fine. Make it quick.
+~ open_trade
+
+=== friend
+start: trade
+weight: 3
+when: not profession(none), not mood(grief, strong), fondness >= high
+{pony}: For you? I'll even throw in a smile. Have a look!
+~ open_trade

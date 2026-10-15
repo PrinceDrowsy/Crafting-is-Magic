@@ -1,0 +1,165 @@
+// Greetings: the first thing a pony says when you start talking, before the conversation moves on to
+// its topic. One is picked like any opener - among the nodes whose "when:" holds, by weight - so the
+// more particular the moment, the higher the weight, and it wins when it fits.
+//
+// Greetings only speak (and run effects); replies and jumps don't belong here - the topic comes next.
+//
+// The topic is picked first, and only a greeting with the same "tone:" may open it. Plain topics
+// get the plain greetings below; heavy ones (breaking news, comforting grief) are "tone: gentle",
+// so they only ever get the gentle greetings at the bottom - never a yawn or a joke.
+//
+// time_of_day(...) is the pony's own clock: bat ponies live by night, so their "morning" is dusk.
+// last_talked(...) is just_now, today, a_while (up to a week), long, or never.
+//
+// PLACEHOLDER LINES - a scaffold showing the shape; every line here is meant to be rewritten.
+
+
+// ---- Any pony, by time of day ----
+
+=== morning
+start: greeting
+when: time_of_day(morning)
+{pony}: Morning!
+    or: Good morning, {player}.
+
+=== afternoon
+start: greeting
+when: time_of_day(afternoon)
+{pony}: Afternoon!
+    or: Oh, hello there.
+
+=== evening
+start: greeting
+when: time_of_day(evening)
+{pony}: Evening, {player}.
+    or: Nice evening, isn't it?
+
+=== night
+start: greeting
+when: time_of_day(night)
+{pony}: Bit late to be out, isn't it?
+    or: Can't sleep either?
+
+
+// ---- Personality and time together (one example each - add the rest) ----
+
+=== peppy_morning
+start: greeting
+weight: 3
+when: personality(peppy), time_of_day(morning)
+{pony}: Good MORNING! Isn't it just the best day?
+
+=== cranky_morning
+start: greeting
+weight: 3
+when: personality(cranky), time_of_day(morning)
+{pony}: Ugh. Too early for talking.
+
+=== lazy_afternoon
+start: greeting
+weight: 3
+when: personality(lazy), time_of_day(afternoon)
+{pony}: *yawn* Oh... hey. Nap time's almost over anyway.
+
+=== bookish_night
+start: greeting
+weight: 3
+when: personality(bookish), time_of_day(night)
+{pony}: Oh! I lost track of time - I was reading.
+
+=== bat_pony_bedtime
+start: greeting
+weight: 3
+when: species(bat_pony), time_of_day(night)
+// A bat pony's "night" is daytime for everyone else.
+{pony}: *yawns* Shouldn't you let a pony sleep?
+
+
+// ---- How well they know you ----
+
+=== stranger
+start: greeting
+weight: 6
+when: last_talked(never)
+{pony}: Oh, hello! I don't think we've met.
+
+=== close_friend
+start: greeting
+weight: 4
+when: fondness >= high
+{pony}: {player}! There you are!
+
+=== wary
+start: greeting
+weight: 5
+when: not trust >= low, not last_talked(never)
+{pony}: ...Oh. It's you.
+
+
+// ---- How recently you talked ----
+
+=== back_again
+start: greeting
+weight: 8
+when: last_talked(just_now)
+{pony}: Back again already?
+    or: Forget something?
+
+=== long_absence
+start: greeting
+weight: 6
+when: last_talked(long)
+{pony}: {player}! Where have you BEEN?
+
+
+// ---- Their mood ----
+
+=== grieving
+start: greeting
+weight: 10
+when: mood(grief, clear)
+{pony}: Oh... hello.
+
+=== joyful
+start: greeting
+weight: 4
+when: mood(joy, clear)
+{pony}: Hi hi hi! Oh, I'm so glad to see you!
+
+
+// ---- Weather ----
+
+=== rain
+start: greeting
+weight: 3
+when: raining, not thundering
+{pony}: Come on, get out of the rain!
+
+=== storm
+start: greeting
+weight: 5
+when: thundering
+{pony}: Did you hear that thunder?!
+
+
+// ---- Gentle: before heavy news or comfort ----
+
+=== gentle_hello
+start: greeting
+tone: gentle
+{pony}: Oh... hi, {player}.
+    or: Hey. Come here a moment?
+
+=== gentle_stranger
+start: greeting
+tone: gentle
+weight: 6
+when: last_talked(never)
+{pony}: Hello... you're {player}, aren't you?
+
+=== gentle_friend
+start: greeting
+tone: gentle
+weight: 4
+when: fondness >= high
+{pony}: *sets everything down* {player}. Hey.

@@ -1,0 +1,61 @@
+{
+  "entity.villager.ambient": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.ambient",
+    "sounds": [
+      { "name": "mob/horse/breathe1", "volume": 0.35, "pitch": 1.15 },
+      { "name": "mob/horse/breathe2", "volume": 0.35, "pitch": 1.15 },
+      { "name": "mob/horse/breathe3", "volume": 0.35, "pitch": 1.15 }
+    ]
+  },
+  "entity.villager.trade": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.trade",
+    "sounds": [
+      { "name": "mob/horse/breathe1", "volume": 0.4, "pitch": 1.2 },
+      { "name": "mob/horse/breathe2", "volume": 0.4, "pitch": 1.2 }
+    ]
+  },
+  "entity.villager.yes": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.yes",
+    "sounds": [
+      { "name": "mob/horse/breathe1", "volume": 0.45, "pitch": 1.35 },
+      { "name": "mob/horse/breathe3", "volume": 0.45, "pitch": 1.35 }
+    ]
+  },
+  "entity.villager.no": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.no",
+    "sounds": [
+      { "name": "mob/horse/breathe2", "volume": 0.45, "pitch": 0.85 },
+      { "name": "mob/horse/breathe3", "volume": 0.45, "pitch": 0.85 }
+    ]
+  },
+  "entity.villager.celebrate": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.celebrate",
+    "sounds": [
+      { "name": "mob/horse/idle1", "volume": 0.3, "pitch": 1.25 },
+      { "name": "mob/horse/idle2", "volume": 0.3, "pitch": 1.25 },
+      { "name": "mob/horse/idle3", "volume": 0.3, "pitch": 1.25 }
+    ]
+  },
+  "entity.villager.hurt": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.hurt",
+    "sounds": [
+      { "name": "mob/horse/hit1", "volume": 0.6, "pitch": 1.15 },
+      { "name": "mob/horse/hit2", "volume": 0.6, "pitch": 1.15 },
+      { "name": "mob/horse/hit3", "volume": 0.6, "pitch": 1.15 },
+      { "name": "mob/horse/hit4", "volume": 0.6, "pitch": 1.15 }
+    ]
+  },
+  "entity.villager.death": {
+    "replace": true,
+    "subtitle": "subtitles.cim.pony.death",
+    "sounds": [
+      { "name": "mob/horse/death", "volume": 0.6, "pitch": 1.15 }
+    ]
+  }
+}

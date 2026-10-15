@@ -1,12 +1,10 @@
 package craftingismagic.cim.story;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -32,11 +30,14 @@ import craftingismagic.cim.memory.Mood;
 import craftingismagic.cim.narrative.TaleContext;
 import craftingismagic.cim.network.MomentS2CPayload;
 import craftingismagic.cim.narrative.TaleVocabulary;
-import craftingismagic.cim.narrative.TaleVocabulary.ArgumentCheck;
+import craftingismagic.cim.narrative.ArgSpec;
 import craftingismagic.cim.narrative.TaleVocabulary.ConditionTest;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.villager.ConversationRequests;
 import craftingismagic.cim.villager.FavoriteGiftAttachment;
+import craftingismagic.cim.villager.VillagerDialogue;
+import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.Feeling;
 import craftingismagic.cim.villager.FeelingBand;
 import craftingismagic.cim.villager.FriendshipAttachment;
@@ -63,22 +64,31 @@ import craftingismagic.cim.voice.VoiceLeanings;
  */
 public final class CimTaleVocabulary {
 	public static final String CHATTER = "chatter";
+	/** Said first when a conversation opens, then it carries on into the topic (README: Greetings). */
+	public static final String GREETING = "greeting";
+	/** The pony's goodbye when the player says "See you later." - then the conversation closes. */
+	public static final String FAREWELL = "farewell";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/narrative");
 	private static final List<String> ELEMENTS = VoiceLeanings.ELEMENTS;
 	private static final List<String> SEASONS = List.of("spring", "summer", "autumn", "fall", "winter");
 	private static final List<String> FAMILY = List.of("recorded", "orphan", "parent", "partner");
 	private static final List<String> RELATIVES = List.of("parent", "partner");
-	/** Where a story fact lives is the first part of its path. */
-	private static final List<String> FACT_SCOPES = List.of("world/", "player/", "relationship/");
-	private static final Pattern SIGNED_NUMBER = Pattern.compile("[+-]\\d+");
-	private static final Pattern WORD = Pattern.compile("[a-z0-9_]+");
+	private static final List<String> TIMES_OF_DAY = List.of("morning", "afternoon", "evening", "night");
+	private static final List<String> SINCE_TALKED = List.of("just_now", "today", "a_while", "long", "never");
+	private static final long DAY = 24000L;
 
 	private CimTaleVocabulary() {
 	}
 
 	public static void register() {
 		TaleVocabulary.registerStartContext(CHATTER);
+		TaleVocabulary.registerLeadInContext(GREETING);
+		TaleVocabulary.registerLeadInContext(FAREWELL);
+		// What the player can bring up in conversation (README: Conversations replace the interact menu).
+		for (ConversationRequests.Request request : ConversationRequests.ALL) {
+			TaleVocabulary.registerStartContext(request.startContext());
+		}
 		for (String element : ELEMENTS) {
 			TaleVocabulary.registerVoice(element, true);
 		}
@@ -99,63 +109,80 @@ public final class CimTaleVocabulary {
 
 	private static void registerConditions() {
 		for (Feeling feeling : Feeling.values()) {
-			TaleVocabulary.registerCondition(cim(feeling.name()), CimTaleVocabulary::feelingComparison,
+			String name = feeling.name().toLowerCase(Locale.ROOT);
+			// Feelings are compared with bands, never numbers (README: no numbers shown to players).
+			TaleVocabulary.registerCondition(cim(name), ArgSpec.compared(name + " >= <band>", ArgSpec.word("band", () -> names(FeelingBand.values()))),
 					(tale, args, cmp) -> compare(FriendshipAttachment.getBand(tale.speaker(), tale.player().getUuid(), feeling).ordinal(),
 							cmp.orElse("=="), band(args.get(0)).ordinal()));
 		}
-		condition("mood", (args, cmp) -> words(args, 1, 2, List.of(names(Emotion.values()), TaleVocabulary.TIERS)), CimTaleVocabulary::mood);
+		condition("mood", ArgSpec.of("mood(<emotion>[, <tier>])", ArgSpec.arg(EMOTION), ArgSpec.optionalArg(TIER)), CimTaleVocabulary::mood);
 		// How the player is feeling - ponies notice, and soften around grief (README: The mood system).
-		condition("player.mood", (args, cmp) -> words(args, 1, 2, List.of(names(Emotion.values()), TaleVocabulary.TIERS)),
+		condition("player.mood", ArgSpec.of("player.mood(<emotion>[, <tier>])", ArgSpec.arg(EMOTION), ArgSpec.optionalArg(TIER)),
 				(tale, args, cmp) -> feels(tale.player(), args));
-		condition("fact", (args, cmp) -> factIds(args), (tale, args, cmp) -> hasFact(tale, id(args.get(0))));
-		condition("remembers", (args, cmp) -> ids(args, 1), (tale, args, cmp) -> MemoryStore.remembers(tale.speaker(), id(args.get(0))));
-		condition("voice", (args, cmp) -> words(args, 1, 2, List.of(List.copyOf(TaleVocabulary.voices()), TaleVocabulary.TIERS)),
+		condition("fact", ArgSpec.of("fact(<fact>)", ArgSpec.arg(FACT)), (tale, args, cmp) -> hasFact(tale, id(args.get(0))));
+		condition("remembers", ArgSpec.of("remembers(<memory>)", ArgSpec.arg(ArgSpec.id("memory"))),
+				(tale, args, cmp) -> MemoryStore.remembers(tale.speaker(), id(args.get(0))));
+		condition("voice", ArgSpec.of("voice(<voice>[, <tier>])", ArgSpec.arg(ArgSpec.word("voice", () -> List.copyOf(TaleVocabulary.voices()))),
+				ArgSpec.optionalArg(TIER)),
 				(tale, args, cmp) -> VoiceLeanings.tier(tale.player(), args.get(0))
 						>= (args.size() > 1 ? TaleVocabulary.tierIndex(args.get(1)) : 0));
-		condition("species", (args, cmp) -> words(args, 1, 1, List.of(names(Species.values()))),
+		condition("species", oneWord("species", "species", () -> names(Species.values())),
 				(tale, args, cmp) -> species(tale.speaker()).name().equalsIgnoreCase(args.get(0)));
-		condition("personality", (args, cmp) -> words(args, 1, 1, List.of(names(PersonalityType.values()))),
+		condition("personality", oneWord("personality", "personality", () -> names(PersonalityType.values())),
 				(tale, args, cmp) -> personality(tale.speaker()).map(p -> p.baseType().name().equalsIgnoreCase(args.get(0))).orElse(false));
-		condition("quirk", (args, cmp) -> words(args, 1, 1, List.of(names(Quirk.values()))),
+		condition("quirk", oneWord("quirk", "quirk", () -> names(Quirk.values())),
 				(tale, args, cmp) -> personality(tale.speaker()).map(p -> p.quirks().stream().anyMatch(q -> q.name().equalsIgnoreCase(args.get(0))))
 						.orElse(false));
 		// The tone that suits this pony's personality (README: Personality system, Mechanical hook).
-		condition("likes_tone", (args, cmp) -> words(args, 1, 1, List.of(names(ReplyTone.values()))),
+		condition("likes_tone", oneWord("likes_tone", "tone", () -> names(ReplyTone.values())),
 				(tale, args, cmp) -> personality(tale.speaker()).flatMap(p -> p.baseType().toneAffinity())
 						.map(tone -> tone.name().equalsIgnoreCase(args.get(0))).orElse(false));
-		condition("life_stage", (args, cmp) -> words(args, 1, 1, List.of(names(LifeStage.values()))),
+		condition("life_stage", oneWord("life_stage", "life stage", () -> names(LifeStage.values())),
 				(tale, args, cmp) -> lifeStage(tale.speaker()).name().equalsIgnoreCase(args.get(0)));
-		condition("profession", (args, cmp) -> ids(args, 1), (tale, args, cmp) -> tale.speaker() instanceof VillagerEntity villager
-				&& Registries.VILLAGER_PROFESSION.getId(villager.getVillagerData().getProfession()).equals(minecraftId(args.get(0))));
-		condition("family", (args, cmp) -> words(args, 1, 1, List.of(FAMILY)), (tale, args, cmp) -> family(tale.speaker(), args.get(0)));
+		condition("profession", ArgSpec.of("profession(<profession>)", ArgSpec.arg(ArgSpec.id("profession"))),
+				(tale, args, cmp) -> tale.speaker() instanceof VillagerEntity villager
+						&& Registries.VILLAGER_PROFESSION.getId(villager.getVillagerData().getProfession()).equals(minecraftId(args.get(0))));
+		condition("family", oneWord("family", "family", () -> FAMILY), (tale, args, cmp) -> family(tale.speaker(), args.get(0)));
 		// A relative is "present" when they're loaded in the world right now, so their name can be said.
-		condition("present", (args, cmp) -> words(args, 1, 1, List.of(RELATIVES)),
+		condition("present", oneWord("present", "relative", () -> RELATIVES),
 				(tale, args, cmp) -> relativeName(tale, args.get(0)).isPresent());
-		condition("player.species", (args, cmp) -> words(args, 1, 1, List.of(names(Species.values()))),
+		condition("player.species", oneWord("player.species", "species", () -> names(Species.values())),
 				(tale, args, cmp) -> SpeciesAttachment.hasChosenSpecies(tale.player())
 						&& SpeciesAttachment.getSpecies(tale.player()).name().equalsIgnoreCase(args.get(0)));
-		condition("player.heritage", (args, cmp) -> anyWord(args), (tale, args, cmp) -> waiting("player.heritage", "the character creator"));
-		condition("player.upbringing", (args, cmp) -> anyWord(args), (tale, args, cmp) -> waiting("player.upbringing", "the character creator"));
+		condition("player.heritage", ArgSpec.of("player.heritage(<heritage>)", ArgSpec.arg(ArgSpec.name("heritage"))),
+				(tale, args, cmp) -> waiting("player.heritage", "the character creator"));
+		condition("player.upbringing", ArgSpec.of("player.upbringing(<upbringing>)", ArgSpec.arg(ArgSpec.name("upbringing"))),
+				(tale, args, cmp) -> waiting("player.upbringing", "the character creator"));
 		// This pony could break news the player hasn't heard yet - news(cim:loss), or any news.
-		condition("news", (args, cmp) -> args.isEmpty() ? List.of() : ids(args, 1),
+		condition("news", ArgSpec.of("news[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("news type"))),
 				(tale, args, cmp) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
 						.isPresent());
-		condition("night", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isNight());
-		condition("raining", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isRaining());
-		condition("thundering", (args, cmp) -> count(args, 0, 0), (tale, args, cmp) -> tale.world().isThundering());
-		condition("biome", (args, cmp) -> biomeArgs(args), CimTaleVocabulary::inBiome);
-		condition("holiday", (args, cmp) -> ids(args, 1), (tale, args, cmp) -> waiting("holiday(...)", "the calendar"));
-		condition("season", (args, cmp) -> words(args, 1, 1, List.of(SEASONS)), (tale, args, cmp) -> waiting("season(...)", "the calendar"));
+		condition("night", ArgSpec.none("night"), (tale, args, cmp) -> tale.world().isNight());
+		condition("time_of_day", oneWord("time_of_day", "time", () -> TIMES_OF_DAY),
+				(tale, args, cmp) -> timeOfDay(tale).equalsIgnoreCase(args.get(0)));
+		condition("last_talked", oneWord("last_talked", "when", () -> SINCE_TALKED),
+				(tale, args, cmp) -> lastTalked(tale).equalsIgnoreCase(args.get(0)));
+		// The gift being offered: gift(favorite) for the pony's favorite, or any item IDs or #tags.
+		condition("gift", ArgSpec.repeating("gift(favorite | <item or #tag>, ...)", ArgSpec.arg(ArgSpec.idOrTag("item, or favorite"))),
+				CimTaleVocabulary::isGift);
+		// Whether the pony will take another gift today - there's a daily limit, and they can say so.
+		condition("can_take_gift", ArgSpec.none("can_take_gift"),
+				(tale, args, cmp) -> VillagerInteractionHandler.canTakeGift(tale.player(), tale.speaker()));
+		condition("raining", ArgSpec.none("raining"), (tale, args, cmp) -> tale.world().isRaining());
+		condition("thundering", ArgSpec.none("thundering"), (tale, args, cmp) -> tale.world().isThundering());
+		condition("biome", ArgSpec.repeating("biome(<biome or #tag>, ...)", ArgSpec.arg(ArgSpec.idOrTag("biome"))), CimTaleVocabulary::inBiome);
+		condition("holiday", ArgSpec.of("holiday(<holiday>)", ArgSpec.arg(ArgSpec.id("holiday"))),
+				(tale, args, cmp) -> waiting("holiday(...)", "the calendar"));
+		condition("season", oneWord("season", "season", () -> SEASONS), (tale, args, cmp) -> waiting("season(...)", "the calendar"));
 	}
 
-	private static List<String> feelingComparison(List<String> args, Optional<String> comparison) {
-		if (comparison.isEmpty()) {
-			return List.of("compare a feeling with a band, like \"trust >= medium\"");
-		}
-		if (Arrays.stream(FeelingBand.values()).noneMatch(value -> value.name().equalsIgnoreCase(args.get(0)))) {
-			return List.of("feelings are compared with bands, never numbers - bands: " + String.join(", ", names(FeelingBand.values())));
-		}
-		return List.of();
+	private static final ArgSpec.Token EMOTION = ArgSpec.word("emotion", () -> names(Emotion.values()));
+	private static final ArgSpec.Token TIER = ArgSpec.word("tier", () -> TaleVocabulary.TIERS);
+	/** Fact IDs say where they live: {@code cim:world/...}, {@code cim:player/...}, {@code cim:relationship/...}. */
+	private static final ArgSpec.Token FACT = ArgSpec.scopedId("fact", "world/", "player/", "relationship/");
+
+	private static ArgSpec oneWord(String condition, String label, java.util.function.Supplier<List<String>> values) {
+		return ArgSpec.of(condition + "(<" + label + ">)", ArgSpec.arg(ArgSpec.word(label, values)));
 	}
 
 	private static boolean compare(int actual, String operator, int target) {
@@ -180,6 +207,46 @@ public final class CimTaleVocabulary {
 		return Mood.feels(who, emotion, least);
 	}
 
+	/**
+	 * The time of day as this pony lives it: morning 5-11, afternoon 11-17, evening 17-20, night 20-5.
+	 * Bat ponies keep a night clock, so theirs is shifted half a day - their morning is dusk.
+	 */
+	static String timeOfDay(TaleContext tale) {
+		long time = Math.floorMod(tale.world().getTimeOfDay(), DAY); // 0 is 6:00
+		if (species(tale.speaker()) == Species.BAT_PONY) {
+			time = (time + DAY / 2) % DAY;
+		}
+		if (time >= 23000 || time < 5000) {
+			return "morning";
+		}
+		return time < 11000 ? "afternoon" : time < 14000 ? "evening" : "night";
+	}
+
+	/** How long since this pony and the player last talked: just_now (2 minutes), today, a_while (a week), long. */
+	static String lastTalked(TaleContext tale) {
+		long last = FriendshipAttachment.getLastTalked(tale.speaker(), tale.player().getUuid());
+		if (last < 0) {
+			return "never";
+		}
+		long since = tale.world().getTime() - last;
+		return since < 2400 ? "just_now" : since < DAY ? "today" : since < 7 * DAY ? "a_while" : "long";
+	}
+
+	private static boolean isGift(TaleContext tale, List<String> args, Optional<String> comparison) {
+		if (tale.item().isEmpty()) {
+			return false;
+		}
+		for (String arg : args) {
+			String name = arg.trim();
+			if (name.equalsIgnoreCase("favorite") ? VillagerInteractionHandler.isFavoriteGift(tale.speaker(), tale.item())
+					: name.startsWith("#") ? tale.item().isIn(TagKey.of(RegistryKeys.ITEM, minecraftId(name.substring(1))))
+					: Registries.ITEM.getId(tale.item().getItem()).equals(minecraftId(name))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static boolean family(Entity pony, String kind) {
 		if (!PonyFamilyAttachment.hasFamily(pony)) {
 			return false;
@@ -191,14 +258,6 @@ public final class CimTaleVocabulary {
 			case "partner" -> !family.partner().isEmpty();
 			default -> true;
 		};
-	}
-
-	private static List<String> biomeArgs(List<String> args) {
-		List<String> problems = new ArrayList<>(count(args, 1, 64));
-		for (String arg : args) {
-			problems.addAll(idProblems(arg.startsWith("#") ? arg.substring(1) : arg));
-		}
-		return problems;
 	}
 
 	/** {@code biome(minecraft:forest, #minecraft:is_ocean)} - any listed biome or biome tag where the pony stands. */
@@ -220,65 +279,46 @@ public final class CimTaleVocabulary {
 
 	private static void registerEffects() {
 		for (Feeling feeling : Feeling.values()) {
-			TaleVocabulary.registerEffect(cim(feeling.name()),
-					(args, cmp) -> args.size() == 1 && SIGNED_NUMBER.matcher(args.get(0)).matches()
-							? List.of() : List.of("write the change as +N or -N, like \"~ trust +2\""),
+			String name = feeling.name().toLowerCase(Locale.ROOT);
+			TaleVocabulary.registerEffect(cim(name), ArgSpec.of("~ " + name + " +N", ArgSpec.arg(ArgSpec.signedNumber("change"))),
 					(tale, args) -> FriendshipAttachment.addFeeling(tale.speaker(), tale.player().getUuid(), feeling,
 							Integer.parseInt(args.get(0).replace("+", ""))));
 		}
-		TaleVocabulary.registerEffect(cim("memory"), CimTaleVocabulary::memoryArgs, CimTaleVocabulary::addMemory);
+		TaleVocabulary.registerEffect(cim("memory"), ArgSpec.of("~ memory <memory>[, <emotion> [tier]]", ArgSpec.arg(ArgSpec.id("memory")),
+				ArgSpec.optionalArg(EMOTION, ArgSpec.optional(TIER))), CimTaleVocabulary::addMemory);
 		// The player learns the news this pony is breaking - now the feeling and its moment arrive.
-		TaleVocabulary.registerEffect(cim("tell_news"), (args, cmp) -> args.isEmpty() ? List.of() : ids(args, 1),
+		TaleVocabulary.registerEffect(cim("tell_news"), ArgSpec.of("~ tell_news [<type>]", ArgSpec.optionalArg(ArgSpec.id("news type"))),
 				(tale, args) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
 						.ifPresent(news -> PlayerNews.learn(tale.player(), news)));
-		TaleVocabulary.registerEffect(cim("fact"), (args, cmp) -> {
-			List<String> problems = new ArrayList<>(subcommand(args, List.of("set", "clear")));
-			if (problems.isEmpty()) {
-				problems.addAll(factIds(List.of(split(args)[1])));
-			}
-			return problems;
-		}, (tale, args) -> {
-			String[] words = split(args);
-			setFact(tale, id(words[1]), words[0].equals("set"));
-		});
-		TaleVocabulary.registerEffect(cim("thread"), CimTaleVocabulary::threadArgs, (tale, args) -> {
-			String[] words = split(args);
-			if (words[0].equals("start")) {
-				StoryThreads.start(tale.player(), id(words[1]), false);
-			} else {
-				StoryThreads.advance(tale.player(), id(words[1]), words[2]);
-			}
-		});
-		TaleVocabulary.registerEffect(cim("moment"), (args, cmp) -> ids(args, 1),
+		TaleVocabulary.registerEffect(cim("fact"), ArgSpec.of("~ fact set|clear <fact>", ArgSpec.arg(ArgSpec.literal("set", "clear"), FACT)),
+				(tale, args) -> {
+					String[] words = split(args);
+					setFact(tale, id(words[1]), words[0].equals("set"));
+				});
+		TaleVocabulary.registerEffect(cim("thread"), ArgSpec.anyOf("~ thread start <thread> | ~ thread advance <thread> <stage>",
+				ArgSpec.form(ArgSpec.arg(ArgSpec.literal("start"), ArgSpec.id("thread"))),
+				ArgSpec.form(ArgSpec.arg(ArgSpec.literal("advance"), ArgSpec.id("thread"), ArgSpec.name("stage")))), (tale, args) -> {
+					String[] words = split(args);
+					if (words[0].equals("start")) {
+						StoryThreads.start(tale.player(), id(words[1]), false);
+					} else {
+						StoryThreads.advance(tale.player(), id(words[1]), words[2]);
+					}
+				});
+		TaleVocabulary.registerEffect(cim("moment"), ArgSpec.of("~ moment <moment>", ArgSpec.arg(ArgSpec.id("moment"))),
 				(tale, args) -> ServerPlayNetworking.send(tale.player(), new MomentS2CPayload(id(args.get(0)))));
-		TaleVocabulary.registerEffect(cim("leaning"), (args, cmp) -> {
-			String[] words = split(args);
-			if (args.size() != 1 || words.length != 2 || !ELEMENTS.contains(normalize(words[0])) || !SIGNED_NUMBER.matcher(words[1]).matches()) {
-				return List.of("write it as \"~ leaning <element> +N\"; elements: " + String.join(", ", ELEMENTS));
-			}
-			return List.of();
-		}, (tale, args) -> {
-			String[] words = split(args);
-			VoiceLeanings.grow(tale.player(), words[0], Integer.parseInt(words[1].replace("+", "")));
-		});
-	}
-
-	/** {@code ~ memory <id>[, <emotion> [faint|clear|strong]]}. */
-	private static List<String> memoryArgs(List<String> args, Optional<String> comparison) {
-		if (args.isEmpty() || args.size() > 2) {
-			return List.of("write it as \"~ memory <id>\" or \"~ memory <id>, <emotion> <intensity>\"");
-		}
-		List<String> problems = new ArrayList<>(ids(args.subList(0, 1), 1));
-		if (args.size() == 2) {
-			String[] words = args.get(1).trim().split("\\s+");
-			if (!names(Emotion.values()).contains(normalize(words[0]))) {
-				problems.add("unknown emotion \"" + words[0] + "\"; emotions: " + String.join(", ", names(Emotion.values())));
-			}
-			if (words.length > 2 || (words.length == 2 && !TaleVocabulary.TIERS.contains(normalize(words[1])))) {
-				problems.add("intensity is faint, clear, or strong");
-			}
-		}
-		return problems;
+		// The pony takes the gift being offered (one of it) - feelings grow, more for a favorite.
+		TaleVocabulary.registerEffect(cim("take_gift"), ArgSpec.none("~ take_gift"),
+				(tale, args) -> VillagerInteractionHandler.takeGift(tale.player(), tale.speaker(), tale.item()));
+		// The trade screen opens - once the pony's lines have been read, not over them.
+		TaleVocabulary.registerEffect(cim("open_trade"), ArgSpec.none("~ open_trade"),
+				(tale, args) -> VillagerDialogue.afterLines(tale.player(),
+						() -> VillagerInteractionHandler.offerTrade(tale.player(), tale.speaker().getId())));
+		TaleVocabulary.registerEffect(cim("leaning"), ArgSpec.of("~ leaning <element> +N",
+				ArgSpec.arg(ArgSpec.word("element", () -> ELEMENTS), ArgSpec.signedNumber("change"))), (tale, args) -> {
+					String[] words = split(args);
+					VoiceLeanings.grow(tale.player(), words[0], Integer.parseInt(words[1].replace("+", "")));
+				});
 	}
 
 	/** The pony remembers it, about the player, as something they saw happen. */
@@ -296,28 +336,7 @@ public final class CimTaleVocabulary {
 				MemoryImportance.NOTABLE, emotion, intensity, tale.world().getTime()));
 	}
 
-	private static List<String> threadArgs(List<String> args, Optional<String> comparison) {
-		String[] words = split(args);
-		if (args.size() == 1 && words.length == 2 && words[0].equals("start")) {
-			return idProblems(words[1]);
-		}
-		if (args.size() == 1 && words.length == 3 && words[0].equals("advance")) {
-			return idProblems(words[1]);
-		}
-		return List.of("write it as \"~ thread start <id>\" or \"~ thread advance <id> <stage>\"");
-	}
-
 	// ---- Facts ----
-
-	/** Fact IDs say where they live: {@code cim:world/...}, {@code cim:player/...}, {@code cim:relationship/...}. */
-	private static List<String> factIds(List<String> args) {
-		List<String> problems = new ArrayList<>(ids(args, 1));
-		// Checked with variables stood in for, since {pony} isn't known until the conversation runs.
-		if (problems.isEmpty() && FACT_SCOPES.stream().noneMatch(scope -> id(withoutVariables(args.get(0))).getPath().startsWith(scope))) {
-			problems.add("a fact's path starts with world/, player/, or relationship/ - that's where it's kept");
-		}
-		return problems;
-	}
 
 	private static boolean hasFact(TaleContext tale, Identifier fact) {
 		String path = fact.getPath();
@@ -356,13 +375,14 @@ public final class CimTaleVocabulary {
 
 	private static void registerEvents() {
 		for (String bare : List.of("sleep", "wake", "day", "night")) {
-			TaleVocabulary.registerEvent(cim(bare), (args, cmp) -> count(args, 0, 0));
+			TaleVocabulary.registerEvent(cim(bare), ArgSpec.none(bare));
 		}
-		TaleVocabulary.registerEvent(cim("enter_biome"), (args, cmp) -> biomeArgs(args));
+		TaleVocabulary.registerEvent(cim("enter_biome"), ArgSpec.repeating("enter_biome(<biome or #tag>, ...)",
+				ArgSpec.arg(ArgSpec.idOrTag("biome"))));
 		// talk(any) when a conversation opens; talk(<node id>) when one reaches that node.
-		TaleVocabulary.registerEvent(cim("talk"), (args, cmp) -> args.size() == 1 && args.get(0).equals("any") ? List.of() : ids(args, 1));
-		TaleVocabulary.registerEvent(cim("holiday"), (args, cmp) -> ids(args, 1));
-		TaleVocabulary.registerEvent(cim("fact"), (args, cmp) -> factIds(args));
+		TaleVocabulary.registerEvent(cim("talk"), ArgSpec.of("talk(any | <node>)", ArgSpec.arg(ArgSpec.id("node, or any"))));
+		TaleVocabulary.registerEvent(cim("holiday"), ArgSpec.of("holiday(<holiday>)", ArgSpec.arg(ArgSpec.id("holiday"))));
+		TaleVocabulary.registerEvent(cim("fact"), ArgSpec.of("fact(<fact>)", ArgSpec.arg(FACT)));
 	}
 
 	// ---- Variables ----
@@ -382,6 +402,9 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerVariable("mourning", CimTaleVocabulary::mourning);
 		TaleVocabulary.registerVariable("news_subject", tale -> PlayerNews.tellable(tale.player(), tale.speaker(), Optional.empty())
 				.map(PlayerNews.News::subjectName));
+		// The gift being offered, by name: "a {gift}?" - in lowercase, so it reads inside a sentence.
+		TaleVocabulary.registerVariable("gift", tale -> tale.item().isEmpty() ? Optional.empty()
+				: Optional.of(tale.item().getName().getString().toLowerCase(Locale.ROOT)));
 		TaleVocabulary.registerVariable("parent", tale -> relativeName(tale, "parent"));
 		TaleVocabulary.registerVariable("partner", tale -> relativeName(tale, "partner"));
 	}
@@ -440,69 +463,11 @@ public final class CimTaleVocabulary {
 		return false;
 	}
 
-	// ---- Argument checks ----
+	// ---- Helpers ----
 
-	private static void condition(String name, ArgumentCheck check, ConditionTest test) {
-		TaleVocabulary.registerCondition(cim(name), (args, cmp) -> {
-			if (cmp.isPresent()) {
-				return List.of("only feelings can be compared with " + cmp.get());
-			}
-			return check.check(args, cmp);
-		}, test);
-	}
-
-	private static List<String> count(List<String> args, int min, int max) {
-		if (args.size() < min || args.size() > max) {
-			return List.of(min == max ? "takes " + min + " argument(s)" : "takes " + min + " to " + max + " arguments");
-		}
-		return List.of();
-	}
-
-	/** Each argument must be one of the allowed words for its position. */
-	private static List<String> words(List<String> args, int min, int max, List<List<String>> allowed) {
-		List<String> problems = new ArrayList<>(count(args, min, max));
-		for (int i = 0; i < Math.min(args.size(), allowed.size()); i++) {
-			if (!allowed.get(i).contains(normalize(args.get(i)))) {
-				problems.add("\"" + args.get(i) + "\" isn't one of: " + String.join(", ", allowed.get(i)));
-			}
-		}
-		return problems;
-	}
-
-	private static List<String> anyWord(List<String> args) {
-		List<String> problems = new ArrayList<>(count(args, 1, 1));
-		if (args.size() == 1 && !WORD.matcher(normalize(args.get(0))).matches()) {
-			problems.add("\"" + args.get(0) + "\" should be a single word");
-		}
-		return problems;
-	}
-
-	private static List<String> ids(List<String> args, int expected) {
-		List<String> problems = new ArrayList<>(count(args, expected, expected));
-		args.forEach(arg -> problems.addAll(idProblems(arg)));
-		return problems;
-	}
-
-	/** {@code verb <id>} as one argument, like {@code set cim:world/x}. */
-	private static List<String> subcommand(List<String> args, List<String> verbs) {
-		String[] words = split(args);
-		if (args.size() != 1 || words.length != 2 || !verbs.contains(words[0])) {
-			return List.of("starts with one of: " + String.join(", ", verbs) + ", then an ID");
-		}
-		return idProblems(words[1]);
-	}
-
-	/** IDs may contain variables ({@code cim:player/comforted_{pony}}), filled in at run time. */
-	private static List<String> idProblems(String text) {
-		String filled = withoutVariables(text);
-		if (filled.isEmpty() || Identifier.tryParse(filled.contains(":") ? filled : "cim:" + filled) == null) {
-			return List.of("\"" + text.trim() + "\" isn't a valid ID - lowercase letters, numbers, \"_\", \"/\", \".\", and one \":\"");
-		}
-		return List.of();
-	}
-
-	private static String withoutVariables(String text) {
-		return text.trim().replaceAll("\\{[A-Za-z0-9_.]+\\}", "x");
+	/** Argument rules are declarative (ArgSpec), so the .tale editor checks with the very same ones. */
+	private static void condition(String name, ArgSpec spec, ConditionTest test) {
+		TaleVocabulary.registerCondition(cim(name), spec, test);
 	}
 
 	private static String[] split(List<String> args) {
@@ -522,10 +487,6 @@ public final class CimTaleVocabulary {
 
 	private static List<String> names(Enum<?>[] values) {
 		return Arrays.stream(values).map(value -> value.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList());
-	}
-
-	private static String normalize(String word) {
-		return TaleVocabulary.normalize(word);
 	}
 
 	private static Identifier cim(String path) {

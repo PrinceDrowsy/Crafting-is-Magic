@@ -50,6 +50,10 @@ import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.network.DebugOverlayToggleC2SPayload;
 import craftingismagic.cim.network.DebugToggleChangelingDisguiseC2SPayload;
+import craftingismagic.cim.network.ChatVoiceS2CPayload;
+import craftingismagic.cim.network.HumS2CPayload;
+import craftingismagic.cim.network.DialogueBringUpC2SPayload;
+import craftingismagic.cim.network.DialogueFollowUpC2SPayload;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
 import craftingismagic.cim.network.DialogueChooseC2SPayload;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
@@ -57,7 +61,6 @@ import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
 import craftingismagic.cim.network.OpenSpeciesSelectS2CPayload;
 import craftingismagic.cim.network.OpenVillagerDebugEditorS2CPayload;
-import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.network.PegasusChargeEndS2CPayload;
 import craftingismagic.cim.network.PegasusChargeReleaseC2SPayload;
 import craftingismagic.cim.network.PegasusChargeStartS2CPayload;
@@ -77,15 +80,16 @@ import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
 import craftingismagic.cim.network.ToggleFlightC2SPayload;
 import craftingismagic.cim.network.ToggleVoiceMimicryConsentC2SPayload;
 import craftingismagic.cim.network.UseTeleportShortcutC2SPayload;
-import craftingismagic.cim.network.VillagerGiveGiftC2SPayload;
-import craftingismagic.cim.network.VillagerIdleChatterC2SPayload;
-import craftingismagic.cim.network.VillagerOfferTradeC2SPayload;
 import craftingismagic.cim.pegasus.PegasusDashManager;
 import craftingismagic.cim.pegasus.PegasusFlightManager;
 import craftingismagic.cim.pegasus.PegasusRainboomCharge;
 import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.spawn.VillageSpawnHandler;
 import craftingismagic.cim.species.SpeciesAttachment;
+import craftingismagic.cim.speech.ChatVoices;
+import craftingismagic.cim.speech.HumDirector;
+import craftingismagic.cim.speech.HumLibrary;
+import craftingismagic.cim.speech.SpeakingVoices;
 import craftingismagic.cim.stamina.CimStatusEffects;
 import craftingismagic.cim.stamina.StaminaAttachment;
 import craftingismagic.cim.stamina.StaminaColorAttachment;
@@ -145,12 +149,19 @@ public class Cim implements ModInitializer {
 		VillageSpawnHandler.register();
 		CimTaleVocabulary.register();
 		TaleLibrary.register();
+		HumLibrary.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
 		VillagerGriefHandler.register();
 		PlayerNews.register();
 		DebugPonyMovement.register();
+		// Keeps the .tale editor's vocabulary fresh while developing (see DebugCommand#exportVocabulary).
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+			if (craftingismagic.cim.debug.DebugConfig.get().enabled) {
+				DebugCommand.exportVocabulary();
+			}
+		});
 		CommandRegistrationCallback.EVENT.register(ChangelingCommand::register);
 		CommandRegistrationCallback.EVENT.register(DebugCommand::register);
 		DebugOverlay.register();
@@ -182,13 +193,13 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(PegasusRainboomTrailS2CPayload.ID, PegasusRainboomTrailS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(LevitationAuraS2CPayload.ID, LevitationAuraS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(LevitationSelectionBoxS2CPayload.ID, LevitationSelectionBoxS2CPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(VillagerIdleChatterC2SPayload.ID, VillagerIdleChatterC2SPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(VillagerOfferTradeC2SPayload.ID, VillagerOfferTradeC2SPayload.CODEC);
-		PayloadTypeRegistry.playC2S().register(VillagerGiveGiftC2SPayload.ID, VillagerGiveGiftC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(StopVillagerInteractionC2SPayload.ID, StopVillagerInteractionC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DialogueChooseC2SPayload.ID, DialogueChooseC2SPayload.CODEC);
-		PayloadTypeRegistry.playS2C().register(OpenVillagerMenuS2CPayload.ID, OpenVillagerMenuS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DialogueBringUpC2SPayload.ID, DialogueBringUpC2SPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(DialogueFollowUpC2SPayload.ID, DialogueFollowUpC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(DialogueBeatS2CPayload.ID, DialogueBeatS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(ChatVoiceS2CPayload.ID, ChatVoiceS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(HumS2CPayload.ID, HumS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(MomentS2CPayload.ID, MomentS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetPonyMovementC2SPayload.ID, DebugSetPonyMovementC2SPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetPonyMovementC2SPayload.ID,
@@ -252,14 +263,12 @@ public class Cim implements ModInitializer {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(PegasusChargeReleaseC2SPayload.ID,
 				(payload, context) -> PegasusRainboomCharge.cancelFromRelease(context.player()));
-		ServerPlayNetworking.registerGlobalReceiver(VillagerIdleChatterC2SPayload.ID,
-				(payload, context) -> VillagerDialogue.startChatter(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(DialogueChooseC2SPayload.ID,
 				(payload, context) -> VillagerDialogue.choose(context.player(), payload.entityId(), payload.option()));
-		ServerPlayNetworking.registerGlobalReceiver(VillagerOfferTradeC2SPayload.ID,
-				(payload, context) -> VillagerInteractionHandler.offerTrade(context.player(), payload.villagerEntityId()));
-		ServerPlayNetworking.registerGlobalReceiver(VillagerGiveGiftC2SPayload.ID,
-				(payload, context) -> VillagerInteractionHandler.giveGift(context.player(), payload.villagerEntityId()));
+		ServerPlayNetworking.registerGlobalReceiver(DialogueBringUpC2SPayload.ID,
+				(payload, context) -> VillagerDialogue.bringUp(context.player(), payload.entityId(), payload.request(), payload.slot()));
+		ServerPlayNetworking.registerGlobalReceiver(DialogueFollowUpC2SPayload.ID,
+				(payload, context) -> VillagerDialogue.followUp(context.player(), payload.entityId()));
 		ServerPlayNetworking.registerGlobalReceiver(StopVillagerInteractionC2SPayload.ID,
 				(payload, context) -> VillagerInteractionHandler.stopInteracting(context.player(), payload.villagerEntityId()));
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetVillagerNameC2SPayload.ID, (payload, context) ->
@@ -299,6 +308,8 @@ public class Cim implements ModInitializer {
 			VoiceMimicryConsentAttachment.setConsent(player, newConsent);
 			player.sendMessage(Text.literal("Voice mimicry: " + (newConsent ? "ON" : "OFF")), true);
 		});
+
+		ChatVoices.register();
 
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			if (!SpeciesAttachment.hasChosenSpecies(handler.getPlayer())) {
@@ -343,6 +354,7 @@ public class Cim implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(PegasusRainboomCharge::tick);
 		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(VillagerInteractionHandler::tick);
+		ServerTickEvents.END_SERVER_TICK.register(HumDirector::tick);
 		// Registered last deliberately - any future Stamina-spending ability's own tick handler
 		// (Herding, etc.) needs to register BEFORE this one so its drain always wins over regen
 		// within the same tick, rather than the two partially canceling out. See StaminaManager's
@@ -405,6 +417,7 @@ public class Cim implements ModInitializer {
 				PlayerNews.PENDING,
 				PlayerNews.NAMES,
 				PonyFamilyAttachment.CHILDREN,
+				SpeakingVoices.VOICE,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

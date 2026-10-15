@@ -3,6 +3,8 @@ package craftingismagic.cim.client.gui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.lwjgl.glfw.GLFW;
 
@@ -26,12 +28,18 @@ import net.minecraft.util.Unit;
 import craftingismagic.cim.client.accessibility.CimText;
 import craftingismagic.cim.client.dialogue.Bubbly;
 import craftingismagic.cim.client.dialogue.DialogueConfig;
+import craftingismagic.cim.client.dialogue.SpeechSounds;
 import craftingismagic.cim.client.dialogue.VoiceStyle;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
 import craftingismagic.cim.network.DialogueBeatS2CPayload.LineData;
 import craftingismagic.cim.network.DialogueBeatS2CPayload.OptionData;
+import craftingismagic.cim.network.DialogueBeatS2CPayload.RequestData;
+import craftingismagic.cim.network.DialogueBringUpC2SPayload;
+import craftingismagic.cim.network.DialogueFollowUpC2SPayload;
 import craftingismagic.cim.network.DialogueChooseC2SPayload;
 import craftingismagic.cim.network.StopVillagerInteractionC2SPayload;
+import craftingismagic.cim.speech.SpeakingVoice;
+import craftingismagic.cim.villager.ConversationRequests;
 import craftingismagic.cim.stamina.StaminaColorAttachment;
 
 /**
@@ -57,6 +65,14 @@ public class DialogueScreen extends Screen {
 	private static final int OPTION_GAP = 4;
 	private static final int BADGE = 12;
 	private static final int CLOSE = -1;
+	/** The "Bring something up…" tab. */
+	private static final int BRING_UP = -3;
+	/** Item cells in the gift picker are {@code ITEM - slot}. */
+	private static final int ITEM = -1000;
+	private static final int ITEM_CELL = 22;
+
+	/** What the reply area shows: the pony's replies, the things you can bring up, or your inventory for a gift. */
+	private enum Mode { REPLIES, BRING_UP, PICK_ITEM }
 
 	/** One entry in the log. {@code badge} entries are a voice reply's result, centered. */
 	private record Entry(Text tag, int tagColor, Text body, boolean badge, int sound, String voice) {
@@ -70,6 +86,9 @@ public class DialogueScreen extends Screen {
 
 	private static final int SOUND_NONE = 0;
 	private static final int SOUND_SPOKEN = 1;
+	/** {@code *yawns* rest of the line} - a stage direction leading the spoken words. */
+	private static final Pattern ACTION = Pattern.compile("^\\*([^*]+)\\*\\s*(.*)$");
+	private static final Style STAGE_DIRECTION = Style.EMPTY.withItalic(true).withColor(0xC9B8E0);
 	private static final int SOUND_VOICE = 2;
 	private static final int SOUND_SUCCESS = 3;
 	private static final int SOUND_FAILURE = 4;
@@ -80,6 +99,30 @@ public class DialogueScreen extends Screen {
 	private final List<Hit> hits = new ArrayList<>();
 	private List<OptionData> options = List.of();
 	private boolean ended;
+	/** The things you can bring up (README: Conversations replace the interact menu). */
+	private List<RequestData> requests = List.of();
+	private Mode mode = Mode.REPLIES;
+	private RequestData picking;
+	/** An action waiting for the lines to be read (the trade screen), and how long they've been on screen. */
+	private boolean followUpPending;
+	/** The pony's goodbye: the screen closes itself once it's been read. */
+	private boolean closingAfter;
+	private float followUpTimer;
+	private static final float FOLLOW_UP_DELAY = 0.9f;
+	private static final float CLOSE_DELAY = 1.6f;
+	/** How the pony and you sound (README: Speaking voices); null until the first beat arrives. */
+	private SpeakingVoice partnerVoice;
+	private SpeakingVoice yourVoice;
+	/** Your reply's quick murmur: blips still to play, and time until the next. */
+	private int yourBlipsLeft;
+	private float yourBlipWait;
+	/** For a melodic voice: where the word being sung falls in its sentence. */
+	private SpeechSounds.Cadence cadence = SpeechSounds.Cadence.NONE;
+	/** Seconds left before the answer to your reply starts showing. */
+	private float breather;
+	private static final float MIN_BREATHER = 0.55f;
+	private static final float BREATHER_PER_LETTER = 0.025f;
+	private static final float MAX_BREATHER = 1.8f;
 	private boolean waiting;
 	/** Entries fully shown; the one after them is typing out. */
 	private int revealed;
@@ -119,6 +162,13 @@ public class DialogueScreen extends Screen {
 	}
 
 	private void apply(DialogueBeatS2CPayload beat) {
+		this.partnerVoice = beat.scene().partner();
+		this.yourVoice = beat.scene().you();
+		this.requests = beat.scene().requests();
+		this.closingAfter = beat.scene().followUp().equals("close");
+		this.followUpPending = !beat.scene().followUp().isEmpty();
+		this.followUpTimer = 0;
+		this.mode = Mode.REPLIES;
 		int voiceLines = 0;
 		int maxVoiceLines = DialogueConfig.get().maxVoiceLines();
 		for (LineData line : beat.lines()) {
@@ -137,8 +187,7 @@ public class DialogueScreen extends Screen {
 	private static Entry entry(LineData line) {
 		if (line.kind() == DialogueBeatS2CPayload.SPOKEN) {
 			String speaker = line.speaker().isEmpty() ? "..." : line.speaker();
-			// Spoken words in quotes, so they never read like an inner voice's thoughts.
-			return new Entry(Text.literal(speaker), Bubbly.PONY_TAG, Text.literal("“" + line.text() + "”"), false, SOUND_SPOKEN, "");
+			return new Entry(Text.literal(speaker), Bubbly.PONY_TAG, spoken(line.text()), false, SOUND_SPOKEN, "");
 		}
 		VoiceStyle style = VoiceStyle.of(line.voice());
 		if (line.kind() == DialogueBeatS2CPayload.VOICE) {
@@ -154,6 +203,20 @@ public class DialogueScreen extends Screen {
 		return new Entry(null, color, result, true, success ? SOUND_SUCCESS : SOUND_FAILURE, style.voice);
 	}
 
+	/**
+	 * Spoken words go in quotes, so they never read like an inner voice's thoughts. A leading
+	 * {@code *action*} is a stage direction: italic and outside the quotes - {@code *yawns* “Hi.”}.
+	 */
+	private static Text spoken(String text) {
+		Matcher action = ACTION.matcher(text);
+		if (!action.matches()) {
+			return Text.literal("“" + text + "”");
+		}
+		MutableText result = Text.empty().append(Text.literal("*" + action.group(1).trim() + "*").setStyle(STAGE_DIRECTION));
+		String words = action.group(2).trim();
+		return words.isEmpty() ? result : result.append(Text.literal(" “" + words + "”"));
+	}
+
 	/** "✿ Kindness" without color, for drawing on a pill of that color. */
 	private static MutableText plainLabel(VoiceStyle style) {
 		MutableText label = Text.literal(style.symbol);
@@ -165,22 +228,135 @@ public class DialogueScreen extends Screen {
 
 	// ---- Choosing ----
 
+	/** Whether the lines are all shown and it's the player's turn - nothing pending, nothing typing. */
+	private boolean playersTurn() {
+		return !waiting && !followUpPending && revealed >= entries.size();
+	}
+
+	/**
+	 * What the reply area offers right now: the pony's replies; or, while bringing something up (and
+	 * whenever a conversation has run its course), the requests plus "Never mind" / "See you later".
+	 */
+	private List<OptionData> choices() {
+		if (!playersTurn() || mode == Mode.PICK_ITEM) {
+			return List.of();
+		}
+		if (mode == Mode.BRING_UP || ended) {
+			if (requests.isEmpty()) {
+				return List.of();
+			}
+			List<OptionData> list = new ArrayList<>();
+			for (RequestData request : requests) {
+				list.add(new OptionData("", "", requestLine(request).getString(), -1));
+			}
+			list.add(new OptionData("", "", Text.translatable(ended ? "screen.cim.dialogue.goodbye" : "screen.cim.dialogue.never_mind").getString(), -1));
+			return list;
+		}
+		return options;
+	}
+
 	private boolean optionsShowing() {
-		return !waiting && !ended && revealed >= entries.size() && !options.isEmpty();
+		return !choices().isEmpty();
+	}
+
+	private static Text requestLine(RequestData request) {
+		return Text.translatable("request." + request.id().getNamespace() + "." + request.id().getPath());
 	}
 
 	private void choose(int index) {
-		if (!optionsShowing() || index < 0 || index >= options.size()) {
+		List<OptionData> list = choices();
+		if (index < 0 || index >= list.size()) {
+			return;
+		}
+		if (mode == Mode.BRING_UP || ended) {
+			if (index >= requests.size()) {
+				// "Never mind" goes back to the conversation; "See you later" gets the pony's goodbye, then ends it.
+				if (ended) {
+					sayGoodbye();
+				} else {
+					mode = Mode.REPLIES;
+				}
+				return;
+			}
+			RequestData request = requests.get(index);
+			if (request.needsItem()) {
+				picking = request;
+				mode = Mode.PICK_ITEM;
+			} else {
+				bringUp(request, -1, requestLine(request));
+			}
 			return;
 		}
 		OptionData option = options.get(index);
-		entries.add(yourLine(option));
+		say(yourLine(option), option.text());
+		ClientPlayNetworking.send(new DialogueChooseC2SPayload(entityId, index));
+	}
+
+	/** You bring {@code request} up - with the item from {@code slot}, for a gift. */
+	private void bringUp(RequestData request, int slot, Text words) {
+		say(yourEntry(words), words.getString());
+		ended = false;
+		mode = Mode.REPLIES;
+		ClientPlayNetworking.send(new DialogueBringUpC2SPayload(entityId, request.id(), slot));
+	}
+
+	/** "See you later." - the pony answers with their goodbye, and the screen closes once it's read. */
+	private void sayGoodbye() {
+		Text words = Text.translatable("screen.cim.dialogue.goodbye");
+		say(yourEntry(words), words.getString());
+		ended = false;
+		mode = Mode.REPLIES;
+		ClientPlayNetworking.send(new DialogueBringUpC2SPayload(entityId, ConversationRequests.FAREWELL, -1));
+	}
+
+	/** Puts your line in the log, murmured in your voice, then waits for the pony - with a breath between. */
+	private void say(Entry line, String words) {
+		entries.add(line);
+		// Your line shows at once, with a quick murmur in your own voice - about a blip per three letters.
+		int letters = (int) words.chars().filter(Character::isLetterOrDigit).count();
+		yourBlipsLeft = letters == 0 ? 1 : Math.min(8, Math.max(2, letters / 3));
+		yourBlipWait = 0;
+		// Breathing room: the pony lets your words land before answering - longer replies, a longer beat.
+		breather = Math.min(MAX_BREATHER, MIN_BREATHER + letters * BREATHER_PER_LETTER);
 		revealed = entries.size();
 		revealChars = 0;
 		waiting = true;
 		options = List.of();
 		scroll = 0;
-		ClientPlayNetworking.send(new DialogueChooseC2SPayload(entityId, index));
+	}
+
+	/** The items you could give: one cell per kind of item in your inventory, at the first slot holding it. */
+	private List<Integer> giftSlots() {
+		List<Integer> slots = new ArrayList<>();
+		if (this.client == null || this.client.player == null) {
+			return slots;
+		}
+		List<net.minecraft.item.ItemStack> main = this.client.player.getInventory().main;
+		java.util.Set<net.minecraft.item.Item> seen = new java.util.HashSet<>();
+		for (int slot = 0; slot < main.size(); slot++) {
+			if (!main.get(slot).isEmpty() && seen.add(main.get(slot).getItem())) {
+				slots.add(slot);
+			}
+		}
+		return slots;
+	}
+
+	private void pickGift(int slot) {
+		if (picking == null || this.client == null || this.client.player == null) {
+			return;
+		}
+		Text words = Text.translatable("request.cim.gift.with", this.client.player.getInventory().main.get(slot).getName());
+		bringUp(picking, slot, words);
+		picking = null;
+	}
+
+	/** Something you said, as your own line in the log, tagged in your Stamina color. */
+	private Entry yourEntry(Text body) {
+		int color = 0xFFB9A5E8;
+		if (this.client != null && this.client.player != null) {
+			color = Bubbly.opaque(StaminaColorAttachment.getColors(this.client.player).fillColor());
+		}
+		return new Entry(Text.translatable("screen.cim.dialogue.you"), color, body, false, SOUND_NONE, "");
 	}
 
 	/** What you picked, as your own line in the log, tagged in your Stamina color. */
@@ -202,6 +378,7 @@ public class DialogueScreen extends Screen {
 	}
 
 	private void finishReveal() {
+		breather = 0;
 		revealed = entries.size();
 		revealChars = 0;
 		timeBank = 0;
@@ -218,6 +395,10 @@ public class DialogueScreen extends Screen {
 			if (hit.contains(mouseX, mouseY)) {
 				if (hit.option() == CLOSE) {
 					close();
+				} else if (hit.option() == BRING_UP) {
+					mode = Mode.BRING_UP;
+				} else if (hit.option() <= ITEM) {
+					pickGift(ITEM - hit.option());
 				} else {
 					choose(hit.option());
 				}
@@ -230,14 +411,27 @@ public class DialogueScreen extends Screen {
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9) {
-			choose(keyCode - GLFW.GLFW_KEY_1);
+			int index = keyCode - GLFW.GLFW_KEY_1;
+			if (mode == Mode.PICK_ITEM) {
+				List<Integer> slots = giftSlots();
+				if (index < slots.size()) {
+					pickGift(slots.get(index));
+				}
+			} else {
+				choose(index);
+			}
+			return true;
+		}
+		// Esc steps back out of picking a gift or bringing something up before it closes the conversation.
+		if (keyCode == GLFW.GLFW_KEY_ESCAPE && mode != Mode.REPLIES) {
+			mode = mode == Mode.PICK_ITEM ? Mode.BRING_UP : Mode.REPLIES;
 			return true;
 		}
 		if (keyCode == GLFW.GLFW_KEY_SPACE || keyCode == GLFW.GLFW_KEY_ENTER) {
 			if (revealed < entries.size()) {
 				finishReveal();
-			} else if (ended) {
-				close();
+			} else if (ended && playersTurn()) {
+				sayGoodbye();
 			}
 			return true;
 		}
@@ -258,6 +452,10 @@ public class DialogueScreen extends Screen {
 	// ---- Typing out ----
 
 	private void advanceReveal(float seconds) {
+		if (breather > 0) {
+			breather -= seconds; // counts down even while the answer is still on its way
+			return;
+		}
 		if (revealed >= entries.size()) {
 			return;
 		}
@@ -283,6 +481,9 @@ public class DialogueScreen extends Screen {
 		String text = current.body().getString();
 		if (current.sound() == SOUND_VOICE) {
 			speed = Math.max(1, Math.round(speed * VoiceStyle.of(current.voice()).pace));
+		} else if (current.sound() == SOUND_SPOKEN && partnerVoice != null && current.tag().getString().equals(partnerName)) {
+			// Some speak slower than others - Celestia takes her time, as if imparting grand wisdom.
+			speed = Math.max(1, Math.round(speed * partnerVoice.pace()));
 		}
 		// Letter by letter on a clock, with a breath after spaces and punctuation, so text and blips
 		// share one rhythm and sound like speech rather than a stream of noise.
@@ -304,7 +505,15 @@ public class DialogueScreen extends Screen {
 			int index = (int) revealChars;
 			char c = text.charAt(index);
 			revealChars = index + 1;
-			speak |= talks(current, c, speed);
+			if (melodicPartner(current)) {
+				// A melodic voice sings one note per word - a tune, not a flurry - and its sentences resolve.
+				if (Character.isLetterOrDigit(c) && (index == 0 || !Character.isLetterOrDigit(text.charAt(index - 1)))) {
+					speak = true;
+					cadence = cadenceAfterWord(text, index);
+				}
+			} else {
+				speak |= talks(current, c, speed);
+			}
 			pause = pauseAfter(c, index + 1 < text.length() ? text.charAt(index + 1) : ' ') * pauseScale;
 		}
 		if (speak) {
@@ -316,6 +525,32 @@ public class DialogueScreen extends Screen {
 			revealChars = 0;
 			blipCount = 0;
 		}
+	}
+
+	/** Whether {@code entry} is the pony speaking in a melodic voice (a princess's). */
+	private boolean melodicPartner(Entry entry) {
+		return entry.sound() == SOUND_SPOKEN && partnerVoice != null && partnerVoice.melodic()
+				&& entry.tag().getString().equals(partnerName);
+	}
+
+	/** Whether the word starting at {@code start} ends its sentence, pauses at a comma, or runs on. */
+	private static SpeechSounds.Cadence cadenceAfterWord(String text, int start) {
+		int end = start;
+		while (end < text.length() && (Character.isLetterOrDigit(text.charAt(end)) || text.charAt(end) == '\'')) {
+			end++;
+		}
+		// Skip a closing quote or stage-direction star to the punctuation behind it.
+		while (end < text.length() && "\"”*)".indexOf(text.charAt(end)) >= 0) {
+			end++;
+		}
+		if (end >= text.length()) {
+			return SpeechSounds.Cadence.FULL;
+		}
+		return switch (text.charAt(end)) {
+			case '.', '!', '?', '…' -> SpeechSounds.Cadence.FULL;
+			case ',', ';', ':', '-', '—', '–' -> SpeechSounds.Cadence.HALF;
+			default -> SpeechSounds.Cadence.NONE;
+		};
 	}
 
 	/** The breath after {@code c}, in seconds at normal speed. Dots in an ellipsis trail off rather than stall. */
@@ -346,9 +581,9 @@ public class DialogueScreen extends Screen {
 	}
 
 	/**
-	 * One spoken blip, wobbling a touch in pitch so it sounds like talking. Each pony has their own
-	 * voice - the harp at a pitch from their name, so the same pony always sounds the same - and each
-	 * inner voice speaks with its instrument. Your own lines are silent; you're the one talking.
+	 * One spoken blip, wobbling a touch in pitch so it sounds like talking. Each pony speaks in their
+	 * own voice (README: Speaking voices) and each inner voice with its instrument; your own reply
+	 * gets a quick murmur in your voice instead ({@link #speakYourLine}).
 	 */
 	private void blip(Entry entry) {
 		if (this.client == null || !DialogueConfig.get().revealSound || entry.sound() == SOUND_NONE) {
@@ -357,9 +592,30 @@ public class DialogueScreen extends Screen {
 		float wobble = 0.95f + blipRandom.nextFloat() * 0.1f;
 		if (entry.sound() == SOUND_VOICE) {
 			VoiceStyle.of(entry.voice()).blip(this.client, wobble);
+		} else if (partnerVoice != null && entry.tag().getString().equals(partnerName)) {
+			SpeechSounds.blip(this.client, partnerVoice, wobble, 0.25f, cadence);
+			cadence = SpeechSounds.Cadence.NONE;
 		} else {
+			// Someone else in the scene, with no voice of their own yet: the harp at a pitch from their name.
 			this.client.getSoundManager().play(PositionedSoundInstance.master(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(),
 					ponyPitch(entry.tag().getString()) * wobble, 0.25f));
+		}
+	}
+
+	/** Your reply's quick murmur in your own voice - unless player voices are switched off. */
+	private void speakYourLine(float seconds) {
+		if (yourBlipsLeft <= 0 || this.client == null || yourVoice == null) {
+			return;
+		}
+		if (!DialogueConfig.get().playerVoices) {
+			yourBlipsLeft = 0;
+			return;
+		}
+		yourBlipWait -= seconds;
+		if (yourBlipWait <= 0) {
+			SpeechSounds.blip(this.client, yourVoice, 0.95f + blipRandom.nextFloat() * 0.1f, 0.22f);
+			yourBlipsLeft--;
+			yourBlipWait = 0.07f + (blipRandom.nextInt(4) == 0 ? 0.08f : 0f);
 		}
 	}
 
@@ -406,6 +662,21 @@ public class DialogueScreen extends Screen {
 		lastFrame = now;
 		time += seconds * 20f;
 		advanceReveal(seconds);
+		speakYourLine(seconds);
+		SpeechSounds.flush(); // a melodic voice's layers ring a few milliseconds after each note
+		// "Sure, take a look!" - then, once it's had a moment to be read, the trade screen.
+		if (followUpPending && !waiting && breather <= 0 && revealed >= entries.size()) {
+			followUpTimer += seconds;
+			if (closingAfter && followUpTimer >= CLOSE_DELAY) {
+				followUpPending = false;
+				close();
+				return;
+			}
+			if (!closingAfter && followUpTimer >= FOLLOW_UP_DELAY) {
+				followUpPending = false;
+				ClientPlayNetworking.send(new DialogueFollowUpC2SPayload(entityId));
+			}
+		}
 
 		super.render(context, mouseX, mouseY, delta);
 		hits.clear();
@@ -529,7 +800,10 @@ public class DialogueScreen extends Screen {
 	/** Draws the replies (or Close) upward from {@code bottom}; returns the top of the topmost one. */
 	private int drawButtons(DrawContext context, int mouseX, int mouseY, int x, int width, int top, int bottom) {
 		int lineHeight = lineHeight();
-		if (ended && revealed >= entries.size()) {
+		if (mode == Mode.PICK_ITEM && playersTurn()) {
+			return drawGiftPicker(context, mouseX, mouseY, x, width, bottom);
+		}
+		if (ended && playersTurn() && requests.isEmpty()) {
 			Text label = CimText.style(Text.translatable("screen.cim.dialogue.close"));
 			int height = lineHeight + 10;
 			int buttonWidth = Math.min(width, Math.round(this.textRenderer.getWidth(label) * scale()) + 40);
@@ -543,7 +817,8 @@ public class DialogueScreen extends Screen {
 			return by;
 		}
 		optionsArea = null;
-		if (!optionsShowing()) {
+		List<OptionData> options = choices();
+		if (options.isEmpty()) {
 			return bottom;
 		}
 		// Compact when crowded. The badge and the words are centered vertically in the bubble; a voice
@@ -639,7 +914,82 @@ public class DialogueScreen extends Screen {
 			context.fillGradient(x - 2, bottom - 10, x + width + 2, bottom, Bubbly.PANEL_BOTTOM & 0x00FFFFFF, Bubbly.PANEL_BOTTOM);
 			Bubbly.sparkle(context, x + width / 2, bottom - 3, time, 3.5f);
 		}
+		// While the pony's replies show, a little tab above them lets you steer: bring something up instead.
+		if (mode == Mode.REPLIES && !ended && !requests.isEmpty()) {
+			return drawBringUpTab(context, mouseX, mouseY, x, width, areaTop);
+		}
 		return areaTop;
+	}
+
+	/** The "✦ Bring something up… ✦" tab, centered just above {@code above}; returns its top. */
+	private int drawBringUpTab(DrawContext context, int mouseX, int mouseY, int x, int width, int above) {
+		Text label = CimText.style(Text.translatable("screen.cim.dialogue.bring_up"));
+		int pillHeight = Bubbly.pillHeight(this.textRenderer, scale());
+		int tabWidth = Math.round(this.textRenderer.getWidth(label) * scale()) + 12;
+		int tabX = x + (width - tabWidth) / 2;
+		int tabY = above - OPTION_GAP - pillHeight;
+		Hit hit = new Hit(tabX, tabY, tabX + tabWidth, tabY + pillHeight, BRING_UP);
+		boolean hovered = hit.contains(mouseX, mouseY);
+		Bubbly.pill(context, this.textRenderer, label, tabX, tabY, scale(), hovered ? Bubbly.lighten(Bubbly.ACCENT, 0.3f) : Bubbly.ACCENT,
+				Bubbly.inkFor(Bubbly.ACCENT));
+		if (hovered) {
+			Bubbly.sparkle(context, tabX - 4, tabY + pillHeight / 2, time, 0.7f);
+			Bubbly.sparkle(context, tabX + tabWidth + 3, tabY + pillHeight / 2, time, 2.7f);
+		}
+		hits.add(hit);
+		return tabY;
+	}
+
+	/**
+	 * Picking a gift: "What will you give?", then a cell per kind of item in your inventory (number
+	 * keys pick the first nine), and "Never mind" below. Hovering a cell names the item.
+	 */
+	private int drawGiftPicker(DrawContext context, int mouseX, int mouseY, int x, int width, int bottom) {
+		int lineHeight = lineHeight();
+		List<Integer> slots = giftSlots();
+		// "Never mind" at the very bottom.
+		Text back = CimText.style(Text.translatable("screen.cim.dialogue.never_mind"));
+		int backHeight = lineHeight + 10;
+		int backWidth = Math.min(width, Math.round(this.textRenderer.getWidth(back) * scale()) + 40);
+		int backX = x + (width - backWidth) / 2;
+		int backY = bottom - backHeight;
+		Hit backHit = new Hit(backX, backY, backX + backWidth, backY + backHeight, BRING_UP);
+		bubble(context, backHit, Bubbly.TONE_BUBBLE, backHit.contains(mouseX, mouseY));
+		drawLines(context, wrap(back, backWidth), backX + (backWidth - Math.round(this.textRenderer.getWidth(back) * scale())) / 2,
+				backY + 5, Bubbly.INK);
+		hits.add(backHit);
+
+		int perRow = Math.max(1, width / ITEM_CELL);
+		int rows = Math.max(1, (slots.size() + perRow - 1) / perRow);
+		int gridBottom = backY - GAP;
+		int gridTop = gridBottom - rows * ITEM_CELL;
+		if (slots.isEmpty()) {
+			Text none = CimText.style(Text.translatable("screen.cim.dialogue.nothing_to_give"));
+			drawLines(context, wrap(none, width), x, gridBottom - lineHeight, 0xFFC9B8E0);
+			gridTop = gridBottom - lineHeight;
+		}
+		Text hoveredName = null;
+		for (int i = 0; i < slots.size(); i++) {
+			int cellX = x + (i % perRow) * ITEM_CELL;
+			int cellY = gridTop + (i / perRow) * ITEM_CELL;
+			int slot = slots.get(i);
+			Hit hit = new Hit(cellX, cellY, cellX + ITEM_CELL - 2, cellY + ITEM_CELL - 2, ITEM - slot);
+			boolean hovered = hit.contains(mouseX, mouseY);
+			bubble(context, hit, Bubbly.TONE_BUBBLE, hovered);
+			net.minecraft.item.ItemStack stack = this.client.player.getInventory().main.get(slot);
+			context.drawItem(stack, cellX + 2, cellY + 2);
+			if (hovered) {
+				hoveredName = stack.getName();
+			}
+			hits.add(hit);
+		}
+		Text title = CimText.style(Text.translatable("screen.cim.dialogue.pick_gift"));
+		int titleY = gridTop - GAP - lineHeight;
+		drawLines(context, wrap(title, width), x, titleY, 0xFFFFFFFF);
+		if (hoveredName != null) {
+			context.drawTooltip(this.textRenderer, hoveredName, mouseX, mouseY);
+		}
+		return titleY;
 	}
 
 	private void bubble(DrawContext context, Hit hit, int color, boolean hovered) {

@@ -5,28 +5,24 @@ import java.util.Map;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.village.VillagerProfession;
 
 import craftingismagic.cim.item.CimItems;
-import craftingismagic.cim.network.OpenVillagerMenuS2CPayload;
 import craftingismagic.cim.rogue.RoguePonyEntity;
 
 /**
- * Right-clicking a villager opens our own Interact menu directly, instead of vanilla's trade
- * screen - the menu itself offers "Offer Trade" as one of its options to reach vanilla trading.
- * Only intercepts {@code Hand.MAIN_HAND} since Minecraft dispatches this callback for both hands
- * on a single right-click, which would otherwise open the menu twice.
+ * Right-clicking a villager starts a conversation directly, instead of vanilla's trade screen - the
+ * pony greets you, and gifts and trades are brought up from inside the conversation (README:
+ * Conversations replace the interact menu). Only intercepts {@code Hand.MAIN_HAND} since Minecraft
+ * dispatches this callback for both hands on a single right-click, which would otherwise start it twice.
  * <p>
  * {@code frozenVillagers} tracks every entity-id/player-uuid pair currently "in conversation" -
  * {@code MobEntity}-typed (not {@code VillagerEntity}) so the same freeze also covers a Rogue Pony
@@ -69,6 +65,11 @@ public final class VillagerInteractionHandler {
 			if (hand != Hand.MAIN_HAND || world.isClient || !(player instanceof ServerPlayerEntity serverPlayer)) {
 				return ActionResult.PASS;
 			}
+			// One right-click on an entity arrives as two packets: "interact at" (with a hit result) and then
+			// "interact". Answering both started every conversation twice - so only the second one counts.
+			if (hitResult != null) {
+				return ActionResult.PASS;
+			}
 
 			// Creative-only debug wand takes over the interaction entirely, bypassing the normal
 			// Interact menu/freeze - see VillagerDebugWandItem for why this has to be checked here
@@ -84,14 +85,19 @@ public final class VillagerInteractionHandler {
 			}
 
 			if (entity instanceof VillagerEntity villager) {
-				boolean canTrade = villager.getVillagerData().getProfession() != VillagerProfession.NONE;
+				// No menu: the pony greets you and the conversation starts; gifts and trades are
+				// brought up from there (README: Conversations replace the interact menu).
 				freeze(villager, serverPlayer);
-				ServerPlayNetworking.send(serverPlayer,
-						new OpenVillagerMenuS2CPayload(villager.getId(), canTrade, villager.getName().getString()));
+				VillagerDialogue.startChatter(serverPlayer, villager.getId());
 				return ActionResult.SUCCESS;
 			}
 			return ActionResult.PASS;
 		});
+	}
+
+	/** Whether {@code entity} is held still in a conversation (or the debug editor) right now. */
+	public static boolean isInConversation(Entity entity) {
+		return frozenVillagers.containsKey(entity.getId());
 	}
 
 	public static void tick(MinecraftServer server) {
@@ -125,36 +131,34 @@ public final class VillagerInteractionHandler {
 		}
 	}
 
-	public static void giveGift(ServerPlayerEntity player, int villagerEntityId) {
-		VillagerEntity villager = resolveNearbyVillager(player, villagerEntityId);
-		if (villager == null) {
-			return;
-		}
+	/** Whether {@code pony} will take another gift from {@code player} today (there's a daily limit). */
+	public static boolean canTakeGift(ServerPlayerEntity player, Entity pony) {
+		return FriendshipAttachment.canGiftToday(pony, player.getUuid(), player.getServerWorld().getTime() / 24000L);
+	}
 
-		ItemStack held = player.getMainHandStack();
-		if (held.isEmpty()) {
-			player.sendMessage(Text.translatable("message.cim.gift_empty_hand"), true);
-			return;
-		}
+	public static boolean isFavoriteGift(Entity pony, ItemStack gift) {
+		return FavoriteGiftAttachment.hasFavorite(pony) && gift.getItem() == FavoriteGiftAttachment.getFavorite(pony);
+	}
 
+	/**
+	 * {@code pony} takes one of {@code gift} from {@code player} - the {@code ~ take_gift} effect, once
+	 * the gift conversation has had the pony react. Fondness grows, more for their favorite (which
+	 * also earns some Trust). Does nothing past the daily limit; the conversation checks
+	 * {@code can_take_gift} first so the pony can say so in their own words.
+	 */
+	public static void takeGift(ServerPlayerEntity player, Entity pony, ItemStack gift) {
 		long today = player.getServerWorld().getTime() / 24000L;
-		if (!FriendshipAttachment.canGiftToday(villager, player.getUuid(), today)) {
-			player.sendMessage(Text.translatable("message.cim.gift_cap_reached"), true);
+		if (gift.isEmpty() || !FriendshipAttachment.canGiftToday(pony, player.getUuid(), today)) {
 			return;
 		}
-
-		boolean isFavorite = FavoriteGiftAttachment.hasFavorite(villager)
-				&& held.getItem() == FavoriteGiftAttachment.getFavorite(villager);
-
-		held.decrement(1);
-		FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.FONDNESS,
+		boolean isFavorite = isFavoriteGift(pony, gift);
+		gift.decrement(1);
+		FriendshipAttachment.addFeeling(pony, player.getUuid(), Feeling.FONDNESS,
 				isFavorite ? FAVORITE_GIFT_FONDNESS_BOOST : GENERIC_GIFT_FONDNESS_BOOST);
 		if (isFavorite) {
-			FriendshipAttachment.addFeeling(villager, player.getUuid(), Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST);
+			FriendshipAttachment.addFeeling(pony, player.getUuid(), Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST);
 		}
-		FriendshipAttachment.recordGift(villager, player.getUuid(), today);
-
-		player.sendMessage(Text.translatable(isFavorite ? "message.cim.gift_favorite" : "message.cim.gift_generic"), true);
+		FriendshipAttachment.recordGift(pony, player.getUuid(), today);
 	}
 
 	/**

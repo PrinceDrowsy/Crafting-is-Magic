@@ -186,6 +186,7 @@ start: chatter
 
 === share_loss
 start: chatter
+tone: gentle
 weight: 5000
 when: news(cim:loss)
 {pony}: ...Have you heard? About {news_subject}? I'm so sorry. They're gone.
@@ -199,6 +200,7 @@ when: news(cim:loss)
 
 === gentle_with_you
 start: chatter
+tone: gentle
 weight: 1000
 when: player.mood(grief, clear)
 -> gentle_cranky if personality(cranky)

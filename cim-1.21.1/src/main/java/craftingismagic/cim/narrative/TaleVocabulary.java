@@ -34,6 +34,7 @@ public final class TaleVocabulary {
 	private static final Map<Identifier, ArgumentCheck> events = new HashMap<>();
 	private static final Map<String, Variable> variables = new LinkedHashMap<>();
 	private static final Set<String> startContexts = new LinkedHashSet<>();
+	private static final Set<String> leadInContexts = new LinkedHashSet<>();
 	private static final Set<String> voices = new LinkedHashSet<>();
 	private static final Set<String> tones = new LinkedHashSet<>();
 	private static final Set<String> feelings = new LinkedHashSet<>();
@@ -156,6 +157,24 @@ public final class TaleVocabulary {
 		startContexts.add(normalize(name));
 	}
 
+	/**
+	 * A speak-only start context: its nodes say their piece and run effects, nothing more - a greeting
+	 * that leads in to the conversation, or a farewell that closes it. Replies and jumps in them are
+	 * skipped (and the validator says so).
+	 */
+	public static void registerLeadInContext(String name) {
+		registerStartContext(name);
+		leadInContexts.add(normalize(name));
+	}
+
+	public static boolean isLeadInContext(String name) {
+		return leadInContexts.contains(normalize(name));
+	}
+
+	public static Set<String> leadInContexts() {
+		return Collections.unmodifiableSet(leadInContexts);
+	}
+
 	public static void registerVoice(String voice, boolean takesFeeling) {
 		voices.add(normalize(voice));
 		if (!takesFeeling) {
@@ -205,6 +224,23 @@ public final class TaleVocabulary {
 
 	public static boolean isFeeling(String feeling) {
 		return feelings.contains(normalize(feeling));
+	}
+
+	/** Every registered condition's argument check, for the editor export. */
+	public static Map<Identifier, ArgumentCheck> conditionChecks() {
+		Map<Identifier, ArgumentCheck> checks = new HashMap<>();
+		conditions.forEach((id, condition) -> checks.put(id, condition.check()));
+		return checks;
+	}
+
+	public static Map<Identifier, ArgumentCheck> effectChecks() {
+		Map<Identifier, ArgumentCheck> checks = new HashMap<>();
+		effects.forEach((id, effect) -> checks.put(id, effect.check()));
+		return checks;
+	}
+
+	public static Map<Identifier, ArgumentCheck> eventChecks() {
+		return Collections.unmodifiableMap(events);
 	}
 
 	public static Set<String> variables() {
