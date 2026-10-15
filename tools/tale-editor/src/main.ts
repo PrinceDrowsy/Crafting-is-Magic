@@ -12,6 +12,7 @@ import { type WorkFile, fetchVocabulary, helperAvailable, loadAll, openFiles, sa
 import { type Snapshot, build } from "./tale/library";
 import type { Problem } from "./tale/problem";
 import type { Vocabulary } from "./tale/vocabulary";
+import { PlayPanel } from "./play/panel";
 import { TreeView } from "./tree/treeView";
 import bundledVocabulary from "./vocabulary.json";
 
@@ -52,7 +53,9 @@ app.innerHTML = `
   </header>
   <aside class="panel files column" data-panel="files">${panelBar("Files")}<div class="panel-body" id="files"></div></aside>
   <main class="panel script column" data-panel="script">${panelBar("Script")}<div class="panel-body" id="editor"></div></main>
-  <section class="panel tree column" data-panel="tree">${panelBar("Tree")}<div class="panel-body" id="tree"></div></section>
+  <section class="panel tree column" data-panel="tree">${panelBar("Tree")}<div class="panel-body">
+    <div class="tab-host" id="tree"></div><div class="tab-host" id="play" hidden></div>
+  </div></section>
   <footer class="panel problems" data-panel="problems">${panelBar("Problems")}<div class="panel-body" id="problems"></div></footer>
 `;
 
@@ -148,7 +151,45 @@ function renderTree(): void {
   const file = current && snapshot?.files.find((parsed) => parsed.source === sourceOf(current!));
   tree.render(file ?? null, (file && snapshot?.leftOut.get(file.source)) || new Set(),
     file ? snapshot!.problems.filter((problem) => problem.source === file.source) : [], (id) => snapshot?.nodes.has(id) ?? false);
+  if (snapshot) play.update(snapshot.nodes, vocab);
 }
+
+// ---- Play test: a tab beside the tree ----
+
+const play = new PlayPanel(document.getElementById("play")!, {
+  cursorNode() {
+    const file = current && snapshot?.files.find((parsed) => parsed.source === sourceOf(current!));
+    if (!file) return null;
+    const line = view.state.doc.lineAt(view.state.selection.main.head).number;
+    let best = null;
+    for (const node of file.nodes) {
+      if (node.line <= line && (!best || node.line > best.line)) best = node;
+    }
+    return best;
+  },
+  showNode(id) {
+    const parsed = snapshot?.files.find((candidate) => candidate.nodes.some((node) => `${node.id.namespace}:${node.id.path}` === id));
+    const node = parsed?.nodes.find((candidate) => `${candidate.id.namespace}:${candidate.id.path}` === id);
+    const file = parsed && files.find((candidate) => sourceOf(candidate) === parsed.source);
+    if (file && node) open(file, node.line);
+  },
+});
+
+/** The tree panel's bar becomes two tabs: the conversation tree, and the play test. */
+function setUpTabs(): void {
+  const title = document.querySelector<HTMLElement>('[data-panel="tree"] .panel-title')!;
+  title.innerHTML = `<button class="panel-tab on" data-tab="tree">Tree</button><button class="panel-tab" data-tab="play">▶ Play test</button>`;
+  title.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
+    tab.onclick = (event) => {
+      event.stopPropagation();
+      title.querySelectorAll(".panel-tab").forEach((other) => other.classList.toggle("on", other === tab));
+      document.getElementById("tree")!.hidden = tab.dataset.tab !== "tree";
+      document.getElementById("play")!.hidden = tab.dataset.tab !== "play";
+      if (tab.dataset.tab === "tree") requestAnimationFrame(() => tree.fit());
+    };
+  });
+}
+setUpTabs();
 
 function newState(file: WorkFile): EditorState {
   return EditorState.create({
