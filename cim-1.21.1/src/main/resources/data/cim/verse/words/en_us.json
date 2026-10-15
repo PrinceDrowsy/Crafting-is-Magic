@@ -1,0 +1,102 @@
+{
+  "_comment": "Verse keywords in English (README: Verse). Each word or phrase maps to what the spell hears; every other word is poetry. Other languages and mods add their own files here; phrases match longest first, so 'comes near' wins over 'near'.",
+  "effects": {
+    "cim:move": {
+      "lift": "lift", "raise": "lift", "rise": "lift", "hoist": "lift",
+      "carry": "carry", "bear": "carry", "bring": "pull", "pull": "pull", "draw": "pull",
+      "push": "push", "thrust": "push",
+      "turn": "spin", "spin": "spin", "whirl": "spin", "twirl": "spin"
+    },
+    "cim:light": {
+      "shine": "shine", "light": "shine", "illuminate": "shine",
+      "glow": "glow", "gleam": "glow", "glimmer": "glow",
+      "lights": "lights", "little lights": "lights", "starlight": "lights", "stars": "lights", "motes": "lights"
+    },
+    "cim:sound": {
+      "sing": "sing", "hum": "sing", "call": "sing",
+      "ring": "ring", "chime": "ring", "toll": "ring"
+    },
+    "cim:change": {
+      "is now": "recolor", "are now": "recolor", "becomes": "recolor", "become": "recolor",
+      "turns": "recolor", "change": "recolor", "changes": "recolor", "dye": "recolor", "paint": "recolor",
+      "as it was": "restore", "as they were": "restore", "as before": "restore", "restore": "restore", "undo": "restore"
+    },
+    "cim:shift": {
+      "go": "go", "hence": "go", "travel": "go", "step": "go",
+      "away": "banish", "send": "banish", "begone": "banish", "banish": "banish"
+    }
+  },
+  "targets": {
+    "me": "self", "myself": "self", "mine own self": "self", "my": "self",
+    "this": "this", "thee": "this", "thou": "this", "this one": "this", "your": "this", "thy": "this", "thine": "this",
+    "it": "it", "them": "it", "their": "it", "they": "it", "another": "it", "him": "it", "her": "it",
+    "yonder": "yonder", "over there": "yonder", "afar": "yonder", "where i look": "yonder", "where my eyes have wandered": "yonder",
+    "around": "around", "all around": "around", "about me": "around", "round about": "around",
+    "these": "these", "all of them": "these", "ye": "these"
+  },
+  "quantities": {
+    "my love": "cim:love", "my affection": "cim:love", "my heart": "cim:love", "my fondness": "cim:love",
+    "mine heart": "cim:love", "my adoration": "cim:love"
+  },
+  "properties": {
+    "more": "amount", "many": "amount", "manifold": "amount", "countless": "amount",
+    "brighter": "brightness", "bright": "brightness", "brightly": "brightness",
+    "warmer": "color", "warm": "color", "color": "color", "colour": "color", "hue": "color",
+    "longer": "duration", "linger": "duration", "lingering": "duration", "lasting": "duration"
+  },
+  "parts": {
+    "mane": "mane", "manes": "mane", "tail": "mane", "tails": "mane", "hair": "mane", "forelock": "mane",
+    "coat": "coat", "coats": "coat", "fur": "coat", "hide": "coat", "pelt": "coat",
+    "eyes": "eyes", "eye": "eyes", "irises": "eyes",
+    "aura": "aura", "soul": "aura"
+  },
+  "hues": {
+    "red": "#E0464B", "scarlet": "#E8333C", "crimson": "#C21F3A", "ruby": "#D3204E", "cherry": "#D42A4C",
+    "orange": "#F2913D", "amber": "#F5A52C", "peach": "#F8B994", "coral": "#F37E6E", "copper": "#C26D3A",
+    "yellow": "#F6DC4F", "lemon": "#F7E86A", "gold": "#E8B93A", "golden": "#E8B93A",
+    "green": "#5BC85B", "lime": "#9BDE47", "emerald": "#2EAD6B", "jade": "#4FB394", "mint": "#9BE6C2",
+    "teal": "#2FA3A3", "turquoise": "#3FCBC4", "cyan": "#52D4E8",
+    "blue": "#4C7FE0", "azure": "#5AA8F0", "sapphire": "#2F5BC4", "cobalt": "#2A49A8", "navy": "#283A7A",
+    "indigo": "#4B3DA8", "violet": "#8F5BD6", "purple": "#8F4DC4", "lavender": "#B9A1EB", "lilac": "#C7A3E6",
+    "plum": "#8E4585", "magenta": "#D33FB0", "fuchsia": "#E04AC0", "pink": "#F59AC8", "rose": "#EE7FA4",
+    "brown": "#8B5A3C", "chestnut": "#8F4B32", "tan": "#D2A979",
+    "white": "#F7F5F2", "snow": "#FBFBFD", "ivory": "#F6F0DC", "silver": "#C3C7CF",
+    "grey": "#8E9096", "gray": "#8E9096", "black": "#2A2730", "ebony": "#2A2730"
+  },
+  "shapes": {
+    "crown": "crown", "halo": "crown", "circlet": "crown", "wreath": "crown", "diadem": "crown"
+  },
+  "logic": {
+    "then": "then", "and then": "then", "thereafter": "then",
+    "and": "and",
+    "when": "when", "whenever": "when", "once": "when",
+    "until": "until", "till": "until"
+  },
+  "senses": {
+    "i strike": "cim:strike", "i stamp": "cim:strike",
+    "eyes meet": "cim:gaze", "mine eyes meet": "cim:gaze", "my eyes meet": "cim:gaze", "i look upon": "cim:gaze",
+    "my gaze falls on": "cim:gaze", "i gaze upon": "cim:gaze", "i behold": "cim:gaze", "i see": "cim:gaze",
+    "comes near": "cim:near", "draws near": "cim:near", "approaches": "cim:near", "someone nears": "cim:near",
+    "night falls": "cim:night_falls", "dusk": "cim:night_falls", "nightfall": "cim:night_falls", "the sun sets": "cim:night_falls",
+    "dawn breaks": "cim:dawn", "dawn": "cim:dawn", "daybreak": "cim:dawn", "the sun rises": "cim:dawn", "morning comes": "cim:dawn",
+    "lands": "cim:lands", "it lands": "cim:lands", "touches": "cim:lands", "falls": "cim:lands", "comes to rest": "cim:lands"
+  },
+  "durations": {
+    "for a moment": "moment", "a moment": "moment", "a breath": "moment",
+    "for a while": "while", "a while": "while",
+    "for an hour": "hour", "an hour": "hour",
+    "all night": "night", "the night through": "night", "through the night": "night"
+  },
+  "modifiers": {
+    "gently": "gentle", "softly": "gentle", "lightly": "gentle", "kindly": "gentle",
+    "greatly": "great", "mightily": "great", "loudly": "great", "strongly": "great",
+    "twice": "twice", "thrice": "thrice",
+    "twinkle": "twinkle", "twinkling": "twinkle", "sparkle": "twinkle", "sparkling": "twinkle",
+    "glitter": "twinkle", "glittering": "twinkle", "shimmer": "twinkle", "shimmering": "twinkle",
+    "flicker": "twinkle", "flickering": "twinkle",
+    "high": "high", "higher": "high", "low": "low", "lower": "low", "deep": "low"
+  },
+  "like": {
+    "like a": "like", "like the": "like", "as a": "like", "as the": "like"
+  }
+}

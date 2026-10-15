@@ -12,7 +12,8 @@
 		"MomentNewSoundMixin",
 		"SoundManagerAccessor",
 		"SoundSystemAccessor",
-		"SourceAccessor"
+		"SourceAccessor",
+		"PlayerSpellSkinMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

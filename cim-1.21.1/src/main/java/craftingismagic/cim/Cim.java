@@ -89,6 +89,11 @@ import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.speech.ChatVoices;
 import craftingismagic.cim.speech.HumDirector;
 import craftingismagic.cim.speech.HumLibrary;
+import craftingismagic.cim.network.VerseLightS2CPayload;
+import craftingismagic.cim.network.VerseStrikeC2SPayload;
+import craftingismagic.cim.network.VerseWatchS2CPayload;
+import craftingismagic.cim.verse.VerseLanguage;
+import craftingismagic.cim.verse.VerseRuntime;
 import craftingismagic.cim.speech.SpeakingVoices;
 import craftingismagic.cim.stamina.CimStatusEffects;
 import craftingismagic.cim.stamina.StaminaAttachment;
@@ -150,6 +155,8 @@ public class Cim implements ModInitializer {
 		CimTaleVocabulary.register();
 		TaleLibrary.register();
 		HumLibrary.register();
+		VerseLanguage.register();
+		craftingismagic.cim.verse.SpellColors.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
@@ -200,6 +207,10 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(DialogueBeatS2CPayload.ID, DialogueBeatS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(ChatVoiceS2CPayload.ID, ChatVoiceS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(HumS2CPayload.ID, HumS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(VerseWatchS2CPayload.ID, VerseWatchS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(VerseLightS2CPayload.ID, VerseLightS2CPayload.CODEC);
+		PayloadTypeRegistry.playC2S().register(VerseStrikeC2SPayload.ID, VerseStrikeC2SPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(VerseStrikeC2SPayload.ID, (payload, context) -> VerseRuntime.strike(context.player()));
 		PayloadTypeRegistry.playS2C().register(MomentS2CPayload.ID, MomentS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DebugSetPonyMovementC2SPayload.ID, DebugSetPonyMovementC2SPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(DebugSetPonyMovementC2SPayload.ID,
@@ -327,6 +338,7 @@ public class Cim implements ModInitializer {
 			PegasusRainboomCharge.cancel(handler.getPlayer());
 			TeleportManager.cancel(handler.getPlayer());
 			VillagerInteractionHandler.cancel(handler.getPlayer());
+			VerseRuntime.cancel(handler.getPlayer());
 		});
 
 		// Disconnect isn't the only way an in-progress ability gets cut off - dying, or changing
@@ -355,6 +367,9 @@ public class Cim implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(TeleportManager::tick);
 		ServerTickEvents.END_SERVER_TICK.register(VillagerInteractionHandler::tick);
 		ServerTickEvents.END_SERVER_TICK.register(HumDirector::tick);
+		ServerTickEvents.END_SERVER_TICK.register(VerseRuntime::tick);
+		// Lights placed and blocks in flight are put right before the world saves for the last time.
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server -> VerseRuntime.stopAll());
 		// Registered last deliberately - any future Stamina-spending ability's own tick handler
 		// (Herding, etc.) needs to register BEFORE this one so its drain always wins over regen
 		// within the same tick, rather than the two partially canceling out. See StaminaManager's
@@ -418,6 +433,7 @@ public class Cim implements ModInitializer {
 				PlayerNews.NAMES,
 				PonyFamilyAttachment.CHILDREN,
 				SpeakingVoices.VOICE,
+				craftingismagic.cim.verse.SpellColors.COLORS,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

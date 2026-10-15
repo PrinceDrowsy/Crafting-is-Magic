@@ -99,6 +99,10 @@ public final class VillagerDialogue {
 	private static void start(ServerPlayerEntity player, Entity pony, Node node, Optional<Node> greeting, TaleContext context) {
 		Conversation conversation = TaleRuntime.start(node, context, greeting);
 		FriendshipAttachment.recordTalk(pony, player.getUuid(), player.getWorld().getTime());
+		if (greeting.isPresent()) {
+			// A visit (it opened with a greeting) is a moment shared - what a verse reads as "my love".
+			FriendshipAttachment.addSharedMoments(pony, player.getUuid(), 1);
+		}
 		sessions.put(player.getUuid(), new Session(pony.getId(), conversation));
 		send(player, pony, conversation.beat());
 		StoryThreads.talked(player, pony, conversation.drainVisited(), true);

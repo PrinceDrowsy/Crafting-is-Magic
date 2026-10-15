@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientEntityEvents;
@@ -17,6 +18,7 @@ import net.minecraft.util.math.ColorHelper;
 
 import craftingismagic.cim.Cim;
 import craftingismagic.cim.rogue.RoguePonyEntity;
+import craftingismagic.cim.verse.SpellColors;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
 
@@ -103,7 +105,7 @@ public final class PonyGeneticsSkins {
 	 * change (e.g. from the Villager Debug Editor's Genetics tab sliders) gets noticed and rebuilt -
 	 * a plain "build once per UUID, never again" cache silently kept showing the old skin forever
 	 * after any live genetics edit, since nothing else ever invalidated it. */
-	private record CachedSkin(Identifier textureId, PonyGenetics genetics) {
+	private record CachedSkin(Identifier textureId, PonyGenetics genetics, SpellColors.Colors spellColors) {
 	}
 
 	private static final Map<UUID, CachedSkin> TEXTURE_BY_VILLAGER = new HashMap<>();
@@ -126,43 +128,47 @@ public final class PonyGeneticsSkins {
 	 * image work) has to stay in the fast path; only a real change pays for a full rebuild. */
 	public static Identifier resolveTexture(Entity entity) {
 		PonyGenetics genetics = PonyGeneticsAttachment.getGenetics(entity);
+		SpellColors.Colors spellColors = SpellColors.get(entity);
 		CachedSkin cached = TEXTURE_BY_VILLAGER.get(entity.getUuid());
-		if (cached != null && cached.genetics().equals(genetics)) {
+		if (cached != null && cached.genetics().equals(genetics) && Objects.equals(cached.spellColors(), spellColors)) {
 			return cached.textureId();
 		}
 		if (cached != null) {
 			MinecraftClient.getInstance().getTextureManager().destroyTexture(cached.textureId());
 		}
-		Identifier id = buildAndRegister(entity, genetics);
-		TEXTURE_BY_VILLAGER.put(entity.getUuid(), new CachedSkin(id, genetics));
+		Identifier id = buildAndRegister(entity, genetics, spellColors);
+		TEXTURE_BY_VILLAGER.put(entity.getUuid(), new CachedSkin(id, genetics, spellColors));
 		return id;
 	}
 
-	private static Identifier buildAndRegister(Entity entity, PonyGenetics genetics) {
-		NativeImage composited = composite(genetics);
+	private static Identifier buildAndRegister(Entity entity, PonyGenetics genetics, SpellColors.Colors spellColors) {
+		NativeImage composited = composite(genetics, spellColors);
 		Identifier id = Identifier.of(Cim.MOD_ID, "dynamic/pony_genetics/" + entity.getUuidAsString());
 		MinecraftClient.getInstance().getTextureManager().registerTexture(id, new NativeImageBackedTexture(composited));
 		return id;
 	}
 
-	private static NativeImage composite(PonyGenetics genetics) {
+	private static NativeImage composite(PonyGenetics genetics, SpellColors.Colors spellColors) {
 		NativeImage output = new NativeImage(IMAGE_SIZE, IMAGE_SIZE, true);
+		Integer spellCoat = spellColors == null ? null : spellColors.rgb(SpellColors.COAT);
+		Integer spellMane = spellColors == null ? null : spellColors.rgb(SpellColors.MANE);
+		Integer spellEyes = spellColors == null ? null : spellColors.rgb(SpellColors.EYES);
 
 		try (NativeImage coatMask = load(COAT_BASE)) {
-			paintCoatLayer(output, coatMask, genetics);
+			paintCoatLayer(output, coatMask, genetics, spellCoat);
 		} catch (IOException e) {
 			throw new IllegalStateException("Failed to load pony genetics coat texture: " + COAT_BASE, e);
 		}
 
 		Identifier maneMaskId = genetics.mane().hueCount() >= 2 ? MANE_OVERLAY_TWO_HUE : MANE_OVERLAY_ONE_HUE;
 		try (NativeImage maneMask = load(maneMaskId)) {
-			paintManeLayer(output, maneMask, genetics);
+			paintManeLayer(output, maneMask, genetics, spellMane);
 		} catch (IOException e) {
 			throw new IllegalStateException("Failed to load pony genetics mane texture: " + maneMaskId, e);
 		}
 
 		try (NativeImage eye = load(EYE_OVERLAY)) {
-			paintEyeLayer(output, eye, genetics);
+			paintEyeLayer(output, eye, genetics, spellEyes);
 		} catch (IOException e) {
 			throw new IllegalStateException("Failed to load pony genetics eye texture: " + EYE_OVERLAY, e);
 		}
@@ -170,7 +176,7 @@ public final class PonyGeneticsSkins {
 		return output;
 	}
 
-	private static void paintCoatLayer(NativeImage output, NativeImage mask, PonyGenetics genetics) {
+	private static void paintCoatLayer(NativeImage output, NativeImage mask, PonyGenetics genetics, Integer spell) {
 		float white = genetics.coat().whiteCoat();
 		float dark = genetics.coat().darkCoat();
 		for (int x = 0; x < IMAGE_SIZE; x++) {
@@ -180,6 +186,10 @@ public final class PonyGeneticsSkins {
 					continue;
 				}
 				float grayFraction = (mask.getRed(x, y) & 0xFF) / 255f;
+				if (spell != null) {
+					output.setColor(x, y, spellPaint(spell, (COAT_VALUE_FLOOR + grayFraction * COAT_VALUE_RANGE) / (COAT_VALUE_FLOOR + COAT_VALUE_RANGE)));
+					continue;
+				}
 				float saturation = genetics.coat().vividness() * COAT_SATURATION_CAP;
 				float value = COAT_VALUE_FLOOR + grayFraction * COAT_VALUE_RANGE;
 				int color = hsvToRgb(genetics.coat().hue(), saturation, value);
@@ -197,7 +207,7 @@ public final class PonyGeneticsSkins {
 		}
 	}
 
-	private static void paintManeLayer(NativeImage output, NativeImage mask, PonyGenetics genetics) {
+	private static void paintManeLayer(NativeImage output, NativeImage mask, PonyGenetics genetics, Integer spell) {
 		boolean twoHues = genetics.mane().hueCount() >= 2;
 		for (int x = 0; x < IMAGE_SIZE; x++) {
 			for (int y = 0; y < IMAGE_SIZE; y++) {
@@ -206,6 +216,10 @@ public final class PonyGeneticsSkins {
 					continue;
 				}
 				int gray = mask.getRed(x, y) & 0xFF;
+				if (spell != null) {
+					output.setColor(x, y, spellPaint(spell, (MANE_VALUE_FLOOR + (gray / 255f) * MANE_VALUE_RANGE) / (MANE_VALUE_FLOOR + MANE_VALUE_RANGE)));
+					continue;
+				}
 				float hue = twoHues && gray < MANE_SECOND_HUE_GRAY_THRESHOLD
 						? genetics.mane().hueSecondary()
 						: genetics.mane().huePrimary();
@@ -216,7 +230,7 @@ public final class PonyGeneticsSkins {
 		}
 	}
 
-	private static void paintEyeLayer(NativeImage output, NativeImage eye, PonyGenetics genetics) {
+	private static void paintEyeLayer(NativeImage output, NativeImage eye, PonyGenetics genetics, Integer spell) {
 		// The outline/pupil (very dark) and highlight/sclera (near-white) stay fixed regardless of
 		// eye color, same as a real eye's pupil/sclera don't change color while the iris does - only
 		// the mid-gray band (the iris shading) gets tinted with eye color genetics.
@@ -232,6 +246,10 @@ public final class PonyGeneticsSkins {
 					output.setColor(x, y, eye.getColor(x, y));
 					continue;
 				}
+				if (spell != null) {
+					output.setColor(x, y, spellPaint(spell, Math.min(1f, (EYE_VALUE_FLOOR + (gray / 255f) * EYE_VALUE_RANGE) / (EYE_VALUE_FLOOR + EYE_VALUE_RANGE))));
+					continue;
+				}
 				float hue = twoHues && gray < EYE_SECOND_HUE_GRAY_THRESHOLD
 						? genetics.eye().hueSecondary()
 						: genetics.eye().huePrimary();
@@ -242,7 +260,33 @@ public final class PonyGeneticsSkins {
 		}
 	}
 
-	private static int hsvToRgb(float hue, float saturation, float value) {
+	/**
+	 * A Change spell's color (0xRRGGBB) painted with the mask's own shading: its hue and saturation, its
+	 * brightness scaled by how lit this pixel is ({@code shade}, 1 = the mask's brightest).
+	 */
+	static int spellPaint(int rgb, float shade) {
+		float[] hsv = rgbToHsv(rgb);
+		return hsvToRgb(hsv[0], hsv[1], hsv[2] * shade);
+	}
+
+	/** {hue, saturation, value}, each 0-1. */
+	static float[] rgbToHsv(int rgb) {
+		float r = (rgb >> 16 & 0xFF) / 255f;
+		float g = (rgb >> 8 & 0xFF) / 255f;
+		float b = (rgb & 0xFF) / 255f;
+		float max = Math.max(r, Math.max(g, b));
+		float min = Math.min(r, Math.min(g, b));
+		float delta = max - min;
+		float hue;
+		if (delta < 1e-6f) hue = 0;
+		else if (max == r) hue = ((g - b) / delta) / 6f;
+		else if (max == g) hue = ((b - r) / delta + 2) / 6f;
+		else hue = ((r - g) / delta + 4) / 6f;
+		hue -= (float) Math.floor(hue);
+		return new float[] {hue, max <= 0 ? 0 : delta / max, max};
+	}
+
+	static int hsvToRgb(float hue, float saturation, float value) {
 		float normalizedHue = hue - (float) Math.floor(hue);
 		float h = normalizedHue * 6.0f;
 		int sector = (int) h % 6;

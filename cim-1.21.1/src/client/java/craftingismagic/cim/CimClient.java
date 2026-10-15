@@ -47,6 +47,9 @@ import craftingismagic.cim.client.villager.PonyGeneticsSkins;
 import craftingismagic.cim.network.DebugInfoS2CPayload;
 import craftingismagic.cim.network.DebugMemoriesS2CPayload;
 import craftingismagic.cim.client.dialogue.SpeechSounds;
+import craftingismagic.cim.client.verse.VerseClient;
+import craftingismagic.cim.client.verse.PlayerSpellSkins;
+import craftingismagic.cim.client.verse.VerseLights;
 import craftingismagic.cim.network.ChatVoiceS2CPayload;
 import craftingismagic.cim.network.HumS2CPayload;
 import craftingismagic.cim.network.DialogueBeatS2CPayload;
@@ -90,6 +93,9 @@ public class CimClient implements ClientModInitializer {
 		ClientPlayNetworking.registerGlobalReceiver(HumS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> SpeechSounds.hummed(payload)));
 		ClientTickEvents.END_CLIENT_TICK.register(SpeechSounds::tick);
+		VerseClient.register();
+		VerseLights.register();
+		PlayerSpellSkins.register();
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(VillagerDebugEditorScreen.fromPayload(payload))));
 

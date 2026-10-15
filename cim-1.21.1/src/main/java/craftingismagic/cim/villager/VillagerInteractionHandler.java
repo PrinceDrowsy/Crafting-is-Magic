@@ -159,6 +159,7 @@ public final class VillagerInteractionHandler {
 			FriendshipAttachment.addFeeling(pony, player.getUuid(), Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST);
 		}
 		FriendshipAttachment.recordGift(pony, player.getUuid(), today);
+		FriendshipAttachment.addSharedMoments(pony, player.getUuid(), 3);
 	}
 
 	/**

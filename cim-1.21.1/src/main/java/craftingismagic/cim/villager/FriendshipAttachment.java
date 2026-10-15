@@ -79,7 +79,7 @@ public final class FriendshipAttachment {
 	public static void setRelationshipType(Entity entity, UUID player, RelationshipType relationshipType) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType, data.lastTalked()));
+				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType, data.lastTalked(), data.sharedMoments()));
 	}
 
 	/** When this pony last talked with the player (world time in ticks), or -1 if they never have. */
@@ -90,7 +90,22 @@ public final class FriendshipAttachment {
 	public static void recordTalk(Entity entity, UUID player, long worldTime) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), worldTime));
+				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), worldTime, data.sharedMoments()));
+	}
+
+	/**
+	 * The player's shared history with this pony - conversations had, gifts given - that a verse reads
+	 * as the caster's own love for them ("my love", README: Verse). It's what the player has invested,
+	 * never the pony's feelings.
+	 */
+	public static int getSharedMoments(Entity entity, UUID player) {
+		return get(entity, player).sharedMoments();
+	}
+
+	public static void addSharedMoments(Entity entity, UUID player, int moments) {
+		RelationshipData data = get(entity, player);
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
+				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), data.lastTalked(), data.sharedMoments() + moments));
 	}
 
 	public static boolean canGiftToday(Entity entity, UUID player, long currentDay) {
@@ -102,7 +117,7 @@ public final class FriendshipAttachment {
 		RelationshipData data = get(entity, player);
 		int giftsToday = data.lastGiftDay() == currentDay ? data.giftsGivenThatDay() + 1 : 1;
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				currentDay, giftsToday, data.relationshipType(), data.lastTalked()));
+				currentDay, giftsToday, data.relationshipType(), data.lastTalked(), data.sharedMoments()));
 	}
 
 	private static void set(Entity entity, UUID player, RelationshipData data) {
@@ -113,10 +128,13 @@ public final class FriendshipAttachment {
 		entity.setAttached(AFFECTION, relationships);
 	}
 
-	/** @param lastTalked world time of their last conversation, -1 for never (greetings read it) */
+	/**
+	 * @param lastTalked    world time of their last conversation, -1 for never (greetings read it)
+	 * @param sharedMoments the player's shared history with this pony: +1 a conversation, +3 a gift
+	 */
 	public record RelationshipData(int fondness, int respect, int trust, long lastGiftDay, int giftsGivenThatDay,
-			RelationshipType relationshipType, long lastTalked) {
-		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE, -1);
+			RelationshipType relationshipType, long lastTalked, int sharedMoments) {
+		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE, -1, 0);
 
 		/**
 		 * Migrates old saves: before the three feelings, this stored a single {@code affection} value.
@@ -133,10 +151,11 @@ public final class FriendshipAttachment {
 				Codec.LONG.optionalFieldOf("last_gift_day", -1L).forGetter(RelationshipData::lastGiftDay),
 				Codec.INT.optionalFieldOf("gifts_given_that_day", 0).forGetter(RelationshipData::giftsGivenThatDay),
 				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType),
-				Codec.LONG.optionalFieldOf("last_talked", -1L).forGetter(RelationshipData::lastTalked)
-		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked) ->
+				Codec.LONG.optionalFieldOf("last_talked", -1L).forGetter(RelationshipData::lastTalked),
+				Codec.INT.optionalFieldOf("shared_moments", 0).forGetter(RelationshipData::sharedMoments)
+		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments) ->
 				new RelationshipData(fondness.orElse(legacyAffection.orElse(0)), respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType,
-						lastTalked)));
+						lastTalked, sharedMoments)));
 
 		public int feeling(Feeling feeling) {
 			return switch (feeling) {
@@ -148,9 +167,9 @@ public final class FriendshipAttachment {
 
 		public RelationshipData withFeeling(Feeling feeling, int value) {
 			return switch (feeling) {
-				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
-				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
-				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked);
+				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
+				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
+				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
 			};
 		}
 	}

@@ -61,6 +61,8 @@ import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.VillagerDialogue;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
+import craftingismagic.cim.verse.VerseReader;
+import craftingismagic.cim.verse.VerseRuntime;
 import craftingismagic.cim.speech.HumDirector;
 import craftingismagic.cim.speech.HumLibrary;
 import craftingismagic.cim.speech.PrincessVoices;
@@ -86,6 +88,8 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code voice show|set|add|dice} - your inner voices, and forcing rolls.</li>
  * <li>{@code speech show|set|princess|roll <target>} - how a pony or player sounds when they talk.</li>
  * <li>{@code hum <pony> [tune]} - a pony hums right now.</li>
+ * <li>{@code verse read <verse>} - what a verse means: its heard words, preview, notes, cost;
+ * {@code verse cast <verse>} - cast it, straight from chat (unicorns only).</li>
  * <li>{@code mood show [entity]}, {@code moment play|stop} - feelings from memories, and scene-setting moments.</li>
  * </ul>
  */
@@ -106,6 +110,7 @@ public final class DebugCommand {
 						.then(threadBranch())
 						.then(speechBranch())
 						.then(humBranch())
+						.then(verseBranch())
 						.then(voiceBranch())
 						.then(moodBranch())
 						.then(momentBranch())
@@ -587,6 +592,76 @@ public final class DebugCommand {
 							+ String.format(java.util.Locale.ROOT, " at pitch %.2f", voice.pitch())), false);
 					return 1;
 				})));
+	}
+
+	/**
+	 * {@code verse read <verse>} - reads a verse the way the Journal will (README: Verse): the words the
+	 * spell hears, colored by what they mean; the notation preview; scholarly notes; cost and tier.
+	 */
+	private static LiteralArgumentBuilder<ServerCommandSource> verseBranch() {
+		return CommandManager.literal("verse")
+				.then(CommandManager.literal("cast")
+						.then(CommandManager.argument("verse", StringArgumentType.greedyString()).executes(context -> {
+							ServerPlayerEntity player = context.getSource().getPlayerOrThrow();
+							VerseReader.Reading reading = VerseReader.read(StringArgumentType.getString(context, "verse"));
+							context.getSource().sendFeedback(() -> highlighted(reading), false);
+							for (String line : VerseReader.describe(reading.equation())) {
+								context.getSource().sendFeedback(() -> Text.literal("  " + line).formatted(Formatting.WHITE), false);
+							}
+							VerseRuntime.Result result = VerseRuntime.cast(player, reading);
+							context.getSource().sendFeedback(() -> Text.literal("  " + result.message())
+									.formatted(result.cast() ? Formatting.LIGHT_PURPLE : Formatting.RED), false);
+							return result.cast() ? 1 : 0;
+						})))
+				.then(CommandManager.literal("read")
+				.then(CommandManager.argument("verse", StringArgumentType.greedyString()).executes(context -> {
+					VerseReader.Reading reading = VerseReader.read(StringArgumentType.getString(context, "verse"));
+					ServerCommandSource source = context.getSource();
+					source.sendFeedback(() -> highlighted(reading), false);
+					for (String line : VerseReader.describe(reading.equation())) {
+						source.sendFeedback(() -> Text.literal("  " + line).formatted(Formatting.WHITE), false);
+					}
+					for (VerseReader.Note note : reading.notes()) {
+						source.sendFeedback(() -> Text.literal("  ✎ " + note.message()).formatted(Formatting.GOLD, Formatting.ITALIC), false);
+					}
+					source.sendFeedback(() -> Text.literal("  " + (reading.empty() ? "No spell." : "Costs about " + reading.cost()
+							+ " Stamina · " + reading.tier())).formatted(Formatting.GRAY), false);
+					return 1;
+				})));
+	}
+
+	/** The verse with each heard word colored by its role (and underlined, so color is never the only cue). */
+	private static Text highlighted(VerseReader.Reading reading) {
+		net.minecraft.text.MutableText out = Text.empty();
+		String text = reading.text();
+		int at = 0;
+		for (VerseReader.Highlight highlight : reading.highlights()) {
+			if (highlight.start() < at) continue;
+			out.append(Text.literal(text.substring(at, highlight.start())).formatted(Formatting.GRAY));
+			net.minecraft.text.MutableText word = Text.literal(text.substring(highlight.start(), highlight.end()));
+			if (highlight.role() == null) {
+				word.formatted(Formatting.DARK_GRAY, Formatting.ITALIC);
+			} else {
+				word.formatted(Formatting.UNDERLINE, switch (highlight.role()) {
+					case EFFECT -> Formatting.LIGHT_PURPLE;
+					case TARGET -> Formatting.AQUA;
+					case LOGIC -> Formatting.YELLOW;
+					case SENSE -> Formatting.GREEN;
+					case DURATION -> Formatting.GOLD;
+					case MODIFIER -> Formatting.RED;
+					case LIKE, COLOR -> Formatting.BLUE;
+					case SHAPE -> Formatting.DARK_AQUA;
+					case QUANTITY -> Formatting.DARK_PURPLE;
+					case PROPERTY -> Formatting.DARK_GREEN;
+					case PART -> Formatting.WHITE;
+					case HUE -> Formatting.DARK_BLUE;
+				});
+			}
+			out.append(word);
+			at = highlight.end();
+		}
+		out.append(Text.literal(text.substring(at)).formatted(Formatting.GRAY));
+		return out;
 	}
 
 	/** {@code hum <pony> [tune]} - the pony hums now (README: Humming), a tune that fits or the one named. */
