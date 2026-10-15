@@ -22,6 +22,16 @@ import craftingismagic.cim.speech.SpeakingVoice.Layer;
  */
 public final class PrincessVoices {
 	private static final Identifier AMETHYST = Identifier.ofVanilla("block.amethyst_block.chime");
+	/**
+	 * The mod's own choir "aah" (tools/sounds/synth_choir.py), tuned to the harp note block's note so it
+	 * harmonizes with every layer. Every princess has it - the sound that unites them (user, 2026-10-15) -
+	 * most audible in Celestia, then Luna, then Cadance, and only a whisper in Twilight.
+	 */
+	private static final Identifier CHOIR = Identifier.of("cim", "voice.choir_aah");
+
+	private static Layer choir(float volume) {
+		return new Layer(CHOIR, 1.0f, volume, 15, 1);
+	}
 
 	public static final Map<String, SpeakingVoice> ALL = Map.of(
 			// Day, regal and elegant, with the affect of a cello (user, 2026-10-15): deep, warm and sustained, never
@@ -36,7 +46,8 @@ public final class PrincessVoices {
 					new Layer(noteBlock("didgeridoo"), 1.0f, 0.22f, 0, 1),
 					new Layer(noteBlock("bass"), 1.0f, 0.4f, 0, 1),
 					new Layer(noteBlock("guitar"), 1.0f, 0.32f, 70, 1),
-					new Layer(noteBlock("guitar"), 1.0f, 0.16f, 140, 1)), "major", 0.25f, 1, 0.7f,
+					new Layer(noteBlock("guitar"), 1.0f, 0.16f, 140, 1),
+					choir(0.4f)), "major", 0.25f, 1, 0.7f,
 					// The sisters' leitmotif, her half (in the spirit of Lullaby for a Princess - its character,
 					// never its melody): rising like a question, then sighing down and lingering. Regal, with a
 					// touch of old sorrow. The "3 2 1" sigh is the figure Luna's half shares.
@@ -56,14 +67,17 @@ public final class PrincessVoices {
 			"cadance", new SpeakingVoice(noteBlock("bell"), 0.62f, List.of(
 					new Layer(noteBlock("harp"), 1.0f, 0.55f, 0, 1),
 					new Layer(noteBlock("bass"), 1.0f, 0.35f, 0, 1),
-					new Layer(AMETHYST, 2.0f, 0.15f, 60, 8)), "major", 0.1f, 1, 0.85f,
+					new Layer(AMETHYST, 2.0f, 0.15f, 60, 8),
+					choir(0.22f)), "major", 0.1f, 1, 0.85f,
 					// A rocking, stepwise lullaby that keeps circling home (original).
 					List.of(2, 1, 2, 3, 2, 1, 0, 1)),
 			// Magic: Lydian, the scale of wonder; a pling with a chime an octave up and frequent sparkles,
-			// skipping about a little. (User: "the most accurate" - 2026-10-15. Keep as is.)
+			// skipping about a little. (User: "the most accurate" - 2026-10-15. Keep as is - only the princesses'
+			// shared choir added, at a whisper.)
 			"twilight", new SpeakingVoice(noteBlock("pling"), 0.6f, List.of(
 					new Layer(noteBlock("chime"), 2.0f, 0.35f, 30, 1),
-					new Layer(AMETHYST, 2.0f, 0.3f, 55, 4)), "lydian", 0.15f, 2, 1f,
+					new Layer(AMETHYST, 2.0f, 0.3f, 55, 4),
+					choir(0.1f)), "lydian", 0.15f, 2, 1f,
 					// Curious and sparkly, lingering on the Lydian raised fourth (degree 3) - the wonder note.
 					List.of(0, 2, 3, 4, 3, 5, 4, 2)));
 
@@ -82,7 +96,8 @@ public final class PrincessVoices {
 				new Layer(noteBlock("bass"), 1.0f, 0.35f, 0, 1),
 				new Layer(noteBlock("bell"), 1.0f, 0.18f, 160, 1),
 				new Layer(noteBlock("bell"), 1.0f, 0.08f, 320, 1),
-				new Layer(AMETHYST, 2.0f, 0.12f, 220, 9)), "dorian", -0.15f, 1, 0.85f, motif);
+				new Layer(AMETHYST, 2.0f, 0.12f, 220, 9),
+				choir(0.3f)), "dorian", -0.15f, 1, 0.85f, motif);
 	}
 
 	private static Identifier noteBlock(String instrument) {

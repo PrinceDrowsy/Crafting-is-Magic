@@ -15,6 +15,9 @@
 		"subtitle": "subtitles.cim.levitation.release",
 		"sounds": ["cim:levitation/telekinesis_stop"]
 	},
+	"voice.choir_aah": {
+		"sounds": ["cim:voice/choir_aah"]
+	},
 	"music.grief": {
 		"sounds": [
 			{ "name": "minecraft:music/game/comforting_memories", "stream": true },
