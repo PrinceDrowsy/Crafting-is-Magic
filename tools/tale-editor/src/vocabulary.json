@@ -1,0 +1,1254 @@
+{
+  "format": 1,
+  "conditions": {
+    "cim:biome": {
+      "usage": "biome(<biome or #tag>, ...)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": true,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id_or_tag",
+                  "label": "biome",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:fact": {
+      "usage": "fact(<fact>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "scoped_id",
+                  "label": "fact",
+                  "optional": false,
+                  "values": [
+                    "world/",
+                    "player/",
+                    "relationship/"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:family": {
+      "usage": "family(<family>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "family",
+                  "optional": false,
+                  "values": [
+                    "recorded",
+                    "orphan",
+                    "parent",
+                    "partner"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:fondness": {
+      "usage": "fondness >= <band>",
+      "comparison": true,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "band",
+                  "optional": false,
+                  "values": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "devoted"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:holiday": {
+      "usage": "holiday(<holiday>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "holiday",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:life_stage": {
+      "usage": "life_stage(<life stage>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "life stage",
+                  "optional": false,
+                  "values": [
+                    "baby",
+                    "child",
+                    "teenager",
+                    "adult"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:likes_tone": {
+      "usage": "likes_tone(<tone>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "tone",
+                  "optional": false,
+                  "values": [
+                    "friendly",
+                    "curious",
+                    "bold"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:mood": {
+      "usage": "mood(<emotion>[, <tier>])",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "emotion",
+                  "optional": false,
+                  "values": [
+                    "joy",
+                    "grief",
+                    "fear",
+                    "anger",
+                    "love",
+                    "calm"
+                  ]
+                }
+              ]
+            },
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "tier",
+                  "optional": false,
+                  "values": [
+                    "faint",
+                    "clear",
+                    "strong"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:news": {
+      "usage": "news[(<type>)]",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "news type",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:night": {
+      "usage": "night",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:personality": {
+      "usage": "personality(<personality>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "personality",
+                  "optional": false,
+                  "values": [
+                    "peppy",
+                    "steadfast",
+                    "bookish",
+                    "daring",
+                    "gentle",
+                    "refined",
+                    "cranky",
+                    "lazy"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:player.heritage": {
+      "usage": "player.heritage(<heritage>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "name",
+                  "label": "heritage",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:player.mood": {
+      "usage": "player.mood(<emotion>[, <tier>])",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "emotion",
+                  "optional": false,
+                  "values": [
+                    "joy",
+                    "grief",
+                    "fear",
+                    "anger",
+                    "love",
+                    "calm"
+                  ]
+                }
+              ]
+            },
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "tier",
+                  "optional": false,
+                  "values": [
+                    "faint",
+                    "clear",
+                    "strong"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:player.species": {
+      "usage": "player.species(<species>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "species",
+                  "optional": false,
+                  "values": [
+                    "earth_pony",
+                    "unicorn",
+                    "pegasus",
+                    "bat_pony",
+                    "changeling",
+                    "kirin"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:player.upbringing": {
+      "usage": "player.upbringing(<upbringing>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "name",
+                  "label": "upbringing",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:present": {
+      "usage": "present(<relative>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "relative",
+                  "optional": false,
+                  "values": [
+                    "parent",
+                    "partner"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:profession": {
+      "usage": "profession(<profession>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "profession",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:quirk": {
+      "usage": "quirk(<quirk>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "quirk",
+                  "optional": false,
+                  "values": [
+                    "sweet_tooth",
+                    "collector",
+                    "sentimental",
+                    "grudge_holder",
+                    "superstitious",
+                    "clumsy",
+                    "secretly_artistic",
+                    "competitive_streak",
+                    "neat_freak",
+                    "homebody",
+                    "wanderlust",
+                    "night_owl",
+                    "early_riser",
+                    "gossip"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:raining": {
+      "usage": "raining",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:remembers": {
+      "usage": "remembers(<memory>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "memory",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:respect": {
+      "usage": "respect >= <band>",
+      "comparison": true,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "band",
+                  "optional": false,
+                  "values": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "devoted"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:season": {
+      "usage": "season(<season>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "season",
+                  "optional": false,
+                  "values": [
+                    "spring",
+                    "summer",
+                    "autumn",
+                    "fall",
+                    "winter"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:species": {
+      "usage": "species(<species>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "species",
+                  "optional": false,
+                  "values": [
+                    "earth_pony",
+                    "unicorn",
+                    "pegasus",
+                    "bat_pony",
+                    "changeling",
+                    "kirin"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:thundering": {
+      "usage": "thundering",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:trust": {
+      "usage": "trust >= <band>",
+      "comparison": true,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "band",
+                  "optional": false,
+                  "values": [
+                    "none",
+                    "low",
+                    "medium",
+                    "high",
+                    "devoted"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:voice": {
+      "usage": "voice(<voice>[, <tier>])",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "voice",
+                  "optional": false,
+                  "values": [
+                    "honesty",
+                    "kindness",
+                    "laughter",
+                    "generosity",
+                    "loyalty",
+                    "magic",
+                    "whisper"
+                  ]
+                }
+              ]
+            },
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "tier",
+                  "optional": false,
+                  "values": [
+                    "faint",
+                    "clear",
+                    "strong"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:time_of_day": {
+      "usage": "time_of_day(<time>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "time",
+                  "optional": false,
+                  "values": [
+                    "morning",
+                    "afternoon",
+                    "evening",
+                    "night"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:last_talked": {
+      "usage": "last_talked(<when>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "when",
+                  "optional": false,
+                  "values": [
+                    "just_now",
+                    "today",
+                    "a_while",
+                    "long",
+                    "never"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:gift": {
+      "usage": "gift(favorite | <item or #tag>, ...)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": true,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id_or_tag",
+                  "label": "item, or favorite",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:can_take_gift": {
+      "usage": "can_take_gift",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    }
+  },
+  "effects": {
+    "cim:fact": {
+      "usage": "~ fact set|clear <fact>",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "literal",
+                  "label": "set|clear",
+                  "optional": false,
+                  "values": [
+                    "set",
+                    "clear"
+                  ]
+                },
+                {
+                  "kind": "scoped_id",
+                  "label": "fact",
+                  "optional": false,
+                  "values": [
+                    "world/",
+                    "player/",
+                    "relationship/"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:fondness": {
+      "usage": "~ fondness +N",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "signed_number",
+                  "label": "change",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:leaning": {
+      "usage": "~ leaning <element> +N",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "element",
+                  "optional": false,
+                  "values": [
+                    "honesty",
+                    "kindness",
+                    "laughter",
+                    "generosity",
+                    "loyalty",
+                    "magic"
+                  ]
+                },
+                {
+                  "kind": "signed_number",
+                  "label": "change",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:memory": {
+      "usage": "~ memory <memory>[, <emotion> [tier]]",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "memory",
+                  "optional": false
+                }
+              ]
+            },
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "word",
+                  "label": "emotion",
+                  "optional": false,
+                  "values": [
+                    "joy",
+                    "grief",
+                    "fear",
+                    "anger",
+                    "love",
+                    "calm"
+                  ]
+                },
+                {
+                  "kind": "word",
+                  "label": "tier",
+                  "optional": true,
+                  "values": [
+                    "faint",
+                    "clear",
+                    "strong"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:moment": {
+      "usage": "~ moment <moment>",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "moment",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:respect": {
+      "usage": "~ respect +N",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "signed_number",
+                  "label": "change",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:tell_news": {
+      "usage": "~ tell_news [<type>]",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": true,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "news type",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:thread": {
+      "usage": "~ thread start <thread> | ~ thread advance <thread> <stage>",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "literal",
+                  "label": "start",
+                  "optional": false,
+                  "values": [
+                    "start"
+                  ]
+                },
+                {
+                  "kind": "id",
+                  "label": "thread",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "literal",
+                  "label": "advance",
+                  "optional": false,
+                  "values": [
+                    "advance"
+                  ]
+                },
+                {
+                  "kind": "id",
+                  "label": "thread",
+                  "optional": false
+                },
+                {
+                  "kind": "name",
+                  "label": "stage",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:trust": {
+      "usage": "~ trust +N",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "signed_number",
+                  "label": "change",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:take_gift": {
+      "usage": "~ take_gift",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:open_trade": {
+      "usage": "~ open_trade",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    }
+  },
+  "events": {
+    "cim:day": {
+      "usage": "day",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:enter_biome": {
+      "usage": "enter_biome(<biome or #tag>, ...)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": true,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id_or_tag",
+                  "label": "biome",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:fact": {
+      "usage": "fact(<fact>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "scoped_id",
+                  "label": "fact",
+                  "optional": false,
+                  "values": [
+                    "world/",
+                    "player/",
+                    "relationship/"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:holiday": {
+      "usage": "holiday(<holiday>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "holiday",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:night": {
+      "usage": "night",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:sleep": {
+      "usage": "sleep",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    },
+    "cim:talk": {
+      "usage": "talk(any | <node>)",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": [
+            {
+              "optional": false,
+              "tokens": [
+                {
+                  "kind": "id",
+                  "label": "node, or any",
+                  "optional": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "cim:wake": {
+      "usage": "wake",
+      "comparison": false,
+      "forms": [
+        {
+          "repeatLast": false,
+          "args": []
+        }
+      ]
+    }
+  },
+  "variables": [
+    "pony",
+    "player",
+    "species",
+    "player.species",
+    "profession",
+    "favorite_gift",
+    "mourning",
+    "news_subject",
+    "parent",
+    "partner",
+    "gift"
+  ],
+  "voices": [
+    "honesty",
+    "kindness",
+    "laughter",
+    "generosity",
+    "loyalty",
+    "magic",
+    "whisper"
+  ],
+  "feelinglessVoices": [
+    "whisper"
+  ],
+  "tones": [
+    "friendly",
+    "curious",
+    "bold"
+  ],
+  "feelings": [
+    "fondness",
+    "respect",
+    "trust"
+  ],
+  "tiers": [
+    "faint",
+    "clear",
+    "strong"
+  ],
+  "startContexts": [
+    "chatter",
+    "greeting",
+    "gift",
+    "trade",
+    "farewell"
+  ],
+  "leadInContexts": [
+    "greeting",
+    "farewell"
+  ]
+}
