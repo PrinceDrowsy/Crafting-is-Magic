@@ -58,6 +58,19 @@ public final class VerseLights {
 	}
 
 	private static void begin(VerseLightS2CPayload payload) {
+		if (payload.ticks() <= 0) {
+			// A zero-length light: the lights here (or on this creature) ended early - their caster let go.
+			for (Iterator<Glow> it = glows.iterator(); it.hasNext();) {
+				Glow glow = it.next();
+				boolean same = glow.source.entityId() == payload.entityId()
+						&& (payload.entityId() >= 0 || glow.source.pos().squaredDistanceTo(payload.pos()) < 0.01);
+				if (same) {
+					free(glow);
+					it.remove();
+				}
+			}
+			return;
+		}
 		Glow glow = new Glow(payload);
 		int lights = payload.crown() ? MathHelper.clamp(payload.count() / 2, 2, 6) : 1;
 		for (int i = 0; i < lights; i++) {

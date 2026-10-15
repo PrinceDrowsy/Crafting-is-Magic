@@ -92,6 +92,16 @@ public final class VerseRuntime {
 	private static final int MAX_EFFECTS = 24;
 	private static final int MAX_LIGHT_BLOCKS = 12;
 	private static final int MAX_FLYING_BLOCKS = 8;
+	/**
+	 * Upkeep, in Stamina a tick: holding magic is like holding something heavy - a trickle, and no
+	 * recovering while you hold it (any drain pauses regen for that tick). A verse waiting on "when" is
+	 * the lightest; lights cost more the more of them there are.
+	 */
+	private static final float WAITING_UPKEEP = 0.005f;
+	private static final float LIGHTS_UPKEEP = 0.006f;
+	private static final float PER_LIGHT_UPKEEP = 0.0015f;
+	private static final float LIGHT_BLOCK_UPKEEP = 0.01f;
+	private static final float SPIN_UPKEEP = 0.02f;
 
 	/** Something a spell acts on: a creature, a block, or just a place. */
 	private record Spot(Entity entity, BlockPos block, Direction side, Vec3d pos) {
@@ -131,6 +141,14 @@ public final class VerseRuntime {
 		}
 
 		abstract boolean tick(ServerWorld world);
+
+		/**
+		 * Stamina a tick while the caster holds this (README: held costs upkeep, done costs once) - 0 for
+		 * a finished act (a recolor, a block already flying to its landing).
+		 */
+		float upkeep() {
+			return 0f;
+		}
 
 		/** Puts right anything left in the world - lights removed, a flying block set down. */
 		void end(ServerWorld world) {
@@ -276,7 +294,40 @@ public final class VerseRuntime {
 				it.remove();
 			}
 		}
+		upkeep(server);
 		syncStrikeWatch(server);
+	}
+
+	/** Each caster pays for everything they're still holding; whoever runs dry lets it all go. */
+	private static void upkeep(MinecraftServer server) {
+		Map<UUID, Float> owed = new HashMap<>();
+		for (Casting casting : castings) {
+			if (casting.waiting != null) owed.merge(casting.caster, WAITING_UPKEEP, Float::sum);
+		}
+		for (Running effect : running) {
+			float upkeep = effect.upkeep();
+			if (upkeep > 0) owed.merge(effect.caster, upkeep, Float::sum);
+		}
+		for (Map.Entry<UUID, Float> entry : owed.entrySet()) {
+			ServerPlayerEntity player = server.getPlayerManager().getPlayer(entry.getKey());
+			if (player != null && !StaminaManager.drain(player, entry.getValue())) {
+				release(player);
+			}
+		}
+	}
+
+	/** Out of Stamina: every verse still waiting, and everything still held, slips away. */
+	private static void release(ServerPlayerEntity player) {
+		UUID caster = player.getUuid();
+		castings.removeIf(casting -> casting.caster.equals(caster) && casting.waiting != null);
+		for (Iterator<Running> it = running.iterator(); it.hasNext();) {
+			Running effect = it.next();
+			if (!effect.caster.equals(caster) || effect.upkeep() <= 0) continue;
+			ServerWorld world = worldOf.remove(effect);
+			if (world != null) effect.end(world);
+			it.remove();
+		}
+		player.sendMessage(Text.literal("You're spent - the magic you were holding slips away."), true);
 	}
 
 	/**
@@ -575,6 +626,16 @@ public final class VerseRuntime {
 		return wave * wave * wave * wave;
 	}
 
+	/** Tells clients nearby that the lights here (or on this creature) have ended - a zero-length light. */
+	private static void endGlow(ServerWorld world, Spot spot) {
+		Entity entity = spot.entity();
+		Vec3d pos = entity != null ? entity.getPos() : spot.pos();
+		VerseLightS2CPayload payload = new VerseLightS2CPayload(entity != null ? entity.getId() : -1, pos, 0, 0f, 0f, 0, false, false, 0);
+		for (ServerPlayerEntity watcher : PlayerLookup.around(world, pos, 96)) {
+			ServerPlayNetworking.send(watcher, payload);
+		}
+	}
+
 	/** Tells every client nearby to make a real, colored Veil light here (or following this creature). */
 	private static void glowLight(ServerWorld world, Spot spot, Vector3f color, float radius, float brightness, int ticks, boolean crown,
 			boolean twinkle, int count) {
@@ -842,6 +903,11 @@ public final class VerseRuntime {
 		}
 
 		@Override
+		float upkeep() {
+			return LIGHTS_UPKEEP + count * PER_LIGHT_UPKEEP;
+		}
+
+		@Override
 		boolean tick(ServerWorld world) {
 			if (--left <= 0) return false;
 			Entity entity = spot.entity();
@@ -886,6 +952,11 @@ public final class VerseRuntime {
 			}
 			return true;
 		}
+
+		@Override
+		void end(ServerWorld world) {
+			endGlow(world, spot);
+		}
 	}
 
 	/** A real (invisible) light block, removed when its time is up - or when the server stops. */
@@ -900,6 +971,11 @@ public final class VerseRuntime {
 		}
 
 		@Override
+		float upkeep() {
+			return LIGHT_BLOCK_UPKEEP;
+		}
+
+		@Override
 		boolean tick(ServerWorld world) {
 			return --left > 0;
 		}
@@ -909,6 +985,7 @@ public final class VerseRuntime {
 			if (world.getBlockState(at).isOf(Blocks.LIGHT)) {
 				world.removeBlock(at, false);
 			}
+			endGlow(world, new Spot(null, at, null, Vec3d.ofCenter(at)));
 		}
 	}
 
@@ -943,6 +1020,11 @@ public final class VerseRuntime {
 			this.entity = entity;
 			this.left = ticks;
 			this.degreesPerTick = degreesPerTick;
+		}
+
+		@Override
+		float upkeep() {
+			return SPIN_UPKEEP;
 		}
 
 		@Override
