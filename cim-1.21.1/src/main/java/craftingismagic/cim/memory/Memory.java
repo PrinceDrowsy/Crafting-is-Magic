@@ -22,9 +22,20 @@ import net.minecraft.util.Uuids;
  * @param emotion   how it felt, if it carried a feeling - what the mood system reads
  * @param intensity how strongly; only meaningful with an emotion
  * @param time      the world time (total game ticks) it was formed, for "last spring" and for fading
+ * @param hops      how many retellings away from what happened: 0 for whoever saw it, 1 for their
+ *                  friend, 2 for a friend of a friend... (gossip; README: The memory system)
+ * @param source    who told them, if they heard it - so a story never echoes back to its teller, and
+ *                  dialogue can say "Petunia told me"
  */
 public record Memory(Identifier type, Optional<UUID> subject, MemoryKnowledge knowledge, MemoryImportance importance,
-		Optional<Emotion> emotion, EmotionIntensity intensity, long time) {
+		Optional<Emotion> emotion, EmotionIntensity intensity, long time, int hops, Optional<UUID> source) {
+
+	/** A memory formed first-hand (or heard straight from the source, by its knowledge) - no gossip chain. */
+	public Memory(Identifier type, Optional<UUID> subject, MemoryKnowledge knowledge, MemoryImportance importance,
+			Optional<Emotion> emotion, EmotionIntensity intensity, long time) {
+		this(type, subject, knowledge, importance, emotion, intensity, time, knowledge == MemoryKnowledge.WITNESSED ? 0 : 1,
+				Optional.empty());
+	}
 
 	/** Every field past {@code type} is optional with a default, so records saved by an earlier
 	 * version never fail to load (see [[project_fabric_attachment_gotchas]]). */
@@ -35,7 +46,9 @@ public record Memory(Identifier type, Optional<UUID> subject, MemoryKnowledge kn
 			MemoryImportance.CODEC.optionalFieldOf("importance", MemoryImportance.NOTABLE).forGetter(Memory::importance),
 			Emotion.CODEC.optionalFieldOf("emotion").forGetter(Memory::emotion),
 			EmotionIntensity.CODEC.optionalFieldOf("intensity", EmotionIntensity.CLEAR).forGetter(Memory::intensity),
-			Codec.LONG.optionalFieldOf("time", 0L).forGetter(Memory::time)
+			Codec.LONG.optionalFieldOf("time", 0L).forGetter(Memory::time),
+			Codec.INT.optionalFieldOf("hops", 0).forGetter(Memory::hops),
+			Uuids.CODEC.optionalFieldOf("source").forGetter(Memory::source)
 	).apply(instance, Memory::new));
 
 	public boolean isAbout(UUID who) {

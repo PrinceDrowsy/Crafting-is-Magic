@@ -9,7 +9,9 @@
 		"VillagerGrowthMixin",
 		"BatPonyScheduleMixin",
 		"VillagerBreedingMixin",
-		"PonyAmbientSoundMixin"
+		"PonyAmbientSoundMixin",
+		"VillagerGossipMixin",
+		"PonyLedgeSenseMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

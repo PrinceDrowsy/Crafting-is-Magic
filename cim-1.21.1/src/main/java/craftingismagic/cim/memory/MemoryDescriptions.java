@@ -11,7 +11,8 @@ public final class MemoryDescriptions {
 	public static String describe(Memory memory, long now) {
 		String feeling = memory.emotion().map(e -> ", " + lower(memory.intensity()) + " " + lower(e)).orElse("");
 		long daysAgo = Math.max(0, (now - memory.time()) / 24000L);
-		return memory.type() + " (" + lower(memory.importance()) + ", " + lower(memory.knowledge()) + feeling + ", "
+		String retold = memory.hops() > 1 ? " x" + memory.hops() : "";
+		return memory.type() + " (" + lower(memory.importance()) + ", " + lower(memory.knowledge()) + retold + feeling + ", "
 				+ daysAgo + (daysAgo == 1 ? " day ago)" : " days ago)");
 	}
 

@@ -45,6 +45,7 @@ import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.memory.Mood;
 import craftingismagic.cim.network.MomentS2CPayload;
 import craftingismagic.cim.villager.VillagerGriefHandler;
+import craftingismagic.cim.villager.VillagerGossip;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import craftingismagic.cim.narrative.TaleAst;
 import craftingismagic.cim.narrative.TaleAst.TaleFile;
@@ -79,7 +80,8 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code stamina show|set|max|exhaust|wake} - exercise Stamina without waiting on regen or a
  * night's sleep.</li>
  * <li>{@code grow <villagers>} - push villagers to their next life stage.</li>
- * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories.</li>
+ * <li>{@code memory add|list|clear <target>} - write, read, and wipe memories;
+ * {@code memory about <target> <subject> <type>} - a memory of something that happened to someone else.</li>
  * <li>{@code fact world|player|relationship ... set|clear|has|list} - story facts at each scope.</li>
  * <li>{@code tale validate|list} - the {@code .tale} files from the last data load, and their problems;
  * {@code tale export} - the vocabulary for the {@code .tale} editor.</li>
@@ -88,6 +90,7 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code voice show|set|add|dice} - your inner voices, and forcing rolls.</li>
  * <li>{@code speech show|set|princess|roll <target>} - how a pony or player sounds when they talk.</li>
  * <li>{@code hum <pony> [tune]} - a pony hums right now.</li>
+ * <li>{@code gossip <teller> <listener>} - one pony tells another every story they'd pass on, now.</li>
  * <li>{@code verse read <verse>} - what a verse means: its heard words, preview, notes, cost;
  * {@code verse cast <verse>} - cast it, straight from chat (unicorns only).</li>
  * <li>{@code mood show [entity]}, {@code moment play|stop} - feelings from memories, and scene-setting moments.</li>
@@ -116,9 +119,28 @@ public final class DebugCommand {
 						.then(momentBranch())
 						.then(newsBranch())
 						.then(familyBranch())
+						.then(gossipBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
+	}
+
+	/** {@code gossip <teller> <listener>}: the teller tells the listener every story they'd pass on, right now. */
+	private static LiteralArgumentBuilder<ServerCommandSource> gossipBranch() {
+		return CommandManager.literal("gossip")
+				.then(CommandManager.argument("teller", EntityArgumentType.entity())
+						.then(CommandManager.argument("listener", EntityArgumentType.entity()).executes(context -> {
+							Entity teller = EntityArgumentType.getEntity(context, "teller");
+							Entity listener = EntityArgumentType.getEntity(context, "listener");
+							if (!(teller instanceof VillagerEntity from) || !(listener instanceof VillagerEntity to)) {
+								context.getSource().sendError(Text.literal("Both must be ponies."));
+								return 0;
+							}
+							int told = VillagerGossip.tell(from, to, context.getSource().getWorld(), true);
+							context.getSource().sendFeedback(() -> Text.literal(from.getName().getString() + " told "
+									+ to.getName().getString() + " " + told + " stor" + (told == 1 ? "y." : "ies.")), false);
+							return told;
+						})));
 	}
 
 	private static LiteralArgumentBuilder<ServerCommandSource> staminaBranch() {
@@ -177,6 +199,20 @@ public final class DebugCommand {
 																.executes(context -> addMemory(context, enumValue(context, "importance", MemoryImportance.class),
 																		enumValue(context, "emotion", Emotion.class),
 																		enumValue(context, "intensity", EmotionIntensity.class)))))))))
+				// A memory the target saw happen to someone else - something for gossip to carry.
+				.then(CommandManager.literal("about")
+						.then(CommandManager.argument("target", EntityArgumentType.entity())
+								.then(CommandManager.argument("subject", EntityArgumentType.entity())
+										.then(CommandManager.argument("type", IdentifierArgumentType.identifier()).executes(context -> {
+											Entity target = EntityArgumentType.getEntity(context, "target");
+											Entity subject = EntityArgumentType.getEntity(context, "subject");
+											Identifier type = IdentifierArgumentType.getIdentifier(context, "type");
+											MemoryStore.add(target, new Memory(type, Optional.of(subject.getUuid()), MemoryKnowledge.WITNESSED,
+													MemoryImportance.NOTABLE, Optional.empty(), EmotionIntensity.CLEAR, target.getWorld().getTime()));
+											context.getSource().sendFeedback(() -> Text.literal(target.getName().getString() + " saw " + type + " happen to "
+													+ subject.getName().getString()), false);
+											return 1;
+										})))))
 				.then(CommandManager.literal("list")
 						.then(CommandManager.argument("target", EntityArgumentType.entity())
 								.executes(DebugCommand::listMemories)))

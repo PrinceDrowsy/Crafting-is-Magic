@@ -99,6 +99,42 @@ weight: +3 if quirk(gossip)
 -> replies
 
 
+// ---- Real gossip: what this pony has actually heard ----
+// PLACEHOLDER lines - wiring for the gossip system (README: The memory system). Unlike the made-up
+// rumors above, these tell real news this pony has seen or heard about another pony - each story
+// once - and Gossip-quirked ponies bring it up far more. For one kind of story, branch on
+// gossip(<memory type>); {gossip_subject} is who it's about, {gossip_source} who told them.
+
+=== real_gossip
+start: chatter
+when: gossip
+weight: 4
+weight: +6 if quirk(gossip)
+-> real_gossip_seen if gossip_firsthand
+{pony}: Did you hear the news about {gossip_subject}? It's all anypony's talking about.
+~ tell_gossip
+-> replies
+
+=== real_gossip_seen
+{pony}: You'll never guess what I saw {gossip_subject} do the other day!
+~ tell_gossip
+-> replies
+
+
+// ---- Your deeds getting around ----
+// PLACEHOLDER lines. Something this pony heard about you from somepony else - mentioned once.
+// Branch on gossip_about_you(<memory type>) to answer what it was.
+
+=== gossip_about_you
+start: chatter
+when: gossip_about_you
+weight: 6
+weight: +6 if quirk(gossip)
+{pony}: Word gets around, you know - I've been hearing about you!
+~ tell_gossip_about_you
+-> replies
+
+
 // ---- Hobbies & interests ----
 // Bookish ponies bring this up more.
 

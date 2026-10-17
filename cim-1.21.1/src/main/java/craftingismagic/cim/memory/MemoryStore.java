@@ -96,8 +96,10 @@ public final class MemoryStore {
 		Memory feeling = keepOldFeeling ? old : fresh;
 		MemoryImportance importance = old.importance().compareTo(fresh.importance()) > 0 ? old.importance() : fresh.importance();
 		MemoryKnowledge knowledge = old.knowledge().compareTo(fresh.knowledge()) < 0 ? old.knowledge() : fresh.knowledge();
+		// The closer telling wins: hearing it again second-hand never makes a witness's memory fuzzier.
+		Memory closer = old.hops() <= fresh.hops() ? old : fresh;
 		return new Memory(fresh.type(), fresh.subject(), knowledge, importance, feeling.emotion(), feeling.intensity(),
-				Math.max(old.time(), fresh.time()));
+				Math.max(old.time(), fresh.time()), closer.hops(), closer.source());
 	}
 
 	/** Removes every memory matching the filter; returns how many were removed. */

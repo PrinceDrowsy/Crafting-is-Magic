@@ -43,9 +43,9 @@ import craftingismagic.cim.network.MomentS2CPayload;
  * out of sight - or later, a birth or a wedding - waits here until someone tells you, and only then
  * do the feeling and its moment arrive.
  * <ul>
- * <li><b>Who can tell you:</b> the ponies close to the one it happened to ({@link News#messengers});
- * if nobody but you was close to them, any pony can ({@link News#anyone}). It's told once - then
- * it's gone, and nobody repeats it.</li>
+ * <li><b>Who can tell you:</b> the ponies close to the one it happened to ({@link News#messengers}),
+ * and any pony the news has since reached as gossip; if nobody but you was close to them, any pony
+ * can ({@link News#anyone}). It's told once - then it's gone, and nobody repeats it.</li>
  * <li><b>The letter:</b> if it's still unheard after {@link #LETTER_AFTER} and you're away from any
  * village, a letter finds you, and that's when you learn.</li>
  * </ul>
@@ -82,8 +82,10 @@ public final class PlayerNews {
 				Codec.LONG.fieldOf("since").forGetter(News::since))
 				.apply(instance, News::new));
 
+		/** Whoever was close to them - or anyone the news has reached as gossip, who knows it too. */
 		public boolean tellableBy(Entity pony) {
-			return anyone || messengers.contains(pony.getUuid());
+			return anyone || messengers.contains(pony.getUuid())
+					|| MemoryStore.getAll(pony).stream().anyMatch(memory -> memory.type().equals(type) && memory.isAbout(subject));
 		}
 	}
 

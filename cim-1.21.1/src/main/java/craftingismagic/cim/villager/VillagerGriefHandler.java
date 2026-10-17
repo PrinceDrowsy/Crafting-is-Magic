@@ -1,9 +1,10 @@
 package craftingismagic.cim.villager;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
@@ -13,6 +14,7 @@ import net.minecraft.entity.passive.VillagerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Box;
 
 import craftingismagic.cim.memory.Emotion;
 import craftingismagic.cim.memory.EmotionIntensity;
@@ -35,9 +37,9 @@ import craftingismagic.cim.story.PlayerNews;
  * (Player family waits on family systems for players.)</li>
  * </ul>
  * Grief is a memory ({@link #LOSS}, about the one who died), so it fades the way the mood system
- * fades every feeling. Ponies follow a simplified version of the same rule until gossip exists: the
- * loaded family and friend group - close, and nearby - know right away; nobody farther away grieves
- * news they couldn't have heard.
+ * fades every feeling. Ponies only grieve what they know: family is always told (kin far away by
+ * {@link GossipInbox}); friends who saw it grieve at once, and the rest hear it as gossip
+ * ({@link VillagerGossip}) from whoever was there - grieving when the news reaches them.
  */
 public final class VillagerGriefHandler {
 	public static final Identifier LOSS = Identifier.of("cim", "loss");
@@ -65,29 +67,42 @@ public final class VillagerGriefHandler {
 	}
 
 	private static void grieve(VillagerEntity lost, ServerWorld world) {
-		Map<UUID, EmotionIntensity> mourners = new HashMap<>();
+		Set<UUID> family = new HashSet<>();
 		if (PonyFamilyAttachment.hasFamily(lost)) {
-			PonyFamilyAttachment.PonyFamily family = PonyFamilyAttachment.getFamily(lost);
-			family.parents().forEach(uuid -> mourners.put(uuid, EmotionIntensity.STRONG));
-			family.partner().forEach(uuid -> mourners.put(uuid, EmotionIntensity.STRONG));
+			family.addAll(PonyFamilyAttachment.getFamily(lost).parents());
+			family.addAll(PonyFamilyAttachment.getFamily(lost).partner());
 		}
 		// Their foals, from the parent's own list - no searching the world.
-		PonyFamilyAttachment.children(lost).forEach(uuid -> mourners.put(uuid, EmotionIntensity.STRONG));
-		if (FriendGroupAttachment.hasGroup(lost)) {
-			for (UUID friend : FriendGroupAttachment.getGroup(lost).members()) {
-				mourners.putIfAbsent(friend, EmotionIntensity.CLEAR);
+		family.addAll(PonyFamilyAttachment.children(lost));
+		Set<UUID> friends = new HashSet<>(FriendGroupAttachment.hasGroup(lost) ? FriendGroupAttachment.getGroup(lost).members() : List.of());
+		family.remove(lost.getUuid());
+		friends.remove(lost.getUuid());
+		friends.removeAll(family);
+
+		// Family is always told - someone runs to them, or word is sent to kin far away (the inbox).
+		for (UUID uuid : family) {
+			if (world.getEntity(uuid) instanceof VillagerEntity mourner && mourner.isAlive()) {
+				remember(mourner, lost, EmotionIntensity.STRONG, world);
+			} else {
+				GossipInbox.get(world.getServer()).send(uuid, new Memory(LOSS, Optional.of(lost.getUuid()), MemoryKnowledge.HEARD,
+						MemoryImportance.MAJOR, Optional.of(Emotion.GRIEF), EmotionIntensity.STRONG, world.getTime()));
 			}
 		}
-		mourners.remove(lost.getUuid());
-		mourners.forEach((uuid, intensity) -> {
-			if (world.getEntity(uuid) instanceof VillagerEntity mourner && mourner.isAlive()) {
-				remember(mourner, lost, intensity, world);
-			}
-		});
+		// Everyone else who saw it remembers it - friends with grief, bystanders without - and the news
+		// travels on from them as gossip (VillagerGossip), reaching friends who weren't there.
+		Box around = lost.getBoundingBox().expand(Math.sqrt(WITNESS_DISTANCE_SQUARED));
+		for (VillagerEntity witness : world.getEntitiesByClass(VillagerEntity.class, around, pony -> pony.isAlive() && pony != lost)) {
+			if (family.contains(witness.getUuid()) || !witness.canSee(lost)) continue;
+			boolean friend = friends.contains(witness.getUuid());
+			MemoryStore.add(witness, new Memory(LOSS, Optional.of(lost.getUuid()), MemoryKnowledge.WITNESSED, MemoryImportance.MAJOR,
+					friend ? Optional.of(Emotion.GRIEF) : Optional.empty(), EmotionIntensity.CLEAR, world.getTime()));
+		}
+		List<UUID> mourners = new ArrayList<>(family);
+		mourners.addAll(friends);
 
 		// You only feel what you know: seeing it means grief now; otherwise it waits as news until a
 		// pony who was close to them - or, if nobody else was, any pony - tells you (or a letter does).
-		List<UUID> messengers = List.copyOf(mourners.keySet());
+		List<UUID> messengers = List.copyOf(mourners);
 		for (ServerPlayerEntity player : List.copyOf(world.getServer().getPlayerManager().getPlayerList())) {
 			if (!closeTo(lost, player)) {
 				continue;

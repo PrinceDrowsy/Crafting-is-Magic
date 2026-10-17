@@ -50,6 +50,7 @@ import craftingismagic.cim.villager.PonyFamilyAttachment.PonyFamily;
 import craftingismagic.cim.villager.Quirk;
 import craftingismagic.cim.villager.ReplyTone;
 import craftingismagic.cim.villager.VillagerGriefHandler;
+import craftingismagic.cim.villager.VillagerGossip;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
@@ -157,6 +158,17 @@ public final class CimTaleVocabulary {
 		condition("news", ArgSpec.of("news[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("news type"))),
 				(tale, args, cmp) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
 						.isPresent());
+		// Village gossip (README: The memory system): news about another pony this pony would tell the
+		// player - gossip, or gossip(<memory type>) for one kind. Gentle news goes through news(...).
+		condition("gossip", ArgSpec.of("gossip[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("memory type"))),
+				(tale, args, cmp) -> VillagerGossip.storyFor(tale.player(), tale.speaker(), false, optionalId(args)).isPresent());
+		// They saw it themselves, rather than hearing it - "I saw..." instead of "I heard...".
+		condition("gossip_firsthand", ArgSpec.none("gossip_firsthand"),
+				(tale, args, cmp) -> VillagerGossip.storyFor(tale.player(), tale.speaker(), false, Optional.empty())
+						.filter(story -> story.hops() == 0).isPresent());
+		// Your deeds getting around: something this pony has heard about you and hasn't mentioned yet.
+		condition("gossip_about_you", ArgSpec.of("gossip_about_you[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("memory type"))),
+				(tale, args, cmp) -> VillagerGossip.storyFor(tale.player(), tale.speaker(), true, optionalId(args)).isPresent());
 		condition("night", ArgSpec.none("night"), (tale, args, cmp) -> tale.world().isNight());
 		condition("time_of_day", oneWord("time_of_day", "time", () -> TIMES_OF_DAY),
 				(tale, args, cmp) -> timeOfDay(tale).equalsIgnoreCase(args.get(0)));
@@ -290,6 +302,13 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerEffect(cim("tell_news"), ArgSpec.of("~ tell_news [<type>]", ArgSpec.optionalArg(ArgSpec.id("news type"))),
 				(tale, args) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
 						.ifPresent(news -> PlayerNews.learn(tale.player(), news)));
+		// The pony tells the gossip: the player now knows it (and won't be told it again).
+		TaleVocabulary.registerEffect(cim("tell_gossip"), ArgSpec.of("~ tell_gossip [<type>]", ArgSpec.optionalArg(ArgSpec.id("memory type"))),
+				(tale, args) -> VillagerGossip.tellPlayer(tale.player(), tale.speaker(), false, optionalId(args)));
+		// The pony mentions what they've heard about you - once.
+		TaleVocabulary.registerEffect(cim("tell_gossip_about_you"),
+				ArgSpec.of("~ tell_gossip_about_you [<type>]", ArgSpec.optionalArg(ArgSpec.id("memory type"))),
+				(tale, args) -> VillagerGossip.tellPlayer(tale.player(), tale.speaker(), true, optionalId(args)));
 		TaleVocabulary.registerEffect(cim("fact"), ArgSpec.of("~ fact set|clear <fact>", ArgSpec.arg(ArgSpec.literal("set", "clear"), FACT)),
 				(tale, args) -> {
 					String[] words = split(args);
@@ -402,11 +421,26 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerVariable("mourning", CimTaleVocabulary::mourning);
 		TaleVocabulary.registerVariable("news_subject", tale -> PlayerNews.tellable(tale.player(), tale.speaker(), Optional.empty())
 				.map(PlayerNews.News::subjectName));
+		// Village gossip: who the story is about, and who told this pony (when they heard it, not saw it).
+		TaleVocabulary.registerVariable("gossip_subject", tale -> VillagerGossip.storyFor(tale.player(), tale.speaker(), false, Optional.empty())
+				.flatMap(story -> VillagerGossip.name(tale.world().getServer(), story.subject().get())));
+		TaleVocabulary.registerVariable("gossip_source", tale -> gossipSource(tale));
 		// The gift being offered, by name: "a {gift}?" - in lowercase, so it reads inside a sentence.
 		TaleVocabulary.registerVariable("gift", tale -> tale.item().isEmpty() ? Optional.empty()
 				: Optional.of(tale.item().getName().getString().toLowerCase(Locale.ROOT)));
 		TaleVocabulary.registerVariable("parent", tale -> relativeName(tale, "parent"));
 		TaleVocabulary.registerVariable("partner", tale -> relativeName(tale, "partner"));
+	}
+
+	/** Who told this pony the story they'd tell - about another pony, or else about you. */
+	private static Optional<String> gossipSource(TaleContext tale) {
+		Optional<craftingismagic.cim.memory.Memory> story = VillagerGossip.storyFor(tale.player(), tale.speaker(), false, Optional.empty())
+				.or(() -> VillagerGossip.storyFor(tale.player(), tale.speaker(), true, Optional.empty()));
+		return story.flatMap(craftingismagic.cim.memory.Memory::source).flatMap(who -> VillagerGossip.name(tale.world().getServer(), who));
+	}
+
+	private static Optional<Identifier> optionalId(List<String> args) {
+		return args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0)));
 	}
 
 	/** The one whose loss the player feels most strongly now, by the name they knew them by. */

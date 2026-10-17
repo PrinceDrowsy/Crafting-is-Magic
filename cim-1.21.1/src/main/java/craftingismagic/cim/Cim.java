@@ -157,6 +157,9 @@ public class Cim implements ModInitializer {
 		HumLibrary.register();
 		VerseLanguage.register();
 		craftingismagic.cim.verse.SpellColors.register();
+		craftingismagic.cim.memory.GossipRules.register();
+		craftingismagic.cim.villager.GossipInbox.register();
+		craftingismagic.cim.villager.VillagerGossip.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
