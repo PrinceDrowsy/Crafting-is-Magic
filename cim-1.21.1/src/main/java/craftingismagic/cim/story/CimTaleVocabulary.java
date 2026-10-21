@@ -41,6 +41,7 @@ import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.Feeling;
 import craftingismagic.cim.villager.FeelingBand;
 import craftingismagic.cim.villager.FriendshipAttachment;
+import craftingismagic.cim.villager.FriendshipPace;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
@@ -290,10 +291,13 @@ public final class CimTaleVocabulary {
 	// ---- Effects ----
 
 	private static void registerEffects() {
+		// Warmth in conversation is an everyday habit: tapered within a day and as the feeling grows,
+		// paced by personality (README: friendship pacing). The big jumps come from experiences -
+		// ~ memory - not from bigger numbers here.
 		for (Feeling feeling : Feeling.values()) {
 			String name = feeling.name().toLowerCase(Locale.ROOT);
 			TaleVocabulary.registerEffect(cim(name), ArgSpec.of("~ " + name + " +N", ArgSpec.arg(ArgSpec.signedNumber("change"))),
-					(tale, args) -> FriendshipAttachment.addFeeling(tale.speaker(), tale.player().getUuid(), feeling,
+					(tale, args) -> FriendshipPace.habit(tale.speaker(), tale.player(), feeling,
 							Integer.parseInt(args.get(0).replace("+", ""))));
 		}
 		TaleVocabulary.registerEffect(cim("memory"), ArgSpec.of("~ memory <memory>[, <emotion> [tier]]", ArgSpec.arg(ArgSpec.id("memory")),

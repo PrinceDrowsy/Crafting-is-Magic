@@ -42,7 +42,17 @@ public final class MemoryStore {
 			builder -> builder.persistent(Memory.CODEC.listOf())
 					.copyOnDeath());
 
+	private static final List<java.util.function.BiConsumer<Entity, Memory>> NEW_MEMORY_LISTENERS = new ArrayList<>();
+
 	private MemoryStore() {
+	}
+
+	/**
+	 * Called with each memory an entity forms for the first time - never for a repeat that only
+	 * refreshes one it already holds, so a moment can't be farmed by repeating it.
+	 */
+	public static void onNewMemory(java.util.function.BiConsumer<Entity, Memory> listener) {
+		NEW_MEMORY_LISTENERS.add(listener);
 	}
 
 	public static List<Memory> getAll(Entity entity) {
@@ -84,6 +94,9 @@ public final class MemoryStore {
 			memories.remove(leastImportant);
 		}
 		entity.setAttached(MEMORIES, List.copyOf(memories));
+		if (same < 0) {
+			NEW_MEMORY_LISTENERS.forEach(listener -> listener.accept(entity, memory));
+		}
 	}
 
 	/**

@@ -79,7 +79,28 @@ public final class FriendshipAttachment {
 	public static void setRelationshipType(Entity entity, UUID player, RelationshipType relationshipType) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType, data.lastTalked(), data.sharedMoments()));
+				data.lastGiftDay(), data.giftsGivenThatDay(), relationshipType, data.lastTalked(), data.sharedMoments(),
+				data.habitDay(), data.habitsToday(), data.daysVisited()));
+	}
+
+	/**
+	 * Counts one everyday habit (a chat's warmth, a gift) on {@code day} and returns how many came
+	 * before it that day - what {@link FriendshipPace} tapers by.
+	 */
+	public static int takeHabit(Entity entity, UUID player, long day) {
+		RelationshipData data = get(entity, player);
+		int before = data.habitDay() == day ? data.habitsToday() : 0;
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(), data.lastGiftDay(), data.giftsGivenThatDay(),
+				data.relationshipType(), data.lastTalked(), data.sharedMoments(), day, before + 1, data.daysVisited()));
+		return before;
+	}
+
+	/** One more different day the player came to see this pony; returns the new count. */
+	public static int addVisitDay(Entity entity, UUID player) {
+		RelationshipData data = get(entity, player);
+		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(), data.lastGiftDay(), data.giftsGivenThatDay(),
+				data.relationshipType(), data.lastTalked(), data.sharedMoments(), data.habitDay(), data.habitsToday(), data.daysVisited() + 1));
+		return data.daysVisited() + 1;
 	}
 
 	/** When this pony last talked with the player (world time in ticks), or -1 if they never have. */
@@ -90,7 +111,8 @@ public final class FriendshipAttachment {
 	public static void recordTalk(Entity entity, UUID player, long worldTime) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), worldTime, data.sharedMoments()));
+				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), worldTime, data.sharedMoments(),
+				data.habitDay(), data.habitsToday(), data.daysVisited()));
 	}
 
 	/**
@@ -105,7 +127,8 @@ public final class FriendshipAttachment {
 	public static void addSharedMoments(Entity entity, UUID player, int moments) {
 		RelationshipData data = get(entity, player);
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), data.lastTalked(), data.sharedMoments() + moments));
+				data.lastGiftDay(), data.giftsGivenThatDay(), data.relationshipType(), data.lastTalked(), data.sharedMoments() + moments,
+				data.habitDay(), data.habitsToday(), data.daysVisited()));
 	}
 
 	public static boolean canGiftToday(Entity entity, UUID player, long currentDay) {
@@ -117,7 +140,8 @@ public final class FriendshipAttachment {
 		RelationshipData data = get(entity, player);
 		int giftsToday = data.lastGiftDay() == currentDay ? data.giftsGivenThatDay() + 1 : 1;
 		set(entity, player, new RelationshipData(data.fondness(), data.respect(), data.trust(),
-				currentDay, giftsToday, data.relationshipType(), data.lastTalked(), data.sharedMoments()));
+				currentDay, giftsToday, data.relationshipType(), data.lastTalked(), data.sharedMoments(),
+				data.habitDay(), data.habitsToday(), data.daysVisited()));
 	}
 
 	private static void set(Entity entity, UUID player, RelationshipData data) {
@@ -131,10 +155,13 @@ public final class FriendshipAttachment {
 	/**
 	 * @param lastTalked    world time of their last conversation, -1 for never (greetings read it)
 	 * @param sharedMoments the player's shared history with this pony: +1 a conversation, +3 a gift
+	 * @param habitDay      the day {@code habitsToday} counts (see {@link FriendshipPace})
+	 * @param habitsToday   everyday habits already counted that day - later ones taper
+	 * @param daysVisited   how many different days the player has come to see them (consistency builds Trust)
 	 */
 	public record RelationshipData(int fondness, int respect, int trust, long lastGiftDay, int giftsGivenThatDay,
-			RelationshipType relationshipType, long lastTalked, int sharedMoments) {
-		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE, -1, 0);
+			RelationshipType relationshipType, long lastTalked, int sharedMoments, long habitDay, int habitsToday, int daysVisited) {
+		public static final RelationshipData EMPTY = new RelationshipData(0, 0, 0, -1, 0, RelationshipType.ACQUAINTANCE, -1, 0, -1, 0, 0);
 
 		/**
 		 * Migrates old saves: before the three feelings, this stored a single {@code affection} value.
@@ -152,10 +179,14 @@ public final class FriendshipAttachment {
 				Codec.INT.optionalFieldOf("gifts_given_that_day", 0).forGetter(RelationshipData::giftsGivenThatDay),
 				RelationshipType.CODEC.optionalFieldOf("relationship_type", RelationshipType.ACQUAINTANCE).forGetter(RelationshipData::relationshipType),
 				Codec.LONG.optionalFieldOf("last_talked", -1L).forGetter(RelationshipData::lastTalked),
-				Codec.INT.optionalFieldOf("shared_moments", 0).forGetter(RelationshipData::sharedMoments)
-		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments) ->
+				Codec.INT.optionalFieldOf("shared_moments", 0).forGetter(RelationshipData::sharedMoments),
+				Codec.LONG.optionalFieldOf("habit_day", -1L).forGetter(RelationshipData::habitDay),
+				Codec.INT.optionalFieldOf("habits_today", 0).forGetter(RelationshipData::habitsToday),
+				Codec.INT.optionalFieldOf("days_visited", 0).forGetter(RelationshipData::daysVisited)
+		).apply(instance, (fondness, legacyAffection, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments,
+				habitDay, habitsToday, daysVisited) ->
 				new RelationshipData(fondness.orElse(legacyAffection.orElse(0)), respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType,
-						lastTalked, sharedMoments)));
+						lastTalked, sharedMoments, habitDay, habitsToday, daysVisited)));
 
 		public int feeling(Feeling feeling) {
 			return switch (feeling) {
@@ -167,9 +198,12 @@ public final class FriendshipAttachment {
 
 		public RelationshipData withFeeling(Feeling feeling, int value) {
 			return switch (feeling) {
-				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
-				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
-				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments);
+				case FONDNESS -> new RelationshipData(value, respect, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments,
+						habitDay, habitsToday, daysVisited);
+				case RESPECT -> new RelationshipData(fondness, value, trust, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments,
+						habitDay, habitsToday, daysVisited);
+				case TRUST -> new RelationshipData(fondness, respect, value, lastGiftDay, giftsGivenThatDay, relationshipType, lastTalked, sharedMoments,
+						habitDay, habitsToday, daysVisited);
 			};
 		}
 	}

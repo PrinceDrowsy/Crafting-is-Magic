@@ -98,6 +98,7 @@ public final class VillagerDialogue {
 
 	private static void start(ServerPlayerEntity player, Entity pony, Node node, Optional<Node> greeting, TaleContext context) {
 		Conversation conversation = TaleRuntime.start(node, context, greeting);
+		FriendshipPace.visit(pony, player); // before recordTalk: it reads when you last came
 		FriendshipAttachment.recordTalk(pony, player.getUuid(), player.getWorld().getTime());
 		if (greeting.isPresent()) {
 			// A visit (it opened with a greeting) is a moment shared - what a verse reads as "my love".

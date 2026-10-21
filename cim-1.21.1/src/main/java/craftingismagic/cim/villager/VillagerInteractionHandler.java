@@ -153,10 +153,12 @@ public final class VillagerInteractionHandler {
 		}
 		boolean isFavorite = isFavoriteGift(pony, gift);
 		gift.decrement(1);
-		FriendshipAttachment.addFeeling(pony, player.getUuid(), Feeling.FONDNESS,
-				isFavorite ? FAVORITE_GIFT_FONDNESS_BOOST : GENERIC_GIFT_FONDNESS_BOOST);
+		// A habit, tapered by the gifts already given today (README: friendship pacing).
+		FriendshipAttachment.RelationshipData data = FriendshipAttachment.get(pony, player.getUuid());
+		int giftsBefore = data.lastGiftDay() == today ? data.giftsGivenThatDay() : 0;
+		FriendshipPace.habit(pony, player, Feeling.FONDNESS, isFavorite ? FAVORITE_GIFT_FONDNESS_BOOST : GENERIC_GIFT_FONDNESS_BOOST, giftsBefore);
 		if (isFavorite) {
-			FriendshipAttachment.addFeeling(pony, player.getUuid(), Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST);
+			FriendshipPace.habit(pony, player, Feeling.TRUST, FAVORITE_GIFT_TRUST_BOOST, giftsBefore);
 		}
 		FriendshipAttachment.recordGift(pony, player.getUuid(), today);
 		FriendshipAttachment.addSharedMoments(pony, player.getUuid(), 3);

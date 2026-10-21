@@ -160,6 +160,7 @@ public class Cim implements ModInitializer {
 		craftingismagic.cim.memory.GossipRules.register();
 		craftingismagic.cim.villager.GossipInbox.register();
 		craftingismagic.cim.villager.VillagerGossip.register();
+		craftingismagic.cim.villager.FriendshipPace.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
