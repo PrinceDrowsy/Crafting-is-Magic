@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    { "item": "minecraft:string" },
+    { "item": "minecraft:string" },
+    { "tag": "c:dyes" },
+    { "tag": "c:dyes" }
+  ],
+  "result": {
+    "id": "cim:friendship_bracelet",
+    "count": 1
+  }
+}

@@ -64,6 +64,11 @@ public final class VillagerDialogue {
 		});
 	}
 
+	/** Whether some player is in a conversation with this pony right now. */
+	public static boolean isTalking(Entity pony) {
+		return sessions.values().stream().anyMatch(session -> session.entityId() == pony.getId());
+	}
+
 	/**
 	 * Right-clicking a pony: a greeting, then a chatter topic - a weighted pick among the openers that
 	 * fit. From there the player can bring something up ({@link #bringUp}).

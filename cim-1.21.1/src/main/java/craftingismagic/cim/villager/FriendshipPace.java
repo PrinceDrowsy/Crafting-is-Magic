@@ -29,8 +29,8 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * Cranky ones are slow to like you but quick to respect you.</li>
  * <li><b>Consistency builds Trust:</b> coming back on a new day is a small, steady step - being someone
  * who's always there.</li>
- * <li><b>First impressions are a nudge:</b> a warm temperament, or the player leaning into an Element the
- * pony values, gives a small head start.</li>
+ * <li><b>First impressions are a nudge:</b> a warm temperament, the player leaning into an Element the
+ * pony values, mutual friends, or a good word heard through gossip gives a small head start.</li>
  * <li><b>Gentle fading:</b> after a week apart, Fondness slowly drifts - never below the floor your
  * shared history built, never Respect or Trust - and coming back gives some of it back at once.</li>
  * </ul>
@@ -127,7 +127,7 @@ public final class FriendshipPace {
 	static int floor(Entity pony, UUID you) {
 		int floor = FriendshipAttachment.getSharedMoments(pony, you);
 		for (Memory memory : MemoryStore.about(pony, you)) {
-			if (memory.knowledge() != MemoryKnowledge.WITNESSED) continue;
+			if (memory.knowledge() != MemoryKnowledge.WITNESSED || HarmAndForgiveness.isHarm(memory)) continue;
 			floor += switch (memory.importance()) {
 				case TRIVIAL -> 0;
 				case NOTABLE -> 4;
@@ -160,6 +160,50 @@ public final class FriendshipPace {
 		boolean kindred = strongest != null && VoiceLeanings.points(player, strongest) > 0 && valued.contains(strongest);
 		FriendshipAttachment.addFeeling(pony, you, Feeling.FONDNESS, warmth + (kindred ? 4 : 0));
 		if (kindred) FriendshipAttachment.addFeeling(pony, you, Feeling.RESPECT, 4);
+		introductions(pony, player);
+	}
+
+	/**
+	 * Arriving through someone a pony loves (README: Friendship, deepened - Introductions): "Oh, you're
+	 * Petunia's friend!" Their family and friends who are already the player's friends warm them up;
+	 * good things they've heard about the player through gossip earn a little Respect.
+	 */
+	private static void introductions(Entity pony, ServerPlayerEntity player) {
+		UUID you = player.getUuid();
+		int mutual = 0;
+		for (UUID close : closeOnes(pony)) {
+			Entity other = player.getServerWorld().getEntity(close);
+			if (other != null && FriendshipBonds.isFriend(other, you)) mutual++;
+		}
+		if (mutual > 0) {
+			FriendshipAttachment.addFeeling(pony, you, Feeling.FONDNESS, Math.min(12, 6 + 3 * (mutual - 1)));
+			FriendshipAttachment.addFeeling(pony, you, Feeling.TRUST, 3);
+		}
+		boolean goodWord = MemoryStore.about(pony, you).stream()
+				.anyMatch(memory -> memory.knowledge() == MemoryKnowledge.HEARD
+						&& memory.emotion().filter(e -> e == Emotion.JOY || e == Emotion.LOVE || e == Emotion.CALM).isPresent());
+		if (goodWord) FriendshipAttachment.addFeeling(pony, you, Feeling.RESPECT, 4);
+	}
+
+	/** The name of someone close to this pony who's already the player's friend - for "you're Petunia's friend!". */
+	public static java.util.Optional<String> mutualFriend(Entity pony, ServerPlayerEntity player) {
+		for (UUID close : closeOnes(pony)) {
+			Entity other = player.getServerWorld().getEntity(close);
+			if (other != null && FriendshipBonds.isFriend(other, player.getUuid())) return java.util.Optional.of(other.getName().getString());
+		}
+		return java.util.Optional.empty();
+	}
+
+	/** Family and friend group, from the pony's own lists. */
+	private static List<UUID> closeOnes(Entity pony) {
+		List<UUID> close = new java.util.ArrayList<>(PonyFamilyAttachment.children(pony));
+		if (PonyFamilyAttachment.hasFamily(pony)) {
+			close.addAll(PonyFamilyAttachment.getFamily(pony).parents());
+			close.addAll(PonyFamilyAttachment.getFamily(pony).partner());
+		}
+		if (FriendGroupAttachment.hasGroup(pony)) close.addAll(FriendGroupAttachment.getGroup(pony).members());
+		close.remove(pony.getUuid());
+		return close;
 	}
 
 	// ---- Experiences ----

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "cim:item/friendship_bracelet_cord",
+    "layer1": "cim:item/friendship_bracelet_beads",
+    "layer2": "cim:item/friendship_bracelet_band"
+  }
+}

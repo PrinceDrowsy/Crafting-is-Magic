@@ -41,7 +41,10 @@ import craftingismagic.cim.villager.VillagerInteractionHandler;
 import craftingismagic.cim.villager.Feeling;
 import craftingismagic.cim.villager.FeelingBand;
 import craftingismagic.cim.villager.FriendshipAttachment;
+import craftingismagic.cim.villager.FriendshipBonds;
 import craftingismagic.cim.villager.FriendshipPace;
+import craftingismagic.cim.villager.HarmAndForgiveness;
+import craftingismagic.cim.villager.PonyWishes;
 import craftingismagic.cim.villager.LifeStage;
 import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
@@ -70,6 +73,8 @@ public final class CimTaleVocabulary {
 	public static final String GREETING = "greeting";
 	/** The pony's goodbye when the player says "See you later." - then the conversation closes. */
 	public static final String FAREWELL = "farewell";
+	/** A friend who spots the player and comes over to say hello - spoken in chat, speech only. */
+	public static final String SEEK = "seek";
 
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/narrative");
 	private static final List<String> ELEMENTS = VoiceLeanings.ELEMENTS;
@@ -87,6 +92,7 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerStartContext(CHATTER);
 		TaleVocabulary.registerLeadInContext(GREETING);
 		TaleVocabulary.registerLeadInContext(FAREWELL);
+		TaleVocabulary.registerLeadInContext(SEEK);
 		// What the player can bring up in conversation (README: Conversations replace the interact menu).
 		for (ConversationRequests.Request request : ConversationRequests.ALL) {
 			TaleVocabulary.registerStartContext(request.startContext());
@@ -181,6 +187,31 @@ public final class CimTaleVocabulary {
 		// Whether the pony will take another gift today - there's a daily limit, and they can say so.
 		condition("can_take_gift", ArgSpec.none("can_take_gift"),
 				(tale, args, cmp) -> VillagerInteractionHandler.canTakeGift(tale.player(), tale.speaker()));
+		// Friend status (README: Becoming friends, concretely). bracelet: the gift offered is a plain
+		// Friendship Bracelet; friend_ready: close enough to take it; friend: already friends (or best);
+		// best_friend_ready: friends with all three feelings high and a shared hardship behind them.
+		condition("bracelet", ArgSpec.none("bracelet"), (tale, args, cmp) -> FriendshipBonds.isBracelet(tale.item()));
+		condition("friend_ready", ArgSpec.none("friend_ready"),
+				(tale, args, cmp) -> FriendshipBonds.friendReady(tale.speaker(), tale.player().getUuid()));
+		// Someone close to this pony is already the player's friend - "you're Petunia's friend!"
+		condition("mutual_friend", ArgSpec.none("mutual_friend"),
+				(tale, args, cmp) -> FriendshipPace.mutualFriend(tale.speaker(), tale.player()).isPresent());
+		condition("friend", ArgSpec.none("friend"), (tale, args, cmp) -> FriendshipBonds.isFriend(tale.speaker(), tale.player().getUuid()));
+		condition("best_friend_ready", ArgSpec.none("best_friend_ready"),
+				(tale, args, cmp) -> FriendshipBonds.bestFriendReady(tale.speaker(), tale.player().getUuid()));
+		// Wishes (README: Friendship, deepened - thoughtful gifts): wish_to_share - the pony has something
+		// they've been missing to mention to you; granting_wish - the gift offered answers a wish you heard.
+		condition("wish_to_share", ArgSpec.none("wish_to_share"), (tale, args, cmp) -> PonyWishes.toShare(tale.speaker(), tale.player()));
+		condition("granting_wish", ArgSpec.none("granting_wish"),
+				(tale, args, cmp) -> PonyWishes.answers(tale.speaker(), tale.player(), tale.item()));
+		// Harm & forgiveness: owes_apology - something between you is still unforgiven; apology_too_soon -
+		// they need time first (Cranky, Grudge Holders); apology_believed - a sorry still means something.
+		condition("owes_apology", ArgSpec.none("owes_apology"),
+				(tale, args, cmp) -> HarmAndForgiveness.owesApology(tale.speaker(), tale.player().getUuid()));
+		condition("apology_too_soon", ArgSpec.none("apology_too_soon"),
+				(tale, args, cmp) -> HarmAndForgiveness.tooSoon(tale.speaker(), tale.player().getUuid()));
+		condition("apology_believed", ArgSpec.none("apology_believed"),
+				(tale, args, cmp) -> HarmAndForgiveness.believed(tale.speaker(), tale.player().getUuid()));
 		condition("raining", ArgSpec.none("raining"), (tale, args, cmp) -> tale.world().isRaining());
 		condition("thundering", ArgSpec.none("thundering"), (tale, args, cmp) -> tale.world().isThundering());
 		condition("biome", ArgSpec.repeating("biome(<biome or #tag>, ...)", ArgSpec.arg(ArgSpec.idOrTag("biome"))), CimTaleVocabulary::inBiome);
@@ -333,6 +364,28 @@ public final class CimTaleVocabulary {
 		// The pony takes the gift being offered (one of it) - feelings grow, more for a favorite.
 		TaleVocabulary.registerEffect(cim("take_gift"), ArgSpec.none("~ take_gift"),
 				(tale, args) -> VillagerInteractionHandler.takeGift(tale.player(), tale.speaker(), tale.item()));
+		// The pony takes the Friendship Bracelet: you're friends, and you get one back in their colors.
+		TaleVocabulary.registerEffect(cim("befriend"), ArgSpec.none("~ befriend"),
+				(tale, args) -> FriendshipBonds.befriend(tale.player(), tale.speaker(), tale.item()));
+		// The pony forgives: the hurt becomes something forgiven, and some of what was lost comes back.
+		TaleVocabulary.registerEffect(cim("forgive"), ArgSpec.none("~ forgive"),
+				(tale, args) -> HarmAndForgiveness.forgive(tale.speaker(), tale.player()));
+		// A reply that hurts: minor (a careless word, forgivable like an accident) or cruel (real hurt -
+		// remembered, gossiped about, and a step toward the villain route).
+		TaleVocabulary.registerEffect(cim("hurt"), ArgSpec.of("~ hurt minor|cruel", ArgSpec.arg(ArgSpec.literal("minor", "cruel"))),
+				(tale, args) -> {
+					if (args.get(0).trim().equals("cruel")) HarmAndForgiveness.hurt(tale.speaker(), tale.player(), true);
+					else HarmAndForgiveness.slight(tale.speaker(), tale.player());
+				});
+		// The pony mentions what they've been missing - now you've heard it.
+		TaleVocabulary.registerEffect(cim("mention_wish"), ArgSpec.none("~ mention_wish"),
+				(tale, args) -> PonyWishes.mention(tale.speaker(), tale.player()));
+		// The thoughtful gift: they take it, and remember you listened.
+		TaleVocabulary.registerEffect(cim("grant_wish"), ArgSpec.none("~ grant_wish"),
+				(tale, args) -> PonyWishes.grant(tale.speaker(), tale.player(), tale.item()));
+		// The pony names it: you're their best friend.
+		TaleVocabulary.registerEffect(cim("best_friends"), ArgSpec.none("~ best_friends"),
+				(tale, args) -> FriendshipBonds.bestFriends(tale.player(), tale.speaker()));
 		// The trade screen opens - once the pony's lines have been read, not over them.
 		TaleVocabulary.registerEffect(cim("open_trade"), ArgSpec.none("~ open_trade"),
 				(tale, args) -> VillagerDialogue.afterLines(tale.player(),
@@ -429,6 +482,9 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerVariable("gossip_subject", tale -> VillagerGossip.storyFor(tale.player(), tale.speaker(), false, Optional.empty())
 				.flatMap(story -> VillagerGossip.name(tale.world().getServer(), story.subject().get())));
 		TaleVocabulary.registerVariable("gossip_source", tale -> gossipSource(tale));
+		TaleVocabulary.registerVariable("mutual_friend", tale -> FriendshipPace.mutualFriend(tale.speaker(), tale.player()));
+		// What this pony wishes for, by name - after ~ mention_wish has picked it.
+		TaleVocabulary.registerVariable("wish", tale -> PonyWishes.name(tale.speaker()));
 		// The gift being offered, by name: "a {gift}?" - in lowercase, so it reads inside a sentence.
 		TaleVocabulary.registerVariable("gift", tale -> tale.item().isEmpty() ? Optional.empty()
 				: Optional.of(tale.item().getName().getString().toLowerCase(Locale.ROOT)));

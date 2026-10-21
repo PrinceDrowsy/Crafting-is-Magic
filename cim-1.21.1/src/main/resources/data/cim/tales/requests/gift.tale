@@ -11,18 +11,18 @@
 === too_many_today
 start: gift
 weight: 100
-when: not can_take_gift
+when: not can_take_gift, not bracelet, not granting_wish
 {pony}: Oh, you've already given me so much today! Keep it, really.
 
 === favorite
 start: gift
-when: can_take_gift, gift(favorite)
+when: can_take_gift, gift(favorite), not bracelet, not granting_wish
 {pony}: Is that... a {gift}? It's my favorite! Thank you!
 ~ take_gift
 
 === thanks
 start: gift
-when: can_take_gift, not gift(favorite)
+when: can_take_gift, not gift(favorite), not bracelet, not granting_wish
 {pony}: A {gift}? That's sweet of you. Thank you!
     or: Oh! For me? Thanks, {player}.
 ~ take_gift
@@ -30,13 +30,50 @@ when: can_take_gift, not gift(favorite)
 === cranky_thanks
 start: gift
 weight: 3
-when: can_take_gift, not gift(favorite), personality(cranky)
+when: can_take_gift, not gift(favorite), personality(cranky), not bracelet, not granting_wish
 {pony}: Hmph. A {gift}. ...Thanks, I suppose.
 ~ take_gift
 
 === grieving_thanks
 start: gift
 weight: 5
-when: can_take_gift, mood(grief, clear)
+when: can_take_gift, mood(grief, clear), not bracelet, not granting_wish
 {pony}: *quietly* Thank you. That means a lot right now.
 ~ take_gift
+
+
+// ---- A thoughtful gift: the thing they mentioned missing (README: Friendship, deepened) ----
+// granting_wish: the gift answers a wish this pony told *you* about. Always welcome, even past
+// the day's gifts. "~ grant_wish" takes it - a happy memory, and a little more Trust.
+
+=== wish_granted
+start: gift
+weight: 300
+when: granting_wish
+{pony}: Wait - a {gift}? You remembered! I can't believe you remembered.
+~ grant_wish
+
+
+// ---- The Friendship Bracelet (README: Becoming friends, concretely) ----
+// A plain bracelet is only taken once the pony is close enough (friend_ready). "~ befriend" makes it
+// real: they take it, you're friends, and you get one back in their colors.
+
+=== bracelet_yes
+start: gift
+weight: 100
+when: bracelet, friend_ready
+{pony}: A friendship bracelet? For me? ...Yes. Yes, of course we're friends!
+~ befriend
+
+=== bracelet_already
+start: gift
+weight: 100
+when: bracelet, friend
+{pony}: Silly - we're already friends! Keep it for somepony new.
+
+=== bracelet_not_yet
+start: gift
+weight: 100
+when: bracelet, not friend_ready, not friend
+{pony}: Oh... that's really sweet. But I feel like we're still getting to know each other. Ask me again sometime?
+    or: A friendship bracelet? I - I'd like that, someday. Let's spend a little more time together first.

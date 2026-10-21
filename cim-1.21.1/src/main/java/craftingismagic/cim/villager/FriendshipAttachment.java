@@ -30,7 +30,11 @@ import craftingismagic.cim.Cim;
  * they need in their own open payloads instead.
  */
 public final class FriendshipAttachment {
-	private static final int MAX_GIFTS_PER_DAY = 3;
+	/**
+	 * A polite ceiling, not the limiter: gifts already taper within a day (see {@link FriendshipPace}),
+	 * so this is only where a pony says "you've already given me so much today!".
+	 */
+	private static final int MAX_GIFTS_PER_DAY = 6;
 
 	public static final AttachmentType<Map<UUID, RelationshipData>> AFFECTION = AttachmentRegistry.create(
 			// The id predates the three feelings - kept as "affection" so existing saves still load.

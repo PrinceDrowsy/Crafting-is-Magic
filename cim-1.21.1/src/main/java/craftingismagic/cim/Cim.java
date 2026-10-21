@@ -161,6 +161,9 @@ public class Cim implements ModInitializer {
 		craftingismagic.cim.villager.GossipInbox.register();
 		craftingismagic.cim.villager.VillagerGossip.register();
 		craftingismagic.cim.villager.FriendshipPace.register();
+		craftingismagic.cim.villager.PonyWishes.register();
+		craftingismagic.cim.villager.FriendInitiative.register();
+		craftingismagic.cim.villager.HarmAndForgiveness.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
@@ -438,6 +441,8 @@ public class Cim implements ModInitializer {
 				PonyFamilyAttachment.CHILDREN,
 				SpeakingVoices.VOICE,
 				craftingismagic.cim.verse.SpellColors.COLORS,
+				craftingismagic.cim.villager.PonyWishes.WISH,
+				craftingismagic.cim.villager.HarmAndForgiveness.LEDGER,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

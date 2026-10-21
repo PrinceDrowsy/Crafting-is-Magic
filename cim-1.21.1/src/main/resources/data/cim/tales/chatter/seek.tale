@@ -1,0 +1,38 @@
+// A friend spots you and comes over to say hello (README: Friendship, deepened - ponies take
+// initiative). Speech only: the first line is said in chat, in their voice. Once a day per friend.
+//
+// PLACEHOLDER LINES - every line here is meant to be rewritten.
+
+=== seek_hello
+start: seek
+{pony}: Hey, {player}! I was hoping I'd run into you today!
+    or: {player}! Fancy seeing you here. Got a minute?
+    or: Oh good, it's you! Come say hi!
+
+=== seek_close_friend
+start: seek
+weight: 3
+when: trust >= high
+{pony}: There you are! I've been looking all over for you!
+
+// News they couldn't wait to share - real gossip about another pony (see real_gossip in idle_chatter).
+=== seek_news
+start: seek
+weight: 4
+weight: +4 if quirk(gossip)
+when: gossip
+{pony}: {player}! Did you hear about {gossip_subject}? You have to hear this!
+~ tell_gossip
+
+=== seek_morning
+start: seek
+weight: 2
+when: time_of_day(morning)
+{pony}: Morning, {player}! Sleep well?
+
+=== seek_grieving
+start: seek
+weight: 6
+tone: gentle
+when: mood(grief, clear)
+{pony}: *quietly* ...Hi. I didn't want to be alone just now.

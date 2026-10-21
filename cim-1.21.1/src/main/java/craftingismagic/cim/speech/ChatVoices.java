@@ -3,7 +3,9 @@ package craftingismagic.cim.speech;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.Entity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 
 import craftingismagic.cim.network.ChatVoiceS2CPayload;
 
@@ -23,13 +25,14 @@ public final class ChatVoices {
 		ServerMessageEvents.CHAT_MESSAGE.register((message, sender, params) -> murmur(sender, message.getContent().getString()));
 	}
 
-	private static void murmur(ServerPlayerEntity speaker, String text) {
+	/** {@code speaker} - a player chatting, or a pony speaking aloud - is heard nearby in their own voice. */
+	public static void murmur(Entity speaker, String text) {
 		int letters = (int) text.chars().filter(Character::isLetterOrDigit).count();
-		if (letters == 0) {
+		if (letters == 0 || !(speaker.getWorld() instanceof ServerWorld world)) {
 			return;
 		}
 		ChatVoiceS2CPayload payload = new ChatVoiceS2CPayload(speaker.getId(), SpeakingVoices.heard(speaker), letters);
-		for (ServerPlayerEntity listener : PlayerLookup.around(speaker.getServerWorld(), speaker.getPos(), RANGE)) {
+		for (ServerPlayerEntity listener : PlayerLookup.around(world, speaker.getPos(), RANGE)) {
 			ServerPlayNetworking.send(listener, payload);
 		}
 	}

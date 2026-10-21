@@ -96,6 +96,17 @@ public class CimClient implements ClientModInitializer {
 		VerseClient.register();
 		VerseLights.register();
 		PlayerSpellSkins.register();
+		// A friend's bracelet is beaded in their mane and coat colors; a plain one in pink and white.
+		net.fabricmc.fabric.api.client.rendering.v1.ColorProviderRegistry.ITEM.register((stack, tintIndex) -> {
+			craftingismagic.cim.item.FriendshipBraceletItem.Friend friend = stack.get(craftingismagic.cim.item.FriendshipBraceletItem.FRIEND);
+			int beads = friend != null ? friend.beads() : craftingismagic.cim.item.FriendshipBraceletItem.PLAIN_BEADS;
+			int band = friend != null ? friend.band() : craftingismagic.cim.item.FriendshipBraceletItem.PLAIN_BAND;
+			return switch (tintIndex) {
+				case 1 -> 0xFF000000 | beads;
+				case 2 -> 0xFF000000 | band;
+				default -> -1;
+			};
+		}, craftingismagic.cim.item.CimItems.FRIENDSHIP_BRACELET);
 		ClientPlayNetworking.registerGlobalReceiver(OpenVillagerDebugEditorS2CPayload.ID, (payload, context) -> context.client()
 				.execute(() -> context.client().setScreen(VillagerDebugEditorScreen.fromPayload(payload))));
 

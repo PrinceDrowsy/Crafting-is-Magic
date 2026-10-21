@@ -27,13 +27,16 @@ public final class ConversationRequests {
 
 	public static final String GIFT = "gift";
 	public static final String TRADE = "trade";
+	/** Making amends (README: Harm & forgiveness). */
+	public static final String APOLOGY = "apology";
 
 	/** "See you later." - not a request in the list, but sent the same way: the pony says goodbye, then it closes. */
 	public static final Identifier FAREWELL = Identifier.of(Cim.MOD_ID, "farewell");
 
 	public static final List<Request> ALL = List.of(
 			new Request(Identifier.of(Cim.MOD_ID, GIFT), GIFT, true),
-			new Request(Identifier.of(Cim.MOD_ID, TRADE), TRADE, false));
+			new Request(Identifier.of(Cim.MOD_ID, TRADE), TRADE, false),
+			new Request(Identifier.of(Cim.MOD_ID, APOLOGY), APOLOGY, false));
 
 	private ConversationRequests() {
 	}

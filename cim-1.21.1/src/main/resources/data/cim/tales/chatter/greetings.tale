@@ -83,6 +83,13 @@ weight: 6
 when: last_talked(never)
 {pony}: Oh, hello! I don't think we've met.
 
+// PLACEHOLDER. Arriving through someone they love: a friend of yours is family or a friend to them.
+=== introduced
+start: greeting
+weight: 12
+when: last_talked(never), mutual_friend
+{pony}: Oh! You're {player}, aren't you? {mutual_friend} has told me all about you!
+
 === close_friend
 start: greeting
 weight: 4

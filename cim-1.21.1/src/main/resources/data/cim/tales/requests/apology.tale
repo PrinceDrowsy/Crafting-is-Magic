@@ -1,0 +1,45 @@
+// Apologizing (README: Harm & forgiveness): the player said "I'm sorry about before."
+// owes_apology - something between you is still unforgiven; apology_too_soon - they need time first
+// (a Cranky pony a day, a Grudge Holder longer); apology_believed - a sorry still means something
+// (each one counts for less, and cruelty for less again). "~ forgive" is the repair.
+//
+// PLACEHOLDER LINES - a scaffold showing the shape; every line here is meant to be rewritten.
+
+
+=== nothing_to_forgive
+start: apology
+when: not owes_apology
+{pony}: Sorry? For what? We're fine, silly.
+
+=== not_yet
+start: apology
+weight: 100
+when: owes_apology, apology_too_soon
+{pony}: Not now. I need some time to myself.
+    or: ...I heard you. Just - give me a little while, okay?
+
+=== not_believed
+start: apology
+weight: 100
+when: owes_apology, not apology_too_soon, not apology_believed
+{pony}: You keep saying that. I don't think I believe you anymore.
+
+=== forgiven
+start: apology
+when: owes_apology, not apology_too_soon, apology_believed
+{pony}: ...Okay. Thank you for saying it. Let's put it behind us.
+~ forgive
+
+=== forgiven_gentle
+start: apology
+weight: 3
+when: owes_apology, not apology_too_soon, apology_believed, personality(gentle)
+{pony}: Oh, of course I forgive you! Please don't worry about it.
+~ forgive
+
+=== forgiven_cranky
+start: apology
+weight: 3
+when: owes_apology, not apology_too_soon, apology_believed, personality(cranky)
+{pony}: Hmph. ...Fine. Apology accepted. Don't make a habit of it.
+~ forgive

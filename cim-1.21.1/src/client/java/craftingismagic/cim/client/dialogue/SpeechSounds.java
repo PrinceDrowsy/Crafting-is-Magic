@@ -322,7 +322,10 @@ public final class SpeechSounds {
 
 	/** A player nearby chatted: murmur in their voice from where they stand, if player voices are on. */
 	public static void chatted(ChatVoiceS2CPayload payload) {
-		if (!DialogueConfig.get().playerVoices) {
+		// A pony speaking aloud follows the NPC voice setting; a player chatting, the player voice one.
+		MinecraftClient client = MinecraftClient.getInstance();
+		boolean pony = client.world != null && !(client.world.getEntityById(payload.entityId()) instanceof net.minecraft.entity.player.PlayerEntity);
+		if (pony ? !DialogueConfig.get().revealSound : !DialogueConfig.get().playerVoices) {
 			return;
 		}
 		int blips = Math.min(MAX_MURMUR_BLIPS, Math.max(1, (payload.letters() + 2) / 3));

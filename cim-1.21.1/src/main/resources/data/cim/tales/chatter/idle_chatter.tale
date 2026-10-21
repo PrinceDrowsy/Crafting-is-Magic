@@ -121,6 +121,34 @@ weight: +6 if quirk(gossip)
 -> replies
 
 
+// ---- Something they've been missing ----
+// PLACEHOLDER lines. The pony mentions a small wish (picked to fit them, from data/<ns>/wishes) -
+// and only players who heard it can answer it with a thoughtful gift. ~ mention_wish comes first,
+// so {wish} names it.
+
+=== mention_wish
+start: chatter
+when: wish_to_share
+weight: 2
+~ mention_wish
+{pony}: Ugh, I've been out of {wish} for days now. Keep meaning to get more.
+    or: You know what I could really use right now? Some {wish}.
+-> replies
+
+
+// ---- Best friends ----
+// PLACEHOLDER lines. When a friend has all three feelings high and you've lived through something
+// major together, they say it themselves - once (README: Affection, reworked).
+
+=== best_friend_moment
+start: chatter
+when: best_friend_ready
+weight: 500
+{pony}: Hey, {player}? I've been thinking. After everything we've been through... you're my best friend. You know that, right?
+~ best_friends
+-> replies
+
+
 // ---- Your deeds getting around ----
 // PLACEHOLDER lines. Something this pony heard about you from somepony else - mentioned once.
 // Branch on gossip_about_you(<memory type>) to answer what it was.
