@@ -43,6 +43,7 @@ import craftingismagic.cim.villager.PersonalityAttachment;
  *   "quirks": ["collector"],
  *   "species": ["unicorn"],
  *   "foals": true,                           // optional: only for households with foals (or without: false)
+ *   "walls": "light_blue",                   // optional: the wall paint color this set comes with (any dye color)
  *   "weight": 1
  * }
  * }</pre>
@@ -52,8 +53,9 @@ import craftingismagic.cim.villager.PersonalityAttachment;
 public final class RoomSets {
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/structures");
 
+	/** @param walls the wall paint color this set comes with ("light_blue"), or null for one that suits the resident */
 	public record RoomSet(Identifier structure, RoomType room, List<String> personalities, List<Identifier> professions, List<String> quirks,
-			List<String> species, Boolean foals, int weight) {
+			List<String> species, Boolean foals, int weight, String walls) {
 		/** How many things it asks about the residents - a more specific fit counts for more. */
 		int specificity() {
 			return (personalities.isEmpty() ? 0 : 1) + (professions.isEmpty() ? 0 : 1) + (quirks.isEmpty() ? 0 : 1)
@@ -125,7 +127,8 @@ public final class RoomSets {
 						JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
 						loaded.add(new RoomSet(Identifier.of(JsonHelper.getString(json, "structure")), RoomType.of(JsonHelper.getString(json, "room")),
 								words(json, "personalities"), ids(json, "professions"), words(json, "quirks"), words(json, "species"),
-								json.has("foals") ? JsonHelper.getBoolean(json, "foals") : null, Math.max(1, JsonHelper.getInt(json, "weight", 1))));
+								json.has("foals") ? JsonHelper.getBoolean(json, "foals") : null, Math.max(1, JsonHelper.getInt(json, "weight", 1)),
+								json.has("walls") ? JsonHelper.getString(json, "walls").toLowerCase(Locale.ROOT) : null));
 					} catch (Exception e) {
 						LOGGER.error("data/{}/{}: couldn't read it: {}", entry.getKey().getNamespace(), entry.getKey().getPath(), e.getMessage());
 					}

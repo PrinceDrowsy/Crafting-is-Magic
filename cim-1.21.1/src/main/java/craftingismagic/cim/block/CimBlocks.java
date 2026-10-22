@@ -29,6 +29,11 @@ public final class CimBlocks {
 
 	public static final KeepsakeSpotBlock KEEPSAKE_SPOT = keepsakeSpot();
 
+	/** Paint on a wall, laid down by the interior generation. */
+	public static final WallPaintBlock WALL_PAINT = Registry.register(Registries.BLOCK, Identifier.of(Cim.MOD_ID, "wall_paint"),
+			new WallPaintBlock(AbstractBlock.Settings.create().noCollision().nonOpaque().breakInstantly().dropsNothing()
+					.replaceable().sounds(BlockSoundGroup.WOOL)));
+
 	/** The Teacher's job site. */
 	public static final ChalkboardBlock CHALKBOARD = Registry.register(Registries.BLOCK, Identifier.of(Cim.MOD_ID, "chalkboard"),
 			new ChalkboardBlock(AbstractBlock.Settings.create().strength(1.5f).sounds(BlockSoundGroup.WOOD).nonOpaque()));

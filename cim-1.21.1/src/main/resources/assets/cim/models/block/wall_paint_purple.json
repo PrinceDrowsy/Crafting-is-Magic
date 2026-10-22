@@ -1,0 +1,7 @@
+{
+  "textures": { "paint": "minecraft:block/purple_concrete", "particle": "minecraft:block/purple_concrete" },
+  "elements": [
+    { "from": [0, 0, 0.1], "to": [16, 16, 0.1], "shade": false,
+      "faces": { "south": { "uv": [0, 0, 16, 16], "texture": "#paint" }, "north": { "uv": [0, 0, 16, 16], "texture": "#paint" } } }
+  ]
+}

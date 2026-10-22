@@ -16,6 +16,29 @@ You'll need **structure blocks** (`/give @s structure_block`) and **jigsaw block
 
 A house's look comes from its shell; its *life* comes from who moves in.
 
+## What every house needs
+
+- **A bed per resident, in the shell itself.** Ponies move in by claiming a bed - a house with no
+  bed never gets anyone, so it never gets furnished. Beds go in the shell, never only in a room set.
+  (Room sets furnish *around* the bed; they only ever fill empty space, so they can't cover it.)
+- **At least one bedroom marker** (in the room with the beds).
+- **One shared room** - a living room *or* a kitchen; a small cottage can be one room that's both.
+
+By house size:
+
+| House | Rooms |
+|---|---|
+| Small cottage (1 pony) | bedroom + one shared room (living room or kitchen) |
+| Family home (2-4) | bedroom(s) for the adults, a nursery, a kitchen, a living room |
+| Work home | add a workroom (a studio, a workshop) - its sets can suit the resident's profession |
+
+**Walls get painted for you:** when ponies move in, every wall face in each room gets a flat layer of
+paint (a concrete color that suits the resident, or the one a room set names with `"walls"`). It
+has no thickness, so build rooms at the size you want them; windows and doorways are never painted.
+
+Leave **job-site blocks** (a lectern, a smoker, the chalkboard) out of houses and room sets unless
+you mean the house to come with that job.
+
 ## Building a house shell
 
 1. Build the house. Leave the rooms empty, and **separate rooms with walls or doors** — the mod

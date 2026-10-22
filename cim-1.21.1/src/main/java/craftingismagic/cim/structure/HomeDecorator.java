@@ -33,9 +33,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.block.CimBlocks;
 import craftingismagic.cim.block.RoomMarkerBlock;
+import craftingismagic.cim.block.WallPaintBlock;
+import net.minecraft.util.DyeColor;
 import craftingismagic.cim.block.RoomMarkerBlockEntity;
 import craftingismagic.cim.block.RoomType;
+import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 
 /**
@@ -58,6 +62,9 @@ public final class HomeDecorator {
 	private static final int HOUSE_HEIGHT = 6;
 	/** A room is at most this wide and tall - past that, the fill stops (an open plan, a doorway left open). */
 	private static final int ROOM_REACH = 8;
+	/** Rooms are measured this many blocks up from their marker - the 3 clear blocks every room has, and no
+	 * higher, so a room never leaks up a stairwell into the floor above. */
+	private static final int ROOM_HEIGHT = 3;
 	private static final int ROOM_CELLS = 1200;
 
 	/** The bed a pony's home was last furnished for, so a move is noticed once. */
@@ -100,16 +107,39 @@ public final class HomeDecorator {
 			if (other instanceof VillagerEntity neighbor && neighbor.isAlive() && livesNear(neighbor, marker)) return false;
 		}
 		clear(world, entity.placed());
-		BlockBox space = measure(world, marker);
-		if (space == null) return false;
-		Keepsakes.clear(world, space); // the last residents' keepsakes go with them
+		Set<BlockPos> cells = fill(world, marker);
+		if (cells.isEmpty()) return false;
+		Keepsakes.clear(world, box(cells)); // the last residents' keepsakes go with them
+
+		BlockBox space = box(cells);
 		boolean foals = !PonyFamilyAttachment.children(pony).isEmpty();
 		Vec3i size = new Vec3i(space.getBlockCountX(), space.getBlockCountY(), space.getBlockCountZ());
 		RoomSets.RoomSet set = RoomSets.choose(room, pony, foals,
 				candidate -> rotationFor(world, candidate.structure(), size) != null, pony.getRandom());
+
+		// The walls are painted first: a flat layer on every wall face in the room - only where it touches a
+		// full block, so never across a window or a doorway - and the room keeps its full size.
+		DyeColor color = paint(set, pony);
+		List<Long> painted = new ArrayList<>();
+		for (BlockPos cell : cells) {
+			if (cell.equals(marker)) continue;
+			BlockState paint = CimBlocks.WALL_PAINT.getDefaultState().with(WallPaintBlock.COLOR, color);
+			boolean any = false;
+			for (Direction side : Direction.Type.HORIZONTAL) {
+				BlockPos wall = cell.offset(side);
+				if (world.getBlockState(wall).isFullCube(world, wall)) {
+					paint = paint.with(WallPaintBlock.face(side), true);
+					any = true;
+				}
+			}
+			if (any) {
+				world.setBlockState(cell, paint, Block.NOTIFY_LISTENERS);
+				painted.add(cell.asLong());
+			}
+		}
 		if (set == null) {
-			entity.furnished(pony.getUuid(), new long[0]);
-			return false;
+			entity.furnished(pony.getUuid(), painted.stream().mapToLong(Long::longValue).toArray());
+			return !painted.isEmpty();
 		}
 		StructureTemplate template = world.getStructureTemplateManager().getTemplate(set.structure()).orElse(null);
 		BlockRotation rotation = rotationFor(world, set.structure(), size);
@@ -118,10 +148,12 @@ public final class HomeDecorator {
 		// What's air in the room now: whatever the set fills in is furniture, cleared again when someone new moves in.
 		List<BlockPos> air = new ArrayList<>();
 		for (BlockPos pos : BlockPos.iterate(space.getMinX(), space.getMinY(), space.getMinZ(), space.getMaxX(), space.getMaxY(), space.getMaxZ())) {
-			if (world.getBlockState(pos).isAir()) air.add(pos.toImmutable());
+			BlockState state = world.getBlockState(pos);
+			if (state.isAir() || state.getBlock() instanceof WallPaintBlock) air.add(pos.toImmutable());
 		}
 		StructurePlacementData placement = new StructurePlacementData().setRotation(rotation)
-				.addProcessor(BlockIgnoreStructureProcessor.IGNORE_AIR_AND_STRUCTURE_BLOCKS);
+				.addProcessor(BlockIgnoreStructureProcessor.IGNORE_AIR_AND_STRUCTURE_BLOCKS)
+				.addProcessor(OnlyIntoAirProcessor.INSTANCE); // never over the shell's bed or anything else already there
 		BlockBox footprint = template.calculateBoundingBox(placement, BlockPos.ORIGIN);
 		BlockPos origin = new BlockPos(space.getMinX() - footprint.getMinX(), space.getMinY() - footprint.getMinY(),
 				space.getMinZ() - footprint.getMinZ());
@@ -133,7 +165,7 @@ public final class HomeDecorator {
 			world.setBlockState(marker, markerState, Block.NOTIFY_LISTENERS);
 		}
 		RoomMarkerBlockEntity kept = world.getBlockEntity(marker) instanceof RoomMarkerBlockEntity again ? again : entity;
-		List<Long> placed = new ArrayList<>();
+		Set<Long> placed = new HashSet<>(painted);
 		for (BlockPos pos : air) {
 			if (!pos.equals(marker) && !world.getBlockState(pos).isAir()) placed.add(pos.asLong());
 		}
@@ -156,25 +188,50 @@ public final class HomeDecorator {
 		return null;
 	}
 
-	/** The room's air, filled outward from the marker - its box, or null if there's no room there. */
-	private static BlockBox measure(ServerWorld world, BlockPos marker) {
+	/** The wall color: what the room set asks for, else one that suits the resident's personality. First pass. */
+	private static DyeColor paint(RoomSets.RoomSet set, VillagerEntity pony) {
+		if (set != null && set.walls() != null) {
+			DyeColor asked = DyeColor.byName(set.walls(), null);
+			if (asked != null) return asked;
+		}
+		if (!PersonalityAttachment.hasPersonality(pony)) return DyeColor.WHITE;
+		return switch (PersonalityAttachment.getPersonality(pony).baseType()) {
+			case PEPPY -> DyeColor.PINK;
+			case STEADFAST -> DyeColor.LIGHT_BLUE;
+			case BOOKISH -> DyeColor.PURPLE;
+			case DARING -> DyeColor.RED;
+			case GENTLE -> DyeColor.LIME;
+			case REFINED -> DyeColor.MAGENTA;
+			case CRANKY -> DyeColor.LIGHT_GRAY;
+			case LAZY -> DyeColor.YELLOW;
+		};
+	}
+
+	private static BlockBox box(Set<BlockPos> cells) {
+		BlockBox box = null;
+		for (BlockPos pos : cells) box = box == null ? new BlockBox(pos) : box.encompass(pos);
+		return box;
+	}
+
+	/** The room's air, filled outward from the marker - every cell of it (empty if there's no room there). */
+	private static Set<BlockPos> fill(ServerWorld world, BlockPos marker) {
 		Set<BlockPos> seen = new HashSet<>();
+		Set<BlockPos> room = new HashSet<>();
 		ArrayDeque<BlockPos> queue = new ArrayDeque<>();
 		queue.add(marker);
 		seen.add(marker);
-		BlockBox box = null;
 		while (!queue.isEmpty() && seen.size() < ROOM_CELLS) {
 			BlockPos pos = queue.poll();
-			box = box == null ? new BlockBox(pos) : box.encompass(pos);
+			room.add(pos);
 			for (Direction direction : Direction.values()) {
 				BlockPos next = pos.offset(direction);
 				if (Math.abs(next.getX() - marker.getX()) > ROOM_REACH || Math.abs(next.getZ() - marker.getZ()) > ROOM_REACH
-						|| next.getY() < marker.getY() || next.getY() > marker.getY() + HOUSE_HEIGHT || !seen.add(next)) continue;
+						|| next.getY() < marker.getY() || next.getY() >= marker.getY() + ROOM_HEIGHT || !seen.add(next)) continue;
 				BlockState state = world.getBlockState(next);
 				if (state.isAir() || state.getBlock() instanceof RoomMarkerBlock) queue.add(next);
 			}
 		}
-		return box;
+		return room;
 	}
 
 	/** Takes out what an earlier furnishing placed - only what's still there. */
