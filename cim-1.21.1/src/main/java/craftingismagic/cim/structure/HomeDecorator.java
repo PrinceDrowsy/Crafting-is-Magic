@@ -11,6 +11,7 @@ import java.util.UUID;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import com.mojang.serialization.Codec;
+import net.minecraft.block.BedBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import craftingismagic.cim.Cim;
 import craftingismagic.cim.block.CimBlocks;
+import craftingismagic.cim.block.PaintedBed;
 import craftingismagic.cim.block.RoomMarkerBlock;
 import craftingismagic.cim.block.WallPaintBlock;
 import net.minecraft.util.DyeColor;
@@ -65,6 +67,11 @@ public final class HomeDecorator {
 	/** Rooms are measured this many blocks up from their marker - the 3 clear blocks every room has, and no
 	 * higher, so a room never leaks up a stairwell into the floor above. */
 	private static final int ROOM_HEIGHT = 3;
+	/** Blocks paint never goes on - the thatch roof, glass - so only real walls get painted. Data: add any block to it. */
+	public static final net.minecraft.registry.tag.TagKey<net.minecraft.block.Block> UNPAINTABLE = net.minecraft.registry.tag.TagKey.of(
+			net.minecraft.registry.RegistryKeys.BLOCK, Identifier.of(Cim.MOD_ID, "unpaintable"));
+	/** How far paint follows a wall up under a roof. */
+	private static final int ROOF_PAINT_REACH = 10;
 	private static final int ROOM_CELLS = 1200;
 
 	/** The bed a pony's home was last furnished for, so a move is noticed once. */
@@ -127,7 +134,7 @@ public final class HomeDecorator {
 			boolean any = false;
 			for (Direction side : Direction.Type.HORIZONTAL) {
 				BlockPos wall = cell.offset(side);
-				if (world.getBlockState(wall).isFullCube(world, wall)) {
+				if (paintable(world, wall)) {
 					paint = paint.with(WallPaintBlock.face(side), true);
 					any = true;
 				}
@@ -136,6 +143,35 @@ public final class HomeDecorator {
 				world.setBlockState(cell, paint, Block.NOTIFY_LISTENERS);
 				painted.add(cell.asLong());
 			}
+		}
+		// Under a roof the walls go higher than the room's 3 blocks: the paint follows them up to the roof
+		// (but never up a stairwell - the room above is someone else's to paint).
+		for (BlockPos cell : cells) {
+			if (cell.getY() != marker.getY() + ROOM_HEIGHT - 1 || overStairs(world, cell, marker)) continue;
+			BlockPos up = cell.up();
+			for (int i = 0; i < ROOF_PAINT_REACH && world.getBlockState(up).isAir(); i++, up = up.up()) {
+				BlockState paint = CimBlocks.WALL_PAINT.getDefaultState().with(WallPaintBlock.COLOR, color);
+				boolean any = false;
+				for (Direction side : Direction.Type.HORIZONTAL) {
+					BlockPos wall = up.offset(side);
+					if (paintable(world, wall)) {
+						paint = paint.with(WallPaintBlock.face(side), true);
+						any = true;
+					}
+				}
+				if (!any) break;
+				world.setBlockState(up, paint, Block.NOTIFY_LISTENERS);
+				painted.add(up.asLong());
+			}
+		}
+		// A bed fills its cell, so it carries the paint for the wall behind it (PaintedBed) - like carpet under a bed.
+		for (BlockPos pos : BlockPos.iterate(space.getMinX(), space.getMinY(), space.getMinZ(), space.getMaxX(), space.getMaxY(), space.getMaxZ())) {
+			if (!(world.getBlockState(pos).getBlock() instanceof BedBlock) || !(world.getBlockEntity(pos) instanceof PaintedBed bed)) continue;
+			int faces = 0;
+			for (Direction side : Direction.Type.HORIZONTAL) {
+				if (paintable(world, pos.offset(side))) faces |= PaintedBed.bit(side);
+			}
+			bed.cim$paint(color, faces);
 		}
 		if (set == null) {
 			entity.furnished(pony.getUuid(), painted.stream().mapToLong(Long::longValue).toArray());
@@ -205,6 +241,20 @@ public final class HomeDecorator {
 			case CRANKY -> DyeColor.LIGHT_GRAY;
 			case LAZY -> DyeColor.YELLOW;
 		};
+	}
+
+	/** A wall that takes paint: a full block, and not roofing or glass ({@link #UNPAINTABLE}). */
+	private static boolean paintable(ServerWorld world, BlockPos wall) {
+		BlockState state = world.getBlockState(wall);
+		return state.isFullCube(world, wall) && !state.isIn(UNPAINTABLE);
+	}
+
+	/** Whether stairs run through this column of the room - its opening above is a stairwell. */
+	private static boolean overStairs(ServerWorld world, BlockPos cell, BlockPos marker) {
+		for (int y = marker.getY(); y <= cell.getY(); y++) {
+			if (world.getBlockState(new BlockPos(cell.getX(), y, cell.getZ())).getBlock() instanceof net.minecraft.block.StairsBlock) return true;
+		}
+		return false;
 	}
 
 	private static BlockBox box(Set<BlockPos> cells) {

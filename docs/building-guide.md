@@ -35,6 +35,8 @@ By house size:
 **Walls get painted for you:** when ponies move in, every wall face in each room gets a flat layer of
 paint (a concrete color that suits the resident, or the one a room set names with `"walls"`). It
 has no thickness, so build rooms at the size you want them; windows and doorways are never painted.
+Paint follows the walls up to the roof (never onto it, or onto glass - see the `cim:unpaintable` block
+tag), and beds carry the paint for the wall behind them.
 
 Leave **job-site blocks** (a lectern, a smoker, the chalkboard) out of houses and room sets unless
 you mean the house to come with that job.

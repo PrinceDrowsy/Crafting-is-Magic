@@ -1,0 +1,6 @@
+{
+  "values": [
+    "minecraft:hay_block",
+    { "id": "#c:glass_blocks", "required": false }
+  ]
+}

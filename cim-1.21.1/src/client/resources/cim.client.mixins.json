@@ -13,7 +13,8 @@
 		"SoundManagerAccessor",
 		"SoundSystemAccessor",
 		"SourceAccessor",
-		"PlayerSpellSkinMixin"
+		"PlayerSpellSkinMixin",
+		"BedPaintRenderMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
