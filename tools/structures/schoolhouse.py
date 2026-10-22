@@ -248,7 +248,7 @@ def build():
     for x in (MID - 5, MID - 3):
         s.put(x, 1, sz, TRIM, axis="y")
         s.put(x, 2, sz, TRIM, axis="y")
-    text = {"messages": ['""', '"Schoolhouse"', '""', '""'], "color": "black", "has_glowing_text": False}
+    text = {"messages": ['""', '"School"', '""', '""'], "color": "black", "has_glowing_text": False}
     s.put(MID - 4, 2, sz, "minecraft:birch_hanging_sign", attached="false", rotation=8, waterlogged="false",
           nbt={"id": "minecraft:hanging_sign", "front_text": text, "back_text": text, "is_waxed": False})
     s.put(MID - 4, 1, sz, "minecraft:air")
