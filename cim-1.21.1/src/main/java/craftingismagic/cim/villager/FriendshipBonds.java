@@ -75,8 +75,13 @@ public final class FriendshipBonds {
 	 */
 	public static void befriend(ServerPlayerEntity player, Entity pony, ItemStack bracelet) {
 		if (!isBracelet(bracelet) || !friendReady(pony, player.getUuid())) return;
+		ItemStack given = bracelet.copyWithCount(1);
 		bracelet.decrement(1);
 		FriendshipAttachment.setRelationshipType(pony, player.getUuid(), RelationshipType.FRIEND);
+		// The bracelet you gave them is the first keepsake of the friendship.
+		if (pony instanceof net.minecraft.entity.passive.VillagerEntity villager) {
+			craftingismagic.cim.structure.Keepsakes.offer(villager, player, given, 1f);
+		}
 		MemoryStore.add(pony, new Memory(BECAME_FRIENDS, Optional.of(player.getUuid()), MemoryKnowledge.WITNESSED, MemoryImportance.NOTABLE,
 				Optional.of(Emotion.JOY), EmotionIntensity.STRONG, player.getWorld().getTime()));
 		ItemStack theirs = new ItemStack(CimItems.FRIENDSHIP_BRACELET);

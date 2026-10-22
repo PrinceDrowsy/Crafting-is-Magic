@@ -11,7 +11,11 @@
 		"VillagerBreedingMixin",
 		"PonyAmbientSoundMixin",
 		"VillagerGossipMixin",
-		"PonyLedgeSenseMixin"
+		"PonyLedgeSenseMixin",
+		"StructurePoolAccessor",
+		"VillagerHomeWatchMixin",
+		"ItemDisplayAccessor",
+		"DisplayEntityAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

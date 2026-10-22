@@ -127,7 +127,11 @@ public final class PonyWishes {
 	public static void grant(Entity pony, ServerPlayerEntity player, ItemStack gift) {
 		if (!answers(pony, player, gift)) return;
 		Identifier item = current(pony).get().item();
+		ItemStack keepsake = gift.copyWithCount(1);
 		gift.decrement(1);
+		if (pony instanceof VillagerEntity villager) {
+			craftingismagic.cim.structure.Keepsakes.offer(villager, player, keepsake, 0.9f);
+		}
 		pony.removeAttached(WISH);
 		MemoryStore.add(pony, new Memory(Identifier.of("cim", "thoughtful_gift/" + item.getNamespace() + "/" + item.getPath()),
 				Optional.of(player.getUuid()), MemoryKnowledge.WITNESSED, MemoryImportance.NOTABLE, Optional.of(Emotion.JOY),

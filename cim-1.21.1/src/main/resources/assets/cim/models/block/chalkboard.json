@@ -1,0 +1,21 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "board": "cim:block/chalkboard",
+    "frame": "minecraft:block/oak_planks",
+    "particle": "minecraft:block/oak_planks"
+  },
+  "elements": [
+    {
+      "from": [0, 0, 13], "to": [16, 16, 16],
+      "faces": {
+        "north": { "uv": [0, 0, 16, 16], "texture": "#board" },
+        "south": { "uv": [0, 0, 16, 16], "texture": "#frame", "cullface": "south" },
+        "east":  { "uv": [13, 0, 16, 16], "texture": "#frame" },
+        "west":  { "uv": [0, 0, 3, 16], "texture": "#frame" },
+        "up":    { "uv": [0, 13, 16, 16], "texture": "#frame" },
+        "down":  { "uv": [0, 13, 16, 16], "texture": "#frame" }
+      }
+    }
+  ]
+}

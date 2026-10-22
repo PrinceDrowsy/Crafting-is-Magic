@@ -140,6 +140,8 @@ public class Cim implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ModSounds.bootstrap();
+		craftingismagic.cim.block.CimBlocks.register();
+		craftingismagic.cim.villager.CimProfessions.register();
 		CimItems.register();
 		CimItemGroups.register();
 		CimEntities.register();
@@ -164,6 +166,8 @@ public class Cim implements ModInitializer {
 		craftingismagic.cim.villager.PonyWishes.register();
 		craftingismagic.cim.villager.FriendInitiative.register();
 		craftingismagic.cim.villager.HarmAndForgiveness.register();
+		craftingismagic.cim.structure.VillageAdditions.register();
+		craftingismagic.cim.structure.RoomSets.register();
 		VillagerDialogue.register();
 		StoryThreads.register();
 		CimVoices.register();
@@ -443,6 +447,7 @@ public class Cim implements ModInitializer {
 				craftingismagic.cim.verse.SpellColors.COLORS,
 				craftingismagic.cim.villager.PonyWishes.WISH,
 				craftingismagic.cim.villager.HarmAndForgiveness.LEDGER,
+				craftingismagic.cim.structure.HomeDecorator.FURNISHED_HOME,
 		};
 		LOGGER.debug("Preloaded {} attachment types", forceClassLoad.length);
 	}

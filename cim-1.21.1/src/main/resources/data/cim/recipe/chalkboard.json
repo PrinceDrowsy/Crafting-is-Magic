@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "SSS",
+    "SCS",
+    "SSS"
+  ],
+  "key": {
+    "S": { "item": "minecraft:stick" },
+    "C": { "tag": "minecraft:coals" }
+  },
+  "result": {
+    "id": "cim:chalkboard",
+    "count": 1
+  }
+}

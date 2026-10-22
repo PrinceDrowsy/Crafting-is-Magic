@@ -152,7 +152,12 @@ public final class VillagerInteractionHandler {
 			return;
 		}
 		boolean isFavorite = isFavoriteGift(pony, gift);
+		ItemStack keepsake = gift.copyWithCount(1);
 		gift.decrement(1);
+		// Sometimes a friend keeps it somewhere at home - a keepsake you might notice later.
+		if (pony instanceof VillagerEntity villager) {
+			craftingismagic.cim.structure.Keepsakes.offer(villager, player, keepsake, isFavorite ? 0.8f : 0.5f);
+		}
 		// A habit, tapered by the gifts already given today (README: friendship pacing).
 		FriendshipAttachment.RelationshipData data = FriendshipAttachment.get(pony, player.getUuid());
 		int giftsBefore = data.lastGiftDay() == today ? data.giftsGivenThatDay() : 0;

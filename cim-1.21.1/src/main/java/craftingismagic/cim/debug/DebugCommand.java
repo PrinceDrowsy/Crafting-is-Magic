@@ -91,6 +91,7 @@ import craftingismagic.cim.voice.VoiceLeanings;
  * <li>{@code speech show|set|princess|roll <target>} - how a pony or player sounds when they talk.</li>
  * <li>{@code hum <pony> [tune]} - a pony hums right now.</li>
  * <li>{@code gossip <teller> <listener>} - one pony tells another every story they'd pass on, now.</li>
+ * <li>{@code home furnish <pony>} - furnish a pony's home for them now, as if they'd just moved in.</li>
  * <li>{@code verse read <verse>} - what a verse means: its heard words, preview, notes, cost;
  * {@code verse cast <verse>} - cast it, straight from chat (unicorns only).</li>
  * <li>{@code mood show [entity]}, {@code moment play|stop} - feelings from memories, and scene-setting moments.</li>
@@ -120,9 +121,31 @@ public final class DebugCommand {
 						.then(newsBranch())
 						.then(familyBranch())
 						.then(gossipBranch())
+						.then(homeBranch())
 						.then(CommandManager.literal("grow")
 								.then(CommandManager.argument("villagers", EntityArgumentType.entities())
 										.executes(context -> grow(context.getSource(), EntityArgumentType.getEntities(context, "villagers")))))));
+	}
+
+	/** {@code home furnish <pony>}: furnish the pony's home for them now, as if they'd just moved in. */
+	private static LiteralArgumentBuilder<ServerCommandSource> homeBranch() {
+		return CommandManager.literal("home")
+				.then(CommandManager.literal("furnish").then(CommandManager.argument("pony", EntityArgumentType.entity()).executes(context -> {
+					Entity target = EntityArgumentType.getEntity(context, "pony");
+					if (!(target instanceof VillagerEntity pony)) {
+						context.getSource().sendError(Text.literal("That's not a pony."));
+						return 0;
+					}
+					java.util.Optional<net.minecraft.util.math.GlobalPos> home = pony.getBrain()
+							.getOptionalRegisteredMemory(net.minecraft.entity.ai.brain.MemoryModuleType.HOME);
+					if (home == null || home.isEmpty()) {
+						context.getSource().sendError(Text.literal(pony.getName().getString() + " has no home bed yet."));
+						return 0;
+					}
+					int rooms = craftingismagic.cim.structure.HomeDecorator.movedIn(context.getSource().getWorld(), pony, home.get().pos());
+					context.getSource().sendFeedback(() -> Text.literal("Furnished " + rooms + " room(s) for " + pony.getName().getString()), false);
+					return rooms;
+				})));
 	}
 
 	/** {@code gossip <teller> <listener>}: the teller tells the listener every story they'd pass on, right now. */
