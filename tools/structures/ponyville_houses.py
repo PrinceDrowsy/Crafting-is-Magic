@@ -67,16 +67,19 @@ class House:
                 else:
                     self.s.put(x, y, z, FLOOR)
 
-    def window(self, x, z, y, axis, tall=False, box=False, outward=(0, 0)):
-        """A pink lattice window in a wall at floor level y: pane at y+2 (and y+3 if tall), acacia sill and
-        lintel. axis is the wall's direction. box: a flowering window box outside, below the sill."""
+    def window(self, x, z, y, axis, tall=False, box=False, outward=(0, 0), lintel=LOG):
+        """A pink lattice window in a wall at floor level y: pane at y+2 (and y+3 if tall), an acacia lintel
+        (or lintel=INFILL for plain wall above). axis is the wall's direction. box: a flowering window box
+        outside, below the sill."""
         s = self.s
         s.put(x, y + 1, z, INFILL)     # birch under the sill keeps the walls as cream as the show's
         s.put(x, y + 2, z, GLASS)
         if tall:
             s.put(x, y + 3, z, GLASS)
-        else:
+        elif lintel == LOG:
             s.put(x, y + 3, z, LOG, axis=axis)
+        else:
+            s.put(x, y + 3, z, lintel)
         if box:
             dx, dz = outward
             s.put(x + dx, y + 1, z + dz, "minecraft:flowering_azalea_leaves", distance=7, persistent="true", waterlogged="false")
@@ -129,13 +132,16 @@ class House:
 
     # ---- Roofs ----
 
-    def roof_ridge_z(self, x0, x1, z0, z1, y_base, gables=(), beam=True, overhang_left=True):
+    def roof_ridge_z(self, x0, x1, z0, z1, y_base, gables=(), beam=True, overhang_left=True, overhang_right=True,
+                     center_post=False):
         """Steep stepped thatch with the ridge running along z (gables facing front and back).
         x0..x1 are the outer walls; the roof overhangs one block past them and past z0/z1. Thatch is two
         blocks thick; a drooping lip hangs under each eave. gables: the z of each gable wall to fill.
-        overhang_left=False for a wing against a taller wall: its roof starts at x0, no eave there."""
+        overhang_left=False for a wing against a taller wall: its roof starts at x0, no eave there
+        (overhang_right=False too keeps such a roof centered over its walls). center_post: one post up
+        the middle of each gable, to the beam end, instead of a post each side."""
         s = self.s
-        left, right, y, k = (x0 - 1 if overhang_left else x0), x1 + 1, y_base, 0
+        left, right, y, k = (x0 - 1 if overhang_left else x0), (x1 + 1 if overhang_right else x1), y_base, 0
         heights = {}
         while left <= right:
             for x in {left, right}:
@@ -147,9 +153,10 @@ class House:
         for z in range(z0 - 1, z1 + 2):                       # the droop under the eaves
             if overhang_left:
                 s.put(x0 - 1, y_base - 1, z, HAY, axis="y")
-            s.put(x1 + 1, y_base - 1, z, HAY, axis="y")
+            if overhang_right:
+                s.put(x1 + 1, y_base - 1, z, HAY, axis="y")
         for zg in gables:
-            self._gable_wall_x(x0, x1, zg, heights)
+            self._gable_wall_x(x0, x1, zg, heights, center_post)
         peak_x = max(heights, key=lambda x: heights[x])
         if beam:                                             # the beam end poking out at each peak
             s.put(peak_x, heights[peak_x], z0 - 2, LOG, axis="z")
@@ -157,15 +164,16 @@ class House:
         self.top = max(self.top, max(heights.values()) + 1)
         return heights
 
-    def _gable_wall_x(self, x0, x1, z, heights):
-        """Fills a gable end under the roof: birch, with acacia posts and a stepped brace each side."""
+    def _gable_wall_x(self, x0, x1, z, heights, center_post=False):
+        """Fills a gable end under the roof: birch, with acacia posts and a stepped brace each side (or
+        one post up the middle)."""
         s = self.s
         mid = (x0 + x1) // 2
         base = min(heights[x0], heights[x1]) if x0 in heights and x1 in heights else self.top
         for x in range(x0, x1 + 1):
             for y in range(base - 1, heights.get(x, base)):
                 if s.name_at(x, y, z) in (None, "minecraft:air"):
-                    post = x in (x0 + 2, x1 - 2) and x != mid
+                    post = x == mid if center_post else x in (x0 + 2, x1 - 2) and x != mid
                     s.put(x, y, z, LOG if post else INFILL, **({"axis": "y"} if post else {}))
 
     # ---- Finishing ----
@@ -203,7 +211,7 @@ def cottage():
     h.storey(0, 2, 8, 10, 0, posts_x=(3, 5), posts_z=(6,))
     h.door(4, 2, 0, "south", "x")
     for x in (1, 2, 6, 7):
-        h.window(x, 2, 0, "x", box=True, outward=(0, -1))
+        h.window(x, 2, 0, "x", box=True, outward=(0, -1), lintel=INFILL)
     h.window(4, 10, 0, "x")
     for z in (4, 8):
         h.window(0, z, 0, "z", tall=True)
@@ -256,14 +264,19 @@ def family_home():
     h.roof_ridge_z(0, 8, 2, 14, 8, gables=(2, 14))
     s.put(4, 10, 2, GLASS)
     s.put(4, 11, 2, GLASS)
-    # The kitchen wing: x 8..14, z 5..13, one storey, its own lower roof.
-    h.storey(8, 5, 14, 13, 0, posts_x=(11,), posts_z=(9,))
-    for x in (10, 12):
+    # The kitchen wing: x 8..15, z 5..13, one storey, its own lower roof, its peak centered over x 9..15.
+    # Its front: a post at each end and one up the middle to the beam end, a pair of two-wide windows
+    # with window boxes between them.
+    h.storey(8, 5, 15, 13, 0, posts_x=(9, 12), posts_z=(9,))
+    for x in (10, 11, 13, 14):
         h.window(x, 5, 0, "x", box=True, outward=(0, -1))
     for z in (7, 11):
-        h.window(14, z, 0, "z", tall=True)
+        h.window(15, z, 0, "z", tall=True)
+    for x in (10, 11, 13, 14):          # a beam band across the back, matching the front's lintels
+        s.put(x, 3, 13, LOG, axis="x")
     h.inner_wall(8, 9, 8, 9, 0, (8, 9), "east")
-    h.roof_ridge_z(9, 14, 5, 13, 4, gables=(5, 13), beam=True, overhang_left=False)
+    h.roof_ridge_z(9, 15, 5, 13, 4, gables=(5, 13), beam=True, overhang_left=False, overhang_right=False,
+                   center_post=True)
     # Inside, ground: the living room (with the stairs), the kitchen in the wing.
     h.stairs(1, 12, 0, 0, -1, "north")
     for z in (10, 11, 12):              # a rail beside the stairwell
@@ -294,12 +307,11 @@ def work_home():
     # Ground: x 0..6, z 3..13.
     h.storey(0, 3, 6, 13, 0, posts_x=(3,), posts_z=(9,))
     h.door(3, 3, 0, "south", "x")
-    for x in (1, 2, 4, 5):              # wide shop windows, full height
-        s.put(x, 1, 3, GLASS)
+    for x in (1, 5):                    # a shop window each side of the door, over a low birch wall
         s.put(x, 2, 3, GLASS)
         s.put(x, 3, 3, GLASS)
-    for i, x in enumerate((0, 1, 2, 4, 5, 6)):   # the pink-and-white awning
-        s.put(x, 3, 2, "minecraft:pink_wool" if i % 2 == 0 else "minecraft:white_wool")
+    for x in (0, 1, 2, 4, 5, 6):        # the awning, pink-white-pink each side of the door
+        s.put(x, 3, 2, "minecraft:white_wool" if x in (1, 5) else "minecraft:pink_wool")
     for z in (6, 11):
         h.window(0, z, 0, "z", tall=True)
         h.window(6, z, 0, "z", tall=True)

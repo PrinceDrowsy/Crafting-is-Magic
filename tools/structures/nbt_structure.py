@@ -17,7 +17,8 @@ DATA_VERSION = 3955  # Minecraft 1.21.1
 PANES = ("_stained_glass_pane", "minecraft:glass_pane", "minecraft:iron_bars")
 FENCES = ("_fence",)
 NOT_SOLID = ("air", "_pane", "_fence", "lantern", "_door", "_trapdoor", "_bed", "leaves", "jigsaw", "_marker",
-             "keepsake_spot", "flower", "poppy", "dandelion", "_carpet", "torch", "dirt_path")
+             "keepsake_spot", "flower", "poppy", "dandelion", "_carpet", "torch", "dirt_path", "banner", "chain",
+             "bell", "_sign", "lightning_rod", "chalkboard")
 
 
 class Structure:

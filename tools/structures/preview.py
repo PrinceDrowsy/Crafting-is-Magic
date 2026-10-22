@@ -17,6 +17,15 @@ COLORS = {
     "cherry_door": (226, 140, 170), "birch_door": (220, 205, 150), "flowering_azalea_leaves": (110, 160, 80),
     "pink_wool": (238, 140, 180), "white_wool": (240, 240, 240), "dirt_path": (150, 120, 70), "oak_stairs": (170, 136, 86),
     "oak_fence": (170, 136, 86), "lantern": (90, 80, 70), "pink_bed": (235, 130, 170),
+    "stripped_mangrove_wood": (196, 74, 70), "stripped_birch_log": (226, 214, 172), "stripped_birch_wood": (226, 214, 172),
+    "mangrove_stairs": (128, 42, 44), "mangrove_slab": (128, 42, 44), "mangrove_planks": (128, 42, 44),
+    "mangrove_fence": (128, 42, 44), "birch_stairs": (236, 226, 190), "birch_slab": (236, 226, 190),
+    "birch_planks": (236, 222, 170), "cherry_planks": (240, 170, 190), "glass_pane": (200, 230, 240),
+    "birch_fence": (236, 226, 190), "acacia_fence": (186, 100, 50), "red_wall_banner": (200, 40, 40),
+    "bell": (230, 190, 60), "lightning_rod": (200, 120, 80), "stone_bricks": (130, 130, 130),
+    "birch_hanging_sign": (236, 222, 170), "chain": (60, 60, 70), "stripped_warped_log": (80, 160, 150),
+    "warped_slab": (60, 140, 130), "packed_mud": (160, 120, 90), "lime_wall_banner": (130, 200, 60),
+    "bookshelf": (150, 110, 70),
 }
 SKIP = ("air", "jigsaw", "_marker")
 A = 10  # pixels per block
@@ -80,5 +89,9 @@ def save_png(path, img):
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[2] == "schoolhouse":
+        import schoolhouse
+        save_png(sys.argv[1], render(schoolhouse.build(), width=640, height=640))
+        sys.exit()
     panels = [render(build()) for build in (houses.cottage, houses.family_home, houses.work_home)]
     save_png(sys.argv[1], np.concatenate(panels, axis=1))
