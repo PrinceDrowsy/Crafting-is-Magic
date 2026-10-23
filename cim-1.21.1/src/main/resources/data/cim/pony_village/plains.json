@@ -1,0 +1,42 @@
+{
+  "_comment": "A plains pony village (PonyVillageLayouts). Centerpieces and plaza buildings are vanilla's for now, until the town hall, market and pony shops exist.",
+  "centerpieces": [
+    {"structure": "minecraft:village/plains/town_centers/plains_fountain_01", "weight": 1},
+    {"structure": "minecraft:village/plains/town_centers/plains_meeting_point_1", "weight": 1},
+    {"structure": "minecraft:village/plains/town_centers/plains_meeting_point_2", "weight": 1},
+    {"structure": "minecraft:village/plains/town_centers/plains_meeting_point_3", "weight": 1}
+  ],
+  "plaza": [
+    {"structure": "minecraft:village/plains/houses/plains_butcher_shop_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_butcher_shop_2", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_tool_smith_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_fletcher_house_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_shepherds_house_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_armorer_house_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_fisher_cottage_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_tannery_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_cartographer_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_library_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_library_2", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_masons_house_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_weaponsmith_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_temple_3", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_temple_4", "weight": 1}
+  ],
+  "homes": [
+    {"structure": "cim:village/plains/houses/cottage", "weight": 12},
+    {"structure": "cim:village/plains/houses/family_home", "weight": 5},
+    {"structure": "cim:village/plains/houses/work_home", "weight": 5}
+  ],
+  "outskirts": [
+    {"structure": "minecraft:village/plains/houses/plains_large_farm_1", "weight": 4},
+    {"structure": "minecraft:village/plains/houses/plains_small_farm_1", "weight": 4},
+    {"structure": "minecraft:village/plains/houses/plains_animal_pen_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_animal_pen_2", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_animal_pen_3", "weight": 3},
+    {"structure": "minecraft:village/plains/houses/plains_stable_1", "weight": 1},
+    {"structure": "minecraft:village/plains/houses/plains_stable_2", "weight": 1}
+  ],
+  "schoolhouse": "cim:village/plains/houses/schoolhouse",
+  "town_hall": "cim:village/plains/centers/town_hall"
+}

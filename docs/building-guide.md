@@ -121,8 +121,9 @@ needs **at least one plain set**, so no room ever stays bare.
 
 Build it like a house shell, with a **chalkboard** inside — that's the Teacher's job site (a
 pony nearby will take the job). Rooms in it can use markers too (a *Workroom* for the classroom).
-Save it as `cim:village/plains/houses/schoolhouse` and add it to the pool the same way, with a
-low weight (it should be rare — about one per village).
+Save it as `cim:village/plains/houses/schoolhouse` and add it to the pool the same way, with
+`"once": true` instead of a weight: then **every village gets exactly one** (it's tried first at each
+house spot until it fits, and never again after). The schoolhouse is in all five village types this way.
 
 ## Testing
 

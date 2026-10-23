@@ -2,10 +2,16 @@ package craftingismagic.cim.structure;
 
 import java.io.BufferedReader;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.Predicate;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.datafixers.util.Pair;
@@ -17,6 +23,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.resource.Resource;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.structure.pool.SinglePoolElement;
 import net.minecraft.structure.pool.StructurePool;
 import net.minecraft.structure.pool.StructurePoolElement;
 import net.minecraft.structure.processor.StructureProcessorList;
@@ -26,6 +33,7 @@ import net.minecraft.util.JsonHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import craftingismagic.cim.mixin.SinglePoolElementAccessor;
 import craftingismagic.cim.mixin.StructurePoolAccessor;
 
 /**
@@ -37,7 +45,16 @@ import craftingismagic.cim.mixin.StructurePoolAccessor;
  *   "structure": "cim:village/plains/houses/pony_cottage_1",
  *   "weight": 4,                                  // optional, default 1 (vanilla houses are 1-10)
  *   "processors": "minecraft:mossify_10_percent", // optional, default none
- *   "projection": "rigid"                         // optional: rigid, or terrain_matching for paths
+ *   "projection": "rigid",                        // optional: rigid, or terrain_matching for paths
+ *   "once": true                                  // optional: exactly one in every village (weight is then ignored)
+ * }
+ * }</pre>
+ * And each {@code data/<ns>/village_removals/*.json} takes vanilla's own buildings out of a pool, where the
+ * mod's replace them (only those named - anything other mods added stays):
+ * <pre>{@code
+ * {
+ *   "pool": "minecraft:village/plains/houses",
+ *   "structures": ["minecraft:village/plains/houses/plains_small_house_1", ...]
  * }
  * }</pre>
  * Applied once when a world starts - village pools don't reload with {@code /reload}, so neither do
@@ -45,8 +62,14 @@ import craftingismagic.cim.mixin.StructurePoolAccessor;
  */
 public final class VillageAdditions {
 	private static final Logger LOGGER = LoggerFactory.getLogger("cim/structures");
+	/** Buildings every village gets exactly one of (VillageOnceMixin). */
+	private static volatile Set<StructurePoolElement> once = Set.of();
 
 	private VillageAdditions() {
+	}
+
+	public static Set<StructurePoolElement> once() {
+		return once;
 	}
 
 	public static void register() {
@@ -56,7 +79,27 @@ public final class VillageAdditions {
 	private static void apply(MinecraftServer server) {
 		Registry<StructurePool> pools = server.getRegistryManager().get(RegistryKeys.TEMPLATE_POOL);
 		Registry<StructureProcessorList> processors = server.getRegistryManager().get(RegistryKeys.PROCESSOR_LIST);
+		int removed = 0;
+		for (Map.Entry<Identifier, Resource> entry : server.getResourceManager()
+				.findResources("village_removals", path -> path.getPath().endsWith(".json")).entrySet()) {
+			String where = "data/" + entry.getKey().getNamespace() + "/" + entry.getKey().getPath();
+			try (BufferedReader reader = entry.getValue().getReader()) {
+				JsonObject json = JsonParser.parseReader(reader).getAsJsonObject();
+				Identifier poolId = Identifier.of(JsonHelper.getString(json, "pool"));
+				StructurePool pool = pools.get(poolId);
+				if (pool == null) {
+					LOGGER.error("{}: there's no village pool called {}", where, poolId);
+					continue;
+				}
+				Set<Identifier> gone = new HashSet<>();
+				for (JsonElement structure : JsonHelper.getArray(json, "structures")) gone.add(Identifier.of(structure.getAsString()));
+				removed += remove(pool, gone);
+			} catch (Exception e) {
+				LOGGER.error("{}: couldn't remove them: {}", where, e.getMessage());
+			}
+		}
 		int added = 0;
+		Set<StructurePoolElement> required = Collections.newSetFromMap(new IdentityHashMap<>());
 		for (Map.Entry<Identifier, Resource> entry : server.getResourceManager()
 				.findResources("village_additions", path -> path.getPath().endsWith(".json")).entrySet()) {
 			String where = "data/" + entry.getKey().getNamespace() + "/" + entry.getKey().getPath();
@@ -79,13 +122,29 @@ public final class VillageAdditions {
 						? StructurePool.Projection.TERRAIN_MATCHING : StructurePool.Projection.RIGID;
 				StructurePoolElement element = StructurePoolElement.ofProcessedSingle(JsonHelper.getString(json, "structure"), processorList.get())
 						.apply(projection);
-				add(pool, element, Math.max(1, JsonHelper.getInt(json, "weight", 1)));
+				boolean onlyOnce = JsonHelper.getBoolean(json, "once", false);
+				add(pool, element, onlyOnce ? 1 : Math.max(1, JsonHelper.getInt(json, "weight", 1)));
+				if (onlyOnce) required.add(element);
 				added++;
 			} catch (Exception e) {
 				LOGGER.error("{}: couldn't add it: {}", where, e.getMessage());
 			}
 		}
-		LOGGER.info("Added {} building(s) to village pools", added);
+		once = Collections.unmodifiableSet(required);
+		LOGGER.info("Took {} vanilla building(s) out of village pools; added {} ({} in every village)", removed, added, required.size());
+	}
+
+	/** Takes the named structures out of a pool; how many there were. */
+	private static int remove(StructurePool pool, Set<Identifier> structures) {
+		StructurePoolAccessor access = (StructurePoolAccessor) pool;
+		Predicate<StructurePoolElement> named = element -> element instanceof SinglePoolElement single
+				&& ((SinglePoolElementAccessor) single).cim$location().left().map(structures::contains).orElse(false);
+		access.cim$elements().removeIf(named);
+		List<Pair<StructurePoolElement, Integer>> counts = new ArrayList<>(access.cim$elementCounts());
+		int before = counts.size();
+		counts.removeIf(pair -> named.test(pair.getFirst()));
+		access.cim$setElementCounts(counts);
+		return before - counts.size();
 	}
 
 	/** The same way vanilla holds a weighted element: listed once per weight, and counted. */

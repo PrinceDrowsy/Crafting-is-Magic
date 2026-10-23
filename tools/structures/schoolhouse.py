@@ -235,9 +235,11 @@ def build():
                 s.put(x, y, z, "minecraft:air")
         for x in (MID - 2, MID + 2):
             s.put(x, 1, z, "minecraft:birch_fence")
-    s.put(MID, 0, Z0 - 10, "minecraft:jigsaw", orientation="north_up", nbt={
+    # The doorway jigsaw sits on the path, a block up (as in ponyville_houses.py), so the ground layer lands in the ground.
+    s.put(MID, 0, Z0 - 10, "minecraft:dirt_path")
+    s.put(MID, 1, Z0 - 10, "minecraft:jigsaw", orientation="north_up", nbt={
         "id": "minecraft:jigsaw", "name": "minecraft:building_entrance", "target": "minecraft:building_entrance",
-        "pool": "minecraft:empty", "final_state": "minecraft:dirt_path", "joint": "aligned",
+        "pool": "minecraft:empty", "final_state": "minecraft:air", "joint": "aligned",
         "placement_priority": 0, "selection_priority": 0})
 
     # The sign, beside the path: a board hung between two posts on a stone base.

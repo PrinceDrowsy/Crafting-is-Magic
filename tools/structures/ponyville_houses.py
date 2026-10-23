@@ -193,9 +193,12 @@ class House:
             for y in range(ground_y + 1, ground_y + 3):
                 if (door_x, y, z) not in s.blocks:
                     s.put(door_x, y, z, "minecraft:air")
-        s.put(door_x, ground_y, apron, "minecraft:jigsaw", orientation="north_up", nbt={
+        # The doorway jigsaw sits on the path, a block up, as vanilla's medium house has it: villages line a
+        # jigsaw up with the first free block above the street, so the house's ground layer lands in the ground.
+        s.put(door_x, ground_y, apron, "minecraft:dirt_path")
+        s.put(door_x, ground_y + 1, apron, "minecraft:jigsaw", orientation="north_up", nbt={
             "id": "minecraft:jigsaw", "name": "minecraft:building_entrance", "target": "minecraft:building_entrance",
-            "pool": "minecraft:empty", "final_state": "minecraft:dirt_path", "joint": "aligned",
+            "pool": "minecraft:empty", "final_state": "minecraft:air", "joint": "aligned",
             "placement_priority": 0, "selection_priority": 0})
         s.connect_panes()
 
@@ -248,7 +251,7 @@ def family_home():
     h.door(4, 3, 0, "south", "x")
     for x in (1, 2, 6, 7):
         h.window(x, 3, 0, "x", box=True, outward=(0, -1))
-    for z in (5, 8, 12):
+    for z in (4, 5, 7, 8, 9, 11, 12):   # the west side: windows in every bay between the posts
         h.window(0, z, 0, "z", tall=True)
     # Upper storey jettied front and back: z 2..14.
     h.storey(0, 2, 8, 14, 4, posts_x=(2, 4, 6), posts_z=(5, 8, 11))
@@ -258,8 +261,8 @@ def family_home():
     for x in (1, 3, 5, 7):
         h.window(x, 2, 4, "x", tall=True)
         h.window(x, 14, 4, "x")
-    for z in (4, 7, 12):
-        h.window(0, z, 4, "z")
+    for z in (3, 4, 6, 7, 9, 10, 12, 13):
+        h.window(0, z, 4, "z", tall=True)
     h.plate(0, 2, 8, 14, 8)
     h.roof_ridge_z(0, 8, 2, 14, 8, gables=(2, 14))
     s.put(4, 10, 2, GLASS)
@@ -312,22 +315,20 @@ def work_home():
         s.put(x, 3, 3, GLASS)
     for x in (0, 1, 2, 4, 5, 6):        # the awning, pink-white-pink each side of the door
         s.put(x, 3, 2, "minecraft:white_wool" if x in (1, 5) else "minecraft:pink_wool")
-    for z in (6, 11):
-        h.window(0, z, 0, "z", tall=True)
-        h.window(6, z, 0, "z", tall=True)
+    for x in (0, 6):                    # each side: a wide window at the front, a small one at the back
+        for z in (5, 6, 7, 11):
+            h.window(x, z, 0, "z", lintel=INFILL)
     h.inner_wall(1, 9, 5, 9, 0, (4, 9), "south")
     # Second storey, jettied out front: z 2..13.
     h.storey(0, 2, 6, 13, 4, posts_x=(2, 4), posts_z=(6, 10))
     for x in (1, 3, 5):
         h.window(x, 2, 4, "x", tall=True, box=(x != 3), outward=(0, -1))
-    for z in (4, 8, 12):
-        h.window(0, z, 4, "z")
-        h.window(6, z, 4, "z")
-    # Third storey, jettied again: z 1..13, knee walls under the roof.
+    for z in (4, 8):
+        h.window(0, z, 4, "z", lintel=INFILL)
+        h.window(6, z, 4, "z", lintel=INFILL)
+    # Third storey, jettied again: z 1..13, knee walls under the roof (the eaves hide them; the front
+    # gable window lights it).
     h.storey(0, 1, 6, 13, 8, posts_x=(2, 4), posts_z=(5, 9), height=2)
-    for z in (3, 7, 11):
-        h.window(0, z, 7, "z")
-        h.window(6, z, 7, "z")
     h.roof_ridge_z(0, 6, 1, 13, 10, gables=(1, 13))
     s.put(3, 11, 1, GLASS)
     s.put(3, 12, 1, GLASS)

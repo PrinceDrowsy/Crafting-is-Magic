@@ -16,7 +16,9 @@
 		"VillagerHomeWatchMixin",
 		"ItemDisplayAccessor",
 		"DisplayEntityAccessor",
-		"BedPaintMixin"
+		"BedPaintMixin",
+		"VillageOnceMixin",
+		"SinglePoolElementAccessor"
 	],
 	"injectors": {
 		"defaultRequire": 1

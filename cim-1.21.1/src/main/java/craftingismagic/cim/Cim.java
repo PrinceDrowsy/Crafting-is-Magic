@@ -167,6 +167,8 @@ public class Cim implements ModInitializer {
 		craftingismagic.cim.villager.FriendInitiative.register();
 		craftingismagic.cim.villager.HarmAndForgiveness.register();
 		craftingismagic.cim.structure.VillageAdditions.register();
+		craftingismagic.cim.structure.PonyVillageStructure.register();
+		craftingismagic.cim.structure.PonyVillageLayouts.register();
 		craftingismagic.cim.structure.RoomSets.register();
 		craftingismagic.cim.structure.OnlyIntoAirProcessor.register();
 		VillagerDialogue.register();

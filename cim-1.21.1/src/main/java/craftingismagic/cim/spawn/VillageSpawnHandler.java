@@ -3,9 +3,16 @@ package craftingismagic.cim.spawn;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.registry.tag.StructureTags;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.structure.StructureStart;
+import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.Heightmap;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkStatus;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.structure.VillageBuildingPiece;
 
 /**
  * Relocates a fresh world's spawn point into the nearest village (README-requested default, with
@@ -33,6 +40,9 @@ public final class VillageSpawnHandler {
 	/** Matches vanilla's own typical village search radius (in chunks) - villages are common
 	 * enough not to need anything larger. */
 	private static final int SEARCH_RADIUS_CHUNKS = 100;
+	/** How far out from the centerpiece's front the spawn point goes: past vanilla's ten-block scatter, and
+	 * short of the plaza's ring road (42 out in a village, so a 48-wide town hall leaves it 34 out). */
+	private static final int PLAZA_GAP = 10;
 
 	private VillageSpawnHandler() {
 	}
@@ -52,11 +62,33 @@ public final class VillageSpawnHandler {
 
 			BlockPos villagePos = world.locateStructure(StructureTags.VILLAGE, world.getSpawnPos(), SEARCH_RADIUS_CHUNKS, false);
 			if (villagePos != null) {
+				villagePos = inFrontOfCenterpiece(world, villagePos);
 				world.setSpawnPos(villagePos, 0f);
 				Cim.LOGGER.info("Relocated world spawn to a village at {}", villagePos);
 			} else {
 				Cim.LOGGER.info("No village found within {} chunks of spawn - keeping the vanilla spawn point", SEARCH_RADIUS_CHUNKS);
 			}
 		});
+	}
+
+	/**
+	 * A pony village is located at its centerpiece - the town hall, in a village - and vanilla scatters
+	 * players up to ten blocks round the spawn point, onto whatever's highest: its roof. So spawn goes out on
+	 * the plaza instead, in front of the centerpiece's doors (its templates face north before rotation), far
+	 * enough out that the scatter stays clear of it. Other villages keep the located point.
+	 */
+	private static BlockPos inFrontOfCenterpiece(ServerWorld world, BlockPos located) {
+		Chunk chunk = world.getChunk(located.getX() >> 4, located.getZ() >> 4, ChunkStatus.STRUCTURE_STARTS);
+		for (StructureStart start : chunk.getStructureStarts().values()) {
+			if (!start.hasChildren() || !(start.getChildren().getFirst() instanceof VillageBuildingPiece centerpiece)) continue;
+			BlockBox box = centerpiece.getBoundingBox();
+			Direction front = centerpiece.rotation().rotate(Direction.NORTH);
+			int reach = (front.getAxis() == Direction.Axis.X ? box.getBlockCountX() : box.getBlockCountZ()) / 2 + PLAZA_GAP;
+			BlockPos center = box.getCenter();
+			BlockPos spot = center.offset(front, reach);
+			world.getChunk(spot);                                        // generated, so the ground's height is real
+			return world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spot);
+		}
+		return located;
 	}
 }

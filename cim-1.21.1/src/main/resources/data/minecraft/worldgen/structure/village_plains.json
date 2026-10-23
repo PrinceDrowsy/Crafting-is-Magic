@@ -1,0 +1,10 @@
+{
+  "type": "cim:pony_village",
+  "biomes": "#minecraft:has_structure/village_plains",
+  "layout": "cim:plains",
+  "abandoned_pool": "cim:village/plains/abandoned_town_centers",
+  "abandoned_chance": 0.02,
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

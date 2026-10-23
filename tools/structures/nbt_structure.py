@@ -50,7 +50,7 @@ class Structure:
 
     def solid(self, x, y, z):
         name = self.name_at(x, y, z)
-        return name is not None and not any(part in name for part in NOT_SOLID)
+        return name is not None and name != "minecraft:light" and not any(part in name for part in NOT_SOLID)
 
     def connect_panes(self):
         """Panes and fences join whatever's beside them, as they would once placed by hand."""
