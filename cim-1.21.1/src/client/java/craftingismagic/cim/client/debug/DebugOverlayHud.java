@@ -68,7 +68,7 @@ public final class DebugOverlayHud {
 
 	private static void render(DrawContext context, RenderTickCounter tickCounter) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (!visible || client.player == null || client.getDebugHud().shouldShowDebugHud()) {
+		if (!visible || client.options.hudHidden || client.player == null || client.getDebugHud().shouldShowDebugHud()) {
 			return;
 		}
 

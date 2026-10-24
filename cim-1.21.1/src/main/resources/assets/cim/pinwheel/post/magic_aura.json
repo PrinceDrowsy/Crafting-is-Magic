@@ -1,0 +1,25 @@
+{
+  "stages": [
+    { "type": "veil:blit", "shader": "cim:magic/aura_validate", "in": "cim:magic_mask", "out": "valid", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_seed", "in": "valid", "out": "flood_a", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_256", "in": "flood_a", "out": "flood_b", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_128", "in": "flood_b", "out": "flood_a", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_64", "in": "flood_a", "out": "flood_b", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_32", "in": "flood_b", "out": "flood_a", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_16", "in": "flood_a", "out": "flood_b", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_8", "in": "flood_b", "out": "flood_a", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_4", "in": "flood_a", "out": "flood_b", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_2", "in": "flood_b", "out": "flood_a", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_flood_1", "in": "flood_a", "out": "flood_b", "clear": true },
+    { "type": "veil:blit", "shader": "cim:magic/aura_composite", "in": "minecraft:main", "clear": false }
+  ],
+  "framebuffers": {
+    "valid": { "depth": false, "format": "RGBA16F" },
+    "flood_a": { "depth": false, "format": "RGBA16F" },
+    "flood_b": { "depth": false, "format": "RGBA16F" }
+  },
+  "textures": {
+    "ValidSampler": { "type": "framebuffer", "name": "valid" },
+    "NearestSampler": { "type": "framebuffer", "name": "flood_b" }
+  }
+}

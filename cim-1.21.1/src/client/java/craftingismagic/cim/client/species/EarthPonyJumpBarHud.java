@@ -24,7 +24,7 @@ public final class EarthPonyJumpBarHud {
 	}
 
 	private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter) {
-		if (!EarthPonyJumpHandler.isCharging()) {
+		if (!EarthPonyJumpHandler.isCharging() || net.minecraft.client.MinecraftClient.getInstance().options.hudHidden) {
 			return;
 		}
 

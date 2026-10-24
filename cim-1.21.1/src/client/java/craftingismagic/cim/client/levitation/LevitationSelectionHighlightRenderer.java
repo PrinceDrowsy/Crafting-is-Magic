@@ -58,7 +58,7 @@ public final class LevitationSelectionHighlightRenderer {
 	}
 
 	private static void render(DrawContext context) {
-		if (!LevitationClientState.isSelecting() || capturedViewProjection == null) {
+		if (!LevitationClientState.isSelecting() || capturedViewProjection == null || MinecraftClient.getInstance().options.hudHidden) {
 			return;
 		}
 

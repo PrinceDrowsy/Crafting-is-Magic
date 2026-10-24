@@ -12,17 +12,17 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * Tells nearby clients to start or stop the pink/magenta magic aura + twinkling
- * star effect on a set of block display entities (identified by their network
- * ids) - broadcast to everyone watching, not just the caster, since the
- * floating glowing blocks are a public visual effect like the blocks
- * themselves.
+ * Tells nearby clients to start or stop the magic aura (and its twinkling stars) on a set of held
+ * entities - block/item displays or a held mob - identified by their network ids, in the caster's
+ * own magic color (opaque RGB; ignored when stopping). Broadcast to everyone watching, not just the
+ * caster, since the floating glowing things are a public visual effect like the things themselves.
  */
-public record LevitationAuraS2CPayload(List<Integer> entityIds, boolean active) implements CustomPayload {
+public record LevitationAuraS2CPayload(List<Integer> entityIds, boolean active, int color) implements CustomPayload {
 	public static final Id<LevitationAuraS2CPayload> ID = new Id<>(Identifier.of(Cim.MOD_ID, "levitation_aura"));
 	public static final PacketCodec<RegistryByteBuf, LevitationAuraS2CPayload> CODEC = PacketCodec.tuple(
 			PacketCodecs.collection(ArrayList::new, PacketCodecs.VAR_INT), LevitationAuraS2CPayload::entityIds,
 			PacketCodecs.BOOL, LevitationAuraS2CPayload::active,
+			PacketCodecs.INTEGER, LevitationAuraS2CPayload::color,
 			LevitationAuraS2CPayload::new);
 
 	@Override

@@ -31,7 +31,8 @@ public final class StaminaBarHud {
 
 	private static void render(DrawContext context, RenderTickCounter tickCounter) {
 		MinecraftClient client = MinecraftClient.getInstance();
-		if (client.player == null || !SpeciesAttachment.hasChosenSpecies(client.player)) {
+		// F1 hides the HUD - Fabric's HUD callback still runs then, so every overlay checks for itself.
+		if (client.options.hudHidden || client.player == null || !SpeciesAttachment.hasChosenSpecies(client.player)) {
 			return;
 		}
 

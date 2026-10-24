@@ -14,7 +14,9 @@
 		"SoundSystemAccessor",
 		"SourceAccessor",
 		"PlayerSpellSkinMixin",
-		"BedPaintRenderMixin"
+		"BedPaintRenderMixin",
+		"EntityRenderingMixin",
+		"MineLpHornMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

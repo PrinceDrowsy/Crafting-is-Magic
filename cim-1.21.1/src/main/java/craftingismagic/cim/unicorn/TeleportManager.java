@@ -138,6 +138,10 @@ public final class TeleportManager {
 		beginCharge(player, destination, player.getPos().distanceTo(destination));
 	}
 
+	public static boolean isCharging(ServerPlayerEntity player) {
+		return charges.containsKey(player.getUuid());
+	}
+
 	private static boolean canCastTeleport(ServerPlayerEntity player) {
 		return SpeciesAttachment.hasChosenSpecies(player) && SpeciesAttachment.getSpecies(player) == Species.UNICORN;
 	}

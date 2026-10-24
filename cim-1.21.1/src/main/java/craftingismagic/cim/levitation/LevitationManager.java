@@ -56,6 +56,7 @@ import craftingismagic.cim.sound.ModSounds;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment;
+import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaManager;
 
 /**
@@ -274,6 +275,12 @@ public final class LevitationManager {
 	private LevitationManager() {
 	}
 
+	/** Whether the player is channelling Levitation - choosing what to lift, or holding it (not once it's thrown). */
+	public static boolean isChannelling(ServerPlayerEntity player) {
+		LevitationSession session = SESSIONS.get(player.getUuid());
+		return session != null && session.phase != LevitationSession.Phase.THROWN;
+	}
+
 	public static void startSelection(ServerPlayerEntity player) {
 		if (SESSIONS.containsKey(player.getUuid())) {
 			return;
@@ -436,7 +443,7 @@ public final class LevitationManager {
 		updateHeldPositions(player, session);
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.HOLDING));
 		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_PICKUP);
-		broadcastAura(world, player.getPos(), List.of(auraEntityId), true);
+		broadcastAura(world, player.getPos(), List.of(auraEntityId), true, magicColor(player));
 	}
 
 	public static void adjustSelectionCount(ServerPlayerEntity player, float scrollDelta, LevitationSelectionAxis axis) {
@@ -511,7 +518,7 @@ public final class LevitationManager {
 		updateHeldPositions(player, session);
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.HOLDING));
 		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_PICKUP);
-		broadcastAura(world, player.getPos(), blockDisplayIds(blocks), true);
+		broadcastAura(world, player.getPos(), blockDisplayIds(blocks), true, magicColor(player));
 	}
 
 	private static List<Integer> blockDisplayIds(List<LevitationBlock> blocks) {
@@ -519,7 +526,17 @@ public final class LevitationManager {
 	}
 
 	private static void broadcastAura(ServerWorld world, Vec3d pos, List<Integer> entityIds, boolean active) {
-		LevitationAuraS2CPayload payload = new LevitationAuraS2CPayload(entityIds, active);
+		broadcastAura(world, pos, entityIds, active, 0);
+	}
+
+	/** The caster's magic color (docs/magic-aura.md: one color per caster) - their Stamina color for
+	 * now, the same color Verse already treats as their aura (see {@code VerseRuntime#auraColor}). */
+	private static int magicColor(ServerPlayerEntity player) {
+		return StaminaColorAttachment.getColors(player).fillColor() & 0xFFFFFF;
+	}
+
+	private static void broadcastAura(ServerWorld world, Vec3d pos, List<Integer> entityIds, boolean active, int color) {
+		LevitationAuraS2CPayload payload = new LevitationAuraS2CPayload(entityIds, active, color);
 		for (ServerPlayerEntity nearby : PlayerLookup.around(world, pos, 128.0)) {
 			ServerPlayNetworking.send(nearby, payload);
 		}

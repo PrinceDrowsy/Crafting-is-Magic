@@ -23,7 +23,7 @@ public final class TeleportChargeBarHud {
 	}
 
 	private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter) {
-		if (!TeleportChargeState.isCharging()) {
+		if (!TeleportChargeState.isCharging() || net.minecraft.client.MinecraftClient.getInstance().options.hudHidden) {
 			return;
 		}
 
