@@ -154,6 +154,7 @@ public class Cim implements ModInitializer {
 		VillagerFriendGroupHandler.register();
 		VillagerInteractionHandler.register();
 		VillageSpawnHandler.register();
+		craftingismagic.cim.magic.HornGlow.register();
 		CimTaleVocabulary.register();
 		TaleLibrary.register();
 		HumLibrary.register();
@@ -213,6 +214,7 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(PegasusChargeEndS2CPayload.ID, PegasusChargeEndS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(PegasusRainboomTrailS2CPayload.ID, PegasusRainboomTrailS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(LevitationAuraS2CPayload.ID, LevitationAuraS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(craftingismagic.cim.network.HornGlowS2CPayload.ID, craftingismagic.cim.network.HornGlowS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(LevitationSelectionBoxS2CPayload.ID, LevitationSelectionBoxS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(StopVillagerInteractionC2SPayload.ID, StopVillagerInteractionC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(DialogueChooseC2SPayload.ID, DialogueChooseC2SPayload.CODEC);

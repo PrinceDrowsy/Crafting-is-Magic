@@ -16,25 +16,20 @@ import craftingismagic.cim.structure.VillageBuildingPiece;
 
 /**
  * Relocates a fresh world's spawn point into the nearest village (README-requested default, with
- * {@link VillageSpawnConfig#spawnInVillage} to turn it off).
- * <p>
- * Fires on {@code ServerLifecycleEvents.SERVER_STARTED}, not {@code ServerWorldEvents.LOAD} - a
- * first attempt used {@code LOAD} (it runs early during startup, so it looked safely "before any
- * player can join"), but that missed the real ordering problem: for a genuinely brand-new world,
- * vanilla's own {@code MinecraftServer.setupSpawn(...)} - its biome-search-based default spawn
- * placement - fires from inside the same {@code createWorlds()} call {@code LOAD} does, and runs
- * AFTER it. So the relocation was landing first and then getting silently overwritten by vanilla's
- * own default a moment later - invisible in testing on an *existing* world (which skips
- * {@code setupSpawn} entirely, since it already has a saved spawn point), which is exactly why it
- * looked like it worked before shipping. {@code SERVER_STARTED} fires once the entire startup
- * sequence - all dimensions, all of vanilla's own spawn setup - has finished, so there's nothing
- * left to overwrite it afterward.
- * <p>
- * Only the overworld is searched, and only once ever per world (see {@link VillageSpawnState}) -
- * {@code ServerWorld#locateStructure} does real chunk generation as needed to search, which is a
- * one-time cost worth paying at world creation, not something to repeat on every later server
- * start. If no village turns up within the search radius, the flag is still set so this doesn't
- * retry (and re-pay that cost) forever on a village-less seed - the vanilla spawn point is kept.
+ * {@link VillageSpawnConfig#spawnInVillage} to turn it off), in two steps:
+ * <ol>
+ * <li>{@link #relocate}, at the end of vanilla's own {@code MinecraftServer.setupSpawn} (see {@code
+ * VillageSpawnSetupMixin}) - after vanilla has picked its default (so nothing overwrites ours, the
+ * reason an earlier {@code ServerWorldEvents.LOAD} version failed) but before vanilla prepares the
+ * spawn area, so the world-creation progress screen generates the area round the village itself.</li>
+ * <li>{@link #faceTheDoors}, on {@code SERVER_STARTED}, once that area exists: moves spawn out onto the
+ * plaza in front of the centerpiece. It only reads chunks already generated - an earlier version
+ * generated the plaza's chunk itself at that point, which stalled a new world at "100%" for a minute
+ * or more with the server thread blocked.</li>
+ * </ol>
+ * Only the overworld is searched, and only once ever per world (see {@link VillageSpawnState});
+ * {@code ServerWorld#locateStructure} is a one-time cost at world creation. If no village turns up,
+ * the flag is still set, so a village-less seed doesn't re-search forever.
  */
 public final class VillageSpawnHandler {
 	/** Matches vanilla's own typical village search radius (in chunks) - villages are common
@@ -44,51 +39,68 @@ public final class VillageSpawnHandler {
 	 * short of the plaza's ring road (42 out in a village, so a 48-wide town hall leaves it 34 out). */
 	private static final int PLAZA_GAP = 10;
 
+	/** Where {@link #relocate} found a village this server session, for {@link #faceTheDoors}; null if none. */
+	private static BlockPos located;
+
 	private VillageSpawnHandler() {
 	}
 
 	public static void register() {
-		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-			if (!VillageSpawnConfig.get().spawnInVillage) {
-				return;
-			}
-			ServerWorld world = server.getOverworld();
+		ServerLifecycleEvents.SERVER_STARTED.register(server -> faceTheDoors(server.getOverworld()));
+	}
 
-			VillageSpawnState state = world.getPersistentStateManager().getOrCreate(VillageSpawnState.TYPE, "cim_village_spawn");
-			if (state.isRelocated()) {
-				return;
-			}
-			state.markRelocated();
+	/** Step 1: moves a brand-new world's spawn to the nearest village, before its spawn area is generated. */
+	public static void relocate(ServerWorld world) {
+		located = null;
+		if (!VillageSpawnConfig.get().spawnInVillage) {
+			return;
+		}
+		VillageSpawnState state = world.getPersistentStateManager().getOrCreate(VillageSpawnState.TYPE, "cim_village_spawn");
+		if (state.isRelocated()) {
+			return;
+		}
+		state.markRelocated();
 
-			BlockPos villagePos = world.locateStructure(StructureTags.VILLAGE, world.getSpawnPos(), SEARCH_RADIUS_CHUNKS, false);
-			if (villagePos != null) {
-				villagePos = inFrontOfCenterpiece(world, villagePos);
-				world.setSpawnPos(villagePos, 0f);
-				Cim.LOGGER.info("Relocated world spawn to a village at {}", villagePos);
-			} else {
-				Cim.LOGGER.info("No village found within {} chunks of spawn - keeping the vanilla spawn point", SEARCH_RADIUS_CHUNKS);
-			}
-		});
+		BlockPos villagePos = world.locateStructure(StructureTags.VILLAGE, world.getSpawnPos(), SEARCH_RADIUS_CHUNKS, false);
+		if (villagePos == null) {
+			Cim.LOGGER.info("No village found within {} chunks of spawn - keeping the vanilla spawn point", SEARCH_RADIUS_CHUNKS);
+			return;
+		}
+		located = villagePos;
+		world.setSpawnPos(villagePos, 0f);
+		Cim.LOGGER.info("Relocated world spawn to a village at {}", villagePos);
 	}
 
 	/**
-	 * A pony village is located at its centerpiece - the town hall, in a village - and vanilla scatters
-	 * players up to ten blocks round the spawn point, onto whatever's highest: its roof. So spawn goes out on
-	 * the plaza instead, in front of the centerpiece's doors (its templates face north before rotation), far
-	 * enough out that the scatter stays clear of it. Other villages keep the located point.
+	 * Step 2. A pony village is located at its centerpiece - the town hall, in a village - and vanilla
+	 * scatters players up to ten blocks round the spawn point, onto whatever's highest: its roof. So spawn
+	 * goes out on the plaza instead, in front of the centerpiece's doors (its templates face north before
+	 * rotation), far enough out that the scatter stays clear of it. Never generates anything: if the
+	 * village's start chunk isn't there yet, or it isn't a pony village, the located point is kept.
 	 */
-	private static BlockPos inFrontOfCenterpiece(ServerWorld world, BlockPos located) {
-		Chunk chunk = world.getChunk(located.getX() >> 4, located.getZ() >> 4, ChunkStatus.STRUCTURE_STARTS);
+	private static void faceTheDoors(ServerWorld world) {
+		BlockPos village = located;
+		located = null;
+		if (village == null) {
+			return;
+		}
+		Chunk chunk = world.getChunk(village.getX() >> 4, village.getZ() >> 4, ChunkStatus.STRUCTURE_STARTS, false);
+		if (chunk == null) {
+			return;
+		}
 		for (StructureStart start : chunk.getStructureStarts().values()) {
 			if (!start.hasChildren() || !(start.getChildren().getFirst() instanceof VillageBuildingPiece centerpiece)) continue;
 			BlockBox box = centerpiece.getBoundingBox();
 			Direction front = centerpiece.rotation().rotate(Direction.NORTH);
 			int reach = (front.getAxis() == Direction.Axis.X ? box.getBlockCountX() : box.getBlockCountZ()) / 2 + PLAZA_GAP;
-			BlockPos center = box.getCenter();
-			BlockPos spot = center.offset(front, reach);
-			world.getChunk(spot);                                        // generated, so the ground's height is real
-			return world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spot);
+			BlockPos spot = box.getCenter().offset(front, reach);
+			// The ground's height if that chunk is already there; otherwise vanilla finds the surface when placing the player.
+			if (world.getChunkManager().isChunkLoaded(spot.getX() >> 4, spot.getZ() >> 4)) {
+				spot = world.getTopPosition(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, spot);
+			}
+			world.setSpawnPos(spot, 0f);
+			Cim.LOGGER.info("Moved world spawn onto the plaza at {}", spot);
+			return;
 		}
-		return located;
 	}
 }

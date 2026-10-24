@@ -27,6 +27,8 @@ import net.minecraft.world.StructureWorldAccess;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 
+import craftingismagic.cim.Cim;
+
 /**
  * One building of a pony village (PonyVillageStructure): a structure placed whole, its jigsaw blocks turned
  * into what they stand for - and where a jigsaw would have brought a villager, cat, golem or farm animal in
@@ -35,18 +37,41 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 public final class VillageBuildingPiece extends SimpleStructurePiece {
 	/** Whether ponies live here from the start - most homes stand empty at first and fill over time. */
 	private boolean residents = true;
+	/** Whether it was set down by its front step, which sits at ground level (see {@link #getBoundingBox}). */
+	private boolean onStep;
 
-	public VillageBuildingPiece(StructureTemplateManager manager, Identifier template, BlockPos pos, BlockRotation rotation) {
+	public VillageBuildingPiece(StructureTemplateManager manager, Identifier template, BlockPos pos, BlockRotation rotation, boolean onStep) {
 		super(PonyVillageStructure.BUILDING, 0, manager, template, template.toString(), placement(rotation), pos);
+		this.onStep = onStep;
 	}
 
 	public VillageBuildingPiece(StructureTemplateManager manager, NbtCompound nbt) {
 		super(PonyVillageStructure.BUILDING, nbt, manager, id -> placement(BlockRotation.valueOf(nbt.getString("Rot"))));
 		this.residents = !nbt.contains("Residents") || nbt.getBoolean("Residents");
+		this.onStep = nbt.getBoolean("OnStep");
 	}
 
 	public BlockRotation rotation() {
 		return placementData.getRotation();
+	}
+
+	/**
+	 * The village blends the terrain round its pieces ("beard_thin"), which settles the ground one block
+	 * below the bottom of each piece's box. A building's bottom layer is its floor and front step, laid at
+	 * ground level - so its box is reported a block higher, or the ground round it ends up a block under
+	 * the step (measured: 100 of 106 spots). Overridden rather than set once, because a piece loaded back
+	 * from a save recomputes its box from the template. (Superflat worlds skip the blending.) Only our own
+	 * buildings set down by their step: vanilla's village buildings start with a foundation layer meant to
+	 * sit in the ground, and the town hall stands on the ground as a raised platform at the village's heart -
+	 * the blending is already right for both, and shifting theirs sank them a block.
+	 */
+	@Override
+	public BlockBox getBoundingBox() {
+		BlockBox box = super.getBoundingBox();
+		if (!onStep || !templateIdString.startsWith(Cim.MOD_ID + ":")) {
+			return box;
+		}
+		return new BlockBox(box.getMinX(), box.getMinY() + 1, box.getMinZ(), box.getMaxX(), box.getMaxY(), box.getMaxZ());
 	}
 
 	void setResidents(boolean residents) {
@@ -73,17 +98,44 @@ public final class VillageBuildingPiece extends SimpleStructurePiece {
 		super.writeNbt(context, nbt);
 		nbt.putString("Rot", placementData.getRotation().name());
 		nbt.putBoolean("Residents", residents);
+		nbt.putBoolean("OnStep", onStep);
 	}
 
 	@Override
 	public void generate(StructureWorldAccess world, StructureAccessor structureAccessor, ChunkGenerator chunkGenerator, Random random,
 			BlockBox chunkBox, ChunkPos chunkPos, BlockPos pivot) {
+		clearLava(world, chunkBox);
 		super.generate(world, structureAccessor, chunkGenerator, random, chunkBox, chunkPos, pivot);
 		for (StructureTemplate.StructureBlockInfo info : template.getInfosForBlock(pos, placementData, Blocks.JIGSAW)) {
 			if (info.nbt() == null || !chunkBox.contains(info.pos())) continue;
 			EntityType<?> type = resident(info.nbt().getString("pool"), random);
 			if (type == EntityType.VILLAGER && !residents) continue; // an empty home, for now
 			if (type != null) spawn(world, type, info.pos().up());
+		}
+	}
+
+	/** How far round a building lava is cleared - far enough that its fire can't reach the walls. */
+	private static final int LAVA_CLEARANCE = 3;
+
+	/**
+	 * Surface lava lakes are placed earlier in world generation than structures, so the village plans its
+	 * plots without seeing them - and a house built into one burns down. So each building clears lava from
+	 * its footprint and a few blocks round it as it's built: below its floor the lava becomes dirt to stand
+	 * on, at and above it, air.
+	 */
+	private void clearLava(StructureWorldAccess world, BlockBox chunkBox) {
+		BlockBox box = super.getBoundingBox();
+		int floor = box.getMinY();
+		BlockPos.Mutable at = new BlockPos.Mutable();
+		for (int x = Math.max(box.getMinX() - LAVA_CLEARANCE, chunkBox.getMinX()); x <= Math.min(box.getMaxX() + LAVA_CLEARANCE, chunkBox.getMaxX()); x++) {
+			for (int z = Math.max(box.getMinZ() - LAVA_CLEARANCE, chunkBox.getMinZ()); z <= Math.min(box.getMaxZ() + LAVA_CLEARANCE, chunkBox.getMaxZ()); z++) {
+				for (int y = floor - LAVA_CLEARANCE; y <= box.getMaxY(); y++) {
+					at.set(x, y, z);
+					if (world.getFluidState(at).isIn(net.minecraft.registry.tag.FluidTags.LAVA)) {
+						world.setBlockState(at, y < floor ? Blocks.DIRT.getDefaultState() : Blocks.AIR.getDefaultState(), 2);
+					}
+				}
+			}
 		}
 	}
 

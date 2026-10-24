@@ -93,9 +93,9 @@ public final class PonyVillageStructure extends Structure {
 		int x = site.heartX();
 		int z = site.heartZ();
 		ChunkGenerator generator = context.chunkGenerator();
+		// getHeightOnGround is the same as getHeight - one terrain sample, not two.
 		int y = generator.getHeightOnGround(x, z, Heightmap.Type.WORLD_SURFACE_WG, context.world(), context.noiseConfig());
-		if (generator.getHeight(x, z, Heightmap.Type.OCEAN_FLOOR_WG, context.world(), context.noiseConfig())
-				< generator.getHeight(x, z, Heightmap.Type.WORLD_SURFACE_WG, context.world(), context.noiseConfig())) {
+		if (generator.getHeight(x, z, Heightmap.Type.OCEAN_FLOOR_WG, context.world(), context.noiseConfig()) < y) {
 			return Optional.empty(); // never in the water
 		}
 		if (crowded(context, site)) return Optional.empty();

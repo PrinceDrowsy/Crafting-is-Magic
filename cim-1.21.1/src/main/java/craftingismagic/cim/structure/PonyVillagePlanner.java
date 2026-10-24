@@ -19,7 +19,6 @@ import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.random.Random;
-import net.minecraft.world.Heightmap;
 import net.minecraft.world.gen.structure.Structure;
 
 import org.slf4j.Logger;
@@ -74,7 +73,7 @@ final class PonyVillagePlanner {
 
 	private final Set<Long> roads = new HashSet<>();
 	private final Set<Long> taken = new HashSet<>();
-	private final Map<Long, Integer> grounds = new HashMap<>();
+	private VillageTerrain terrain;
 	private final Map<String, Optional<Entrance>> entrances = new HashMap<>();
 	private final List<PonyVillageLayouts.Entry> plazaLeft;
 	private final List<Planned> buildings = new ArrayList<>();
@@ -101,11 +100,13 @@ final class PonyVillagePlanner {
 	}
 
 	private void plan() {
+		long started = System.nanoTime();
 		centerpiece();
 		double[] radii = site.radii();
 		int rings = radii.length;
 		double outer = site.outerRing();
 		limit = Math.min(outer + 40, REACH);
+		terrain = new VillageTerrain(context, cx, cz, (int) Math.ceil(limit));
 
 		// The plaza green stays open.
 		int green = (int) radii[0] - 2;
@@ -162,8 +163,9 @@ final class PonyVillagePlanner {
 		int bottom = context.world().getBottomY() + 1;
 		pieces.addPiece(new VillageRoadPiece(cells, new BlockBox(minX, bottom, minZ, maxX, bottom, maxZ)));
 		int ponies = settle();
-		LOGGER.info("Planned a pony {} at {} {}: {} rings, {} buildings, {} ponies to start", site.size().name().toLowerCase(java.util.Locale.ROOT),
-				cx, cz, rings, buildings.size(), ponies);
+		LOGGER.info("Planned a pony {} at {} {}: {} rings, {} buildings, {} ponies to start ({} ms, {} terrain readings)",
+				site.size().name().toLowerCase(java.util.Locale.ROOT), cx, cz, rings, buildings.size(), ponies,
+				(System.nanoTime() - started) / 1_000_000, terrain.samples() + buildings.size());
 	}
 
 	/**
@@ -211,11 +213,12 @@ final class PonyVillagePlanner {
 		BlockRotation rotation = BlockRotation.random(random);
 		BlockBox atOrigin = template.get().calculateBoundingBox(VillageBuildingPiece.placement(rotation), BlockPos.ORIGIN);
 		BlockPos pos = new BlockPos(cx - (atOrigin.getMinX() + atOrigin.getMaxX()) / 2, cy, cz - (atOrigin.getMinZ() + atOrigin.getMaxZ()) / 2);
-		add(entry.structure(), template.get(), pos, rotation, true);
+		add(entry.structure(), template.get(), pos, rotation, true, false);
 	}
 
-	private void add(Identifier id, StructureTemplate template, BlockPos pos, BlockRotation rotation, boolean plaza) {
-		VillageBuildingPiece piece = new VillageBuildingPiece(templates, id, pos, rotation);
+	/** @param onStep whether it's set down by its front step, at ground level (everything but the centerpiece) */
+	private void add(Identifier id, StructureTemplate template, BlockPos pos, BlockRotation rotation, boolean plaza, boolean onStep) {
+		VillageBuildingPiece piece = new VillageBuildingPiece(templates, id, pos, rotation, onStep);
 		pieces.addPiece(piece);
 		buildings.add(new Planned(piece, spots.computeIfAbsent(id, key -> VillageBuildingPiece.villagerSpots(template)), plaza));
 	}
@@ -312,10 +315,13 @@ final class PonyVillagePlanner {
 				path.add(cell);
 			}
 			int jx = fx - toRoad.getOffsetX() * (setback + 1), jz = fz - toRoad.getOffsetZ() * (setback + 1);
-			BlockPos pos = new BlockPos(jx - entrance.x(), ground(jx, jz) - entrance.y(), jz - entrance.z());
+			// Checked against the village's ground grid; only a building that fits gets an exact reading to stand on.
+			BlockPos pos = new BlockPos(jx - entrance.x(), terrain.ground(jx, jz) - entrance.y(), jz - entrance.z());
 			BlockBox box = template.get().calculateBoundingBox(VillageBuildingPiece.placement(rotation), pos);
 			if (!free(box) || !flatAndDry(box, jx, jz)) return false;
-			add(id, template.get(), pos, rotation, layout.plaza().stream().anyMatch(entry -> entry.structure().equals(id)));
+			pos = pos.withY(terrain.exactGround(jx, jz) - entrance.y());
+			box = template.get().calculateBoundingBox(VillageBuildingPiece.placement(rotation), pos);
+			add(id, template.get(), pos, rotation, layout.plaza().stream().anyMatch(entry -> entry.structure().equals(id)), true);
 			for (int x = box.getMinX() - 1; x <= box.getMaxX() + 1; x++) {
 				for (int z = box.getMinZ() - 1; z <= box.getMaxZ() + 1; z++) taken.add(VillageRoadPiece.cell(x, z));
 			}
@@ -354,19 +360,13 @@ final class PonyVillagePlanner {
 				{box.getMaxX(), box.getMaxZ()}, {box.getCenter().getX(), box.getCenter().getZ()}, {jx, jz}};
 		int low = Integer.MAX_VALUE, high = Integer.MIN_VALUE;
 		for (int[] at : samples) {
-			int height = ground(at[0], at[1]);
-			if (context.chunkGenerator().getHeight(at[0], at[1], Heightmap.Type.OCEAN_FLOOR_WG, context.world(), context.noiseConfig()) < height) {
+			int height = terrain.ground(at[0], at[1]);
+			if (!terrain.dry(at[0], at[1])) {
 				return false; // water over the ground
 			}
 			low = Math.min(low, height);
 			high = Math.max(high, height);
 		}
 		return high - low <= MAX_SLOPE;
-	}
-
-	/** The height buildings stand at here: the first free block above the ground (as vanilla's village pieces do). */
-	private int ground(int x, int z) {
-		return grounds.computeIfAbsent(VillageRoadPiece.cell(x, z),
-				key -> context.chunkGenerator().getHeightOnGround(x, z, Heightmap.Type.WORLD_SURFACE_WG, context.world(), context.noiseConfig()));
 	}
 }

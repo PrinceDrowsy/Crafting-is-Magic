@@ -158,9 +158,12 @@ class House:
         for zg in gables:
             self._gable_wall_x(x0, x1, zg, heights, center_post)
         peak_x = max(heights, key=lambda x: heights[x])
-        if beam:                                             # the beam end poking out at each peak
-            s.put(peak_x, heights[peak_x], z0 - 2, LOG, axis="z")
-            s.put(peak_x, heights[peak_x], z1 + 2, LOG, axis="z")
+        if beam:                                             # the beam end poking out at each peak,
+            for z in (z0 - 2, z1 + 2):                       # a lantern hung on a chain under it to light the street
+                s.put(peak_x, heights[peak_x], z, LOG, axis="z")
+                if all(s.name_at(peak_x, heights[peak_x] - d, z) in (None, "minecraft:air") for d in (1, 2)):
+                    s.put(peak_x, heights[peak_x] - 1, z, "minecraft:chain", axis="y", waterlogged="false")
+                    s.put(peak_x, heights[peak_x] - 2, z, "minecraft:lantern", hanging="true", waterlogged="false")
         self.top = max(self.top, max(heights.values()) + 1)
         return heights
 
