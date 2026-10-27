@@ -10,6 +10,9 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import foundry.veil.api.client.render.VeilRenderBridge;
+import foundry.veil.api.client.render.VeilRenderSystem;
+import foundry.veil.api.client.render.light.data.PointLightData;
+import foundry.veil.api.client.render.light.renderer.LightRenderHandle;
 import foundry.veil.api.client.render.rendertype.VeilRenderType;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
@@ -32,8 +35,9 @@ import craftingismagic.cim.Cim;
  * The loose, bright parts of unicorn magic (docs/magic-aura.md), drawn by this class itself so each
  * takes its caster's own color: the white wisps circling a horn while a spell is held, the glints
  * jumping across it and across whatever it holds, a release's flash and its shards flung upward and
- * outward, and the sparkle dust a release or a sudden move leaves drifting. Each spark is a quad facing the camera, shaped by the {@code cim:magic/spark} shader -
- * a streak stretched along its flight, or a four-point star.
+ * outward, the sparkle dust a release or a sudden move leaves drifting, and a teleport's bubble, spikes
+ * and arrival. Each spark is a quad facing the camera, shaped by the {@code cim:magic/spark} shader -
+ * a streak stretched along its flight, a four-point star, or a bubble.
  *
  * <p>Cheap at every scale: everything here lives only on each viewer's own game, a horn's wisps and
  * glints only show within {@link #HOLD_RANGE}, and there are never more than {@link #MAX_SPARKS} at once.
@@ -74,8 +78,28 @@ final class MagicSparks {
 	private static final float DUST_EVERY_MIN = 0.2f;
 	private static final float DUST_EVERY_MAX = 0.5f;
 
+	/**
+	 * A teleport (docs/magic-aura.md, teleporting): the bubble swells round the caster over TELEPORT_SWELL
+	 * seconds, holds TELEPORT_HOLD while they vanish, then a star bursts out of its middle over TELEPORT_BURST,
+	 * its points breaking through the wall as spikes, and it pops. (The shader's BURST_START is where the
+	 * burst begins in that whole life.)
+	 */
+	private static final float TELEPORT_SWELL = 0.1f;
+	private static final float TELEPORT_HOLD = 0.08f;
+	private static final float TELEPORT_BURST = 0.08f;
+
+	/** A bubble's quad reaches this many of its radii out, room for its spikes (the shader's BUBBLE_REACH). */
+	private static final float BUBBLE_REACH = 4.5f;
+	/** Its spikes are redrawn every BUBBLE_FRAME seconds - the show's own frame rate - repeating after BUBBLE_FRAMES (the shader's FRAMES). */
+	private static final float BUBBLE_FRAME = 0.04f;
+	private static final int BUBBLE_FRAMES = 16;
+	/** How finely its progress through its life is told to the shader (the shader's LIFE_STEPS), for its curls' squash. */
+	private static final int BUBBLE_LIFE_STEPS = 63;
+	/** How many seeds there are. Kept small: the seed rides on v's whole part beside its fraction, and a big one costs the shape precision. */
+	private static final int BUBBLE_SEEDS = 256;
+
 	private enum Shape {
-		STREAK, STAR
+		STREAK, STAR, BUBBLE
 	}
 
 	private static final class Spark {
@@ -84,18 +108,29 @@ final class MagicSparks {
 		Vec3d velocity = Vec3d.ZERO;
 		/** How fast it slows (per second); negative-free. */
 		float drag;
+		/** Seconds since it appeared - negative while it's still to come. */
 		float age;
 		float life;
 		/** Width, and for a streak its length per block-a-second of speed on top of its width. */
 		float size;
 		float stretch;
 		int color;
+		/** A glint: swells in and out again, rather than fading as it goes. */
+		boolean twinkle;
 		/** A wisp: circles its horn's spiral instead of flying free. */
 		Horn horn;
+		/** Where a wisp starts round its spiral, or how a bubble is turned to begin with (radians). */
 		float turn;
 		/** A glint on a held thing: kept at this offset from its middle as it moves. */
 		Held held;
 		Vec3d offset;
+		/** A bubble's: which spikes it grows (the shader picks them from this). */
+		int seed;
+		/** How fast it falls (blocks a second, each second). */
+		float gravity;
+		/** A firework sparkle's: how often it leaves a speck behind it (seconds; 0 for none), and how soon the next. */
+		float trailEvery;
+		float untilTrail;
 	}
 
 	/** A lit horn as last seen: its base and tip in the world, refreshed every frame it's drawn. */
@@ -119,6 +154,16 @@ final class MagicSparks {
 		float untilDust;
 	}
 
+	/** A flash of real light (a Veil point light) that lights the world round it, brightening fast and dying off. */
+	private static final class Flash {
+		LightRenderHandle<PointLightData> handle;
+		/** Seconds since it began - negative while it's still to come. */
+		float age;
+		float life;
+		float brightness;
+	}
+
+	private static final List<Flash> FLASHES = new ArrayList<>();
 	private static final List<Spark> SPARKS = new ArrayList<>();
 	private static final Map<Integer, Horn> HORNS = new HashMap<>();
 	private static final Map<Integer, Held> HELD = new HashMap<>();
@@ -134,6 +179,46 @@ final class MagicSparks {
 		SPARKS.clear();
 		HORNS.clear();
 		HELD.clear();
+		for (Flash flash : FLASHES) {
+			if (flash.handle.isValid()) {
+				flash.handle.free();
+			}
+		}
+		FLASHES.clear();
+	}
+
+	private static void flash(Vec3d at, int color, float delay, float life, float radius, float brightness) {
+		PointLightData data = new PointLightData();
+		data.setPosition(at.x, at.y, at.z);
+		data.setRadius(radius);
+		data.setColor(color);
+		data.setBrightness(0f);
+		Flash flash = new Flash();
+		flash.handle = VeilRenderSystem.renderer().getLightRenderer().addLight(data);
+		flash.age = -delay;
+		flash.life = life;
+		flash.brightness = brightness;
+		FLASHES.add(flash);
+	}
+
+	private static void updateFlashes(float seconds) {
+		Iterator<Flash> flashes = FLASHES.iterator();
+		while (flashes.hasNext()) {
+			Flash flash = flashes.next();
+			flash.age += seconds;
+			if (flash.age >= flash.life || !flash.handle.isValid()) {
+				if (flash.handle.isValid()) {
+					flash.handle.free();
+				}
+				flashes.remove();
+				continue;
+			}
+			float t = Math.max(flash.age, 0f) / flash.life;
+			float fall = (1f - t) / 0.85f;
+			float level = flash.age < 0f ? 0f : t < 0.15f ? t / 0.15f : fall * fall;
+			flash.handle.getLightData().setBrightness(flash.brightness * level);
+			flash.handle.markDirty();
+		}
 	}
 
 	/**
@@ -206,6 +291,94 @@ final class MagicSparks {
 		dust(tip, 5, color);
 	}
 
+	/**
+	 * Leaving in a teleport, round the caster's middle: the bubble swells round them, holds, then a star
+	 * bursts out of its middle, its points breaking through as spikes, and it pops - gone at once, in a
+	 * burst of white sparkles from its middle and a spray of shards off its surface, a few glints and
+	 * lines after. The sparkles stream out from the start, a firework that peaks with the pop. Real light glows round it as it swells
+	 * and flashes as it pops.
+	 */
+	static void depart(Vec3d from, float size, int color) {
+		float radius = size * 0.75f;
+		int pale = whiten(color, 0.3f);
+		float gone = TELEPORT_SWELL + TELEPORT_HOLD + TELEPORT_BURST;
+		// It lights the world round it as it swells, and flashes as it pops.
+		flash(from, color, 0f, gone, 6f, 0.8f);
+		flash(from, whiten(color, 0.5f), gone, 0.3f, 10f, 1.5f);
+		Spark bubble = add(Shape.BUBBLE, from, Vec3d.ZERO, 0f, gone, radius * 2f, color);
+		if (bubble != null) {
+			bubble.turn = RANDOM.nextFloat() * MathHelper.TAU;
+			bubble.seed = RANDOM.nextInt(BUBBLE_SEEDS);
+		}
+		// A firework: white sparkles burst from its middle - a stream from the start, and a big burst with
+		// the pop - slow, and fall a little as they fade, each leaving a trail of specks.
+		for (int i = 0; i < 44; i++) {
+			Spark sparkle = add(Shape.STAR, from, randomDirection().multiply(3.0 + RANDOM.nextDouble() * 3.0), 2.5f,
+					0.7f + RANDOM.nextFloat() * 0.4f, 0.1f + RANDOM.nextFloat() * 0.05f, whiten(color, 0.9f));
+			if (sparkle != null) {
+				sparkle.gravity = 1.5f;
+				sparkle.trailEvery = 0.035f;
+			}
+			delay(sparkle, i < 16 ? gone * i / 16f : gone);
+		}
+		for (int i = 0; i < 18; i++) {
+			Vec3d out = randomDirection();
+			Spark shard = add(Shape.STREAK, from.add(out.multiply(radius)), out.multiply(3.0 + RANDOM.nextDouble() * 2.0), 6f,
+					0.2f + RANDOM.nextFloat() * 0.1f, 0.04f, pale);
+			if (shard != null) {
+				shard.stretch = 0.05f;
+			}
+			delay(shard, gone);
+		}
+		for (int i = 0; i < 3; i++) {
+			Spark glint = add(Shape.STAR, from.add(randomDirection().multiply(0.25)), Vec3d.ZERO, 0f, 0.2f, 0.12f, whiten(color, 0.85f));
+			if (glint != null) {
+				glint.twinkle = true;
+			}
+			delay(glint, gone + RANDOM.nextFloat() * 0.05f);
+			Spark line = add(Shape.STREAK, from, randomDirection().multiply(1.5), 4f, 0.2f, 0.02f, pale);
+			if (line != null) {
+				line.stretch = 0.08f;
+			}
+			delay(line, gone);
+		}
+	}
+
+	/**
+	 * Arriving from a teleport - at once, while the departure's bubble is still there: a flash round the
+	 * caster's middle that lights the world, short burst lines, and glints twinkling round them for about 0.3 s.
+	 */
+	static void arrive(Vec3d to, float size, int color) {
+		float radius = size * 0.75f;
+		int pale = whiten(color, 0.3f);
+		flash(to, whiten(color, 0.5f), 0f, 0.3f, 10f, 1.4f);
+		add(Shape.STAR, to, Vec3d.ZERO, 0f, FLASH_LIFE, 0.5f, whiten(color, 0.7f));
+		for (int i = 0; i < 8; i++) {
+			Spark line = add(Shape.STREAK, to, randomDirection().multiply(6.0), 14f, 0.15f, 0.03f, pale);
+			if (line != null) {
+				line.stretch = 0.05f;
+			}
+		}
+		for (int i = 0; i < 7; i++) {
+			Spark glint = add(Shape.STAR, to.add(randomDirection().multiply(radius * (0.6 + RANDOM.nextDouble() * 0.4))), Vec3d.ZERO, 0f,
+					0.12f + RANDOM.nextFloat() * 0.06f, 0.14f, whiten(color, 0.85f));
+			if (glint != null) {
+				glint.twinkle = true;
+			}
+			delay(glint, RANDOM.nextFloat() * 0.15f);
+		}
+	}
+
+	private static void delay(Spark spark, float seconds) {
+		if (spark != null) {
+			spark.age = -seconds;
+		}
+	}
+
+	private static Vec3d randomDirection() {
+		return new Vec3d(RANDOM.nextGaussian(), RANDOM.nextGaussian(), RANDOM.nextGaussian()).normalize();
+	}
+
 	private static int whiten(int color, float amount) {
 		int r = Math.round(MathHelper.lerp(amount, (color >> 16) & 0xFF, 255));
 		int g = Math.round(MathHelper.lerp(amount, (color >> 8) & 0xFF, 255));
@@ -235,10 +408,11 @@ final class MagicSparks {
 		float seconds = lastNanos == 0 ? 0f : MathHelper.clamp((now - lastNanos) / 1.0e9f, 0f, 0.1f);
 		lastNanos = now;
 		frame++;
-		if (SPARKS.isEmpty() && HORNS.isEmpty() && HELD.isEmpty()) {
+		if (SPARKS.isEmpty() && HORNS.isEmpty() && HELD.isEmpty() && FLASHES.isEmpty()) {
 			lastNanos = 0;
 			return;
 		}
+		updateFlashes(seconds);
 		updateHorns(seconds);
 		updateHeld(seconds);
 		update(seconds);
@@ -256,15 +430,26 @@ final class MagicSparks {
 		}
 		VertexConsumer out = buffers.getBuffer(LAYER);
 		for (Spark spark : SPARKS) {
+			if (spark.age < 0f) {
+				continue;
+			}
 			float t = spark.age / spark.life;
 			Vector3f at = new Vector3f((float) (spark.pos.x - camera.x), (float) (spark.pos.y - camera.y), (float) (spark.pos.z - camera.z));
 			if (spark.shape == Shape.STAR) {
 				// A glint swells in and out again within its moment; dust and the flash fade as they go.
-				boolean glint = spark.horn != null || spark.held != null;
 				float rise = MathHelper.sin(t * MathHelper.PI);
-				float alpha = glint ? rise : spark.drag == 0f ? 1f - t : 1f - t * t;
-				float size = spark.size * (glint ? 0.6f + 0.4f * rise : spark.drag == 0f ? 1f - 0.5f * t : 1f);
-				star(out, at, right, up, size, spark.color, alpha);
+				float alpha = spark.twinkle ? rise : spark.drag == 0f ? 1f - t : 1f - t * t;
+				float size = spark.size * (spark.twinkle ? 0.6f + 0.4f * rise : spark.drag == 0f ? 1f - 0.5f * t : 1f);
+				billboard(out, at, right, up, size, spark.color, alpha, 2f, 0);
+			} else if (spark.shape == Shape.BUBBLE) {
+				int frame = (int) (spark.age / BUBBLE_FRAME) % BUBBLE_FRAMES;
+				int stage = Math.min(Math.round(t * BUBBLE_LIFE_STEPS), BUBBLE_LIFE_STEPS);
+				// Turning slightly as it lives, everything on it with it.
+				float turn = spark.turn + spark.age * 3f;
+				Vector3f spunRight = new Vector3f(right).mul(MathHelper.cos(turn)).add(new Vector3f(up).mul(MathHelper.sin(turn)));
+				Vector3f spunUp = new Vector3f(up).mul(MathHelper.cos(turn)).sub(new Vector3f(right).mul(MathHelper.sin(turn)));
+				billboard(out, at, spunRight, spunUp, spark.size * BUBBLE_REACH * bubbleScale(spark.age), spark.color, 1f,
+						4f + 2f * stage, spark.seed * BUBBLE_FRAMES + frame);
 			} else {
 				streak(out, at, spark, t);
 			}
@@ -305,6 +490,7 @@ final class MagicSparks {
 				Spark glint = add(Shape.STAR, along.add(jitter), Vec3d.ZERO, 0f, glintLife(), 0.14f, whiten(horn.color, 0.85f));
 				if (glint != null) {
 					glint.horn = horn;
+					glint.twinkle = true;
 				}
 			}
 		}
@@ -333,6 +519,7 @@ final class MagicSparks {
 			if (glint != null) {
 				glint.held = held;
 				glint.offset = offset;
+				glint.twinkle = true;
 			}
 		}
 	}
@@ -363,6 +550,7 @@ final class MagicSparks {
 	}
 
 	private static void update(float seconds) {
+		List<Spark> trail = new ArrayList<>();
 		Iterator<Spark> sparks = SPARKS.iterator();
 		while (sparks.hasNext()) {
 			Spark spark = sparks.next();
@@ -370,6 +558,9 @@ final class MagicSparks {
 			if (spark.age >= spark.life || (spark.horn != null && !HORNS.containsValue(spark.horn))
 					|| (spark.held != null && !HELD.containsValue(spark.held))) {
 				sparks.remove();
+				continue;
+			}
+			if (spark.age < 0f) {
 				continue;
 			}
 			if (spark.held != null) {
@@ -383,8 +574,19 @@ final class MagicSparks {
 				spark.velocity = spark.pos.subtract(before).multiply(1.0 / 0.03);
 				continue;
 			}
-			spark.velocity = spark.velocity.multiply(Math.exp(-spark.drag * seconds));
+			spark.velocity = spark.velocity.multiply(Math.exp(-spark.drag * seconds)).add(0, -spark.gravity * seconds, 0);
 			spark.pos = spark.pos.add(spark.velocity.multiply(seconds));
+			if (spark.trailEvery > 0f) {
+				spark.untilTrail -= seconds;
+				if (spark.untilTrail <= 0f) {
+					spark.untilTrail += spark.trailEvery;
+					trail.add(spark);
+				}
+			}
+		}
+		// Added after, so the list isn't changed while it's walked.
+		for (Spark spark : trail) {
+			add(Shape.STAR, spark.pos, Vec3d.ZERO, 0f, 0.25f, spark.size * 0.45f, spark.color);
 		}
 	}
 
@@ -443,8 +645,18 @@ final class MagicSparks {
 		out.vertex(head.x - side.x, head.y - side.y, head.z - side.z).texture(1f, 0f).color(r, g, b, a);
 	}
 
-	/** A four-point star, square to the camera. */
-	private static void star(VertexConsumer out, Vector3f at, Vector3f right, Vector3f up, float size, int color, float alpha) {
+	/** A teleport bubble's size against its full size, {@code age} seconds in: swelling fast, then holding till it pops. */
+	private static float bubbleScale(float age) {
+		float s = 1f - Math.min(age / TELEPORT_SWELL, 1f);
+		return 1f - s * s;
+	}
+
+	/**
+	 * A square to the camera, its shape picked by {@code u} (the shader's: 2 a star, 4 on a bubble, which packs
+	 * its life stage there too); {@code seed} rides on v's whole part, for a bubble's spikes and their frame.
+	 */
+	private static void billboard(VertexConsumer out, Vector3f at, Vector3f right, Vector3f up, float size, int color, float alpha, float u,
+			int seed) {
 		float half = size / 2f;
 		float rx = right.x * half, ry = right.y * half, rz = right.z * half;
 		float ux = up.x * half, uy = up.y * half, uz = up.z * half;
@@ -452,9 +664,9 @@ final class MagicSparks {
 		int g = (color >> 8) & 0xFF;
 		int b = color & 0xFF;
 		int a = Math.round(MathHelper.clamp(alpha, 0f, 1f) * 255);
-		out.vertex(at.x - rx - ux, at.y - ry - uy, at.z - rz - uz).texture(2f, 1f).color(r, g, b, a);
-		out.vertex(at.x + rx - ux, at.y + ry - uy, at.z + rz - uz).texture(3f, 1f).color(r, g, b, a);
-		out.vertex(at.x + rx + ux, at.y + ry + uy, at.z + rz + uz).texture(3f, 0f).color(r, g, b, a);
-		out.vertex(at.x - rx + ux, at.y - ry + uy, at.z - rz + uz).texture(2f, 0f).color(r, g, b, a);
+		out.vertex(at.x - rx - ux, at.y - ry - uy, at.z - rz - uz).texture(u, seed + 1f).color(r, g, b, a);
+		out.vertex(at.x + rx - ux, at.y + ry - uy, at.z + rz - uz).texture(u + 1f, seed + 1f).color(r, g, b, a);
+		out.vertex(at.x + rx + ux, at.y + ry + uy, at.z + rz + uz).texture(u + 1f, seed).color(r, g, b, a);
+		out.vertex(at.x - rx + ux, at.y - ry + uy, at.z - rz + uz).texture(u, seed).color(r, g, b, a);
 	}
 }

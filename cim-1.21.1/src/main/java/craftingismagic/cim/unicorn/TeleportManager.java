@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -23,9 +23,11 @@ import net.minecraft.world.World;
 
 import craftingismagic.cim.network.TeleportChargeEndS2CPayload;
 import craftingismagic.cim.network.TeleportChargeStartS2CPayload;
+import craftingismagic.cim.network.TeleportS2CPayload;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.stamina.StaminaAttachment;
+import craftingismagic.cim.stamina.StaminaColorAttachment;
 import craftingismagic.cim.stamina.StaminaManager;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment.Shortcut;
 import craftingismagic.cim.unicorn.TeleportShortcutAttachment.TeleportShortcuts;
@@ -56,6 +58,8 @@ public final class TeleportManager {
 	 * charge curve, it never drops below this - "gradually becomes instant" per the README, not
 	 * literally zero-tick. */
 	private static final int MIN_CHARGE_TICKS = 2;
+	/** How far off a teleport's departure or arrival can be seen, in blocks. */
+	private static final double EFFECT_RANGE = 64.0;
 
 	private static final class Charge {
 		final Vec3d destination;
@@ -207,13 +211,22 @@ public final class TeleportManager {
 		}
 
 		ServerPlayNetworking.send(player, new TeleportChargeEndS2CPayload());
-		Vec3d origin = player.getPos();
-		world.spawnParticles(ParticleTypes.PORTAL, origin.x, origin.y + 1.0, origin.z, 30, 0.3, 0.5, 0.3, 0.05);
+		Vec3d middle = new Vec3d(0, player.getHeight() / 2, 0);
+		float size = Math.max(player.getWidth(), player.getHeight());
+		int color = StaminaColorAttachment.getColors(player).fillColor() & 0xFFFFFF;
+		showEnd(world, new TeleportS2CPayload(player.getId(), player.getPos().add(middle), size, color, false));
 		player.requestTeleport(destination.x, destination.y, destination.z);
-		world.spawnParticles(ParticleTypes.PORTAL, destination.x, destination.y + 1.0, destination.z, 30, 0.3, 0.5, 0.3, 0.05);
+		showEnd(world, new TeleportS2CPayload(player.getId(), destination.add(middle), size, color, true));
 		// Placeholder sound - not the real Unicorn teleport SFX yet, just something in the right
 		// spirit (matches how the Sonic Rainboom effect started with a placeholder sound too).
 		world.playSound(null, destination.x, destination.y, destination.z,
 				SoundEvents.ENTITY_ENDERMAN_TELEPORT, SoundCategory.PLAYERS, 1.0F, 1.0F);
+	}
+
+	/** Shows one end of a teleport to everyone near it. */
+	public static void showEnd(ServerWorld world, TeleportS2CPayload end) {
+		for (ServerPlayerEntity viewer : PlayerLookup.around(world, end.at(), EFFECT_RANGE)) {
+			ServerPlayNetworking.send(viewer, end);
+		}
 	}
 }

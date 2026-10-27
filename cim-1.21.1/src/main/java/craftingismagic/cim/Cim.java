@@ -203,6 +203,7 @@ public class Cim implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(UseTeleportShortcutC2SPayload.ID, UseTeleportShortcutC2SPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TeleportChargeStartS2CPayload.ID, TeleportChargeStartS2CPayload.CODEC);
 		PayloadTypeRegistry.playS2C().register(TeleportChargeEndS2CPayload.ID, TeleportChargeEndS2CPayload.CODEC);
+		PayloadTypeRegistry.playS2C().register(craftingismagic.cim.network.TeleportS2CPayload.ID, craftingismagic.cim.network.TeleportS2CPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(AdjustLevitationDistanceC2SPayload.ID, AdjustLevitationDistanceC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(PlaceLevitatedBlockC2SPayload.ID, PlaceLevitatedBlockC2SPayload.CODEC);
 		PayloadTypeRegistry.playC2S().register(ToggleFlightC2SPayload.ID, ToggleFlightC2SPayload.CODEC);

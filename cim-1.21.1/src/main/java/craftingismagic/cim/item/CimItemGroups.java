@@ -23,6 +23,8 @@ public final class CimItemGroups {
 					.entries((displayContext, entries) -> {
 						entries.add(CimItems.VILLAGER_DEBUG_WAND);
 						entries.add(CimItems.SONIC_RAINBOOM_DEBUG_STICK);
+						entries.add(CimItems.TELEPORT_DEPARTURE_DEBUG_STICK);
+						entries.add(CimItems.TELEPORT_ARRIVAL_DEBUG_STICK);
 					})
 					.build());
 

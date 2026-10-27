@@ -84,6 +84,8 @@
   "key.cim.toggle_debug_overlay": "Toggle Debug Overlay",
   "item.cim.villager_debug_wand": "Villager Debug Wand",
   "item.cim.sonic_rainboom_debug_stick": "Sonic Rainboom Debug Stick",
+  "item.cim.teleport_departure_debug_stick": "Teleport Departure Debug Stick",
+  "item.cim.teleport_arrival_debug_stick": "Teleport Arrival Debug Stick",
   "item.cim.friendship_bracelet": "Friendship Bracelet",
   "block.cim.bedroom_marker": "Bedroom Marker",
   "block.cim.kitchen_marker": "Kitchen Marker",

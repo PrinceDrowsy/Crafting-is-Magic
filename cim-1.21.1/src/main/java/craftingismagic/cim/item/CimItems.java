@@ -13,6 +13,14 @@ public final class CimItems {
 			Identifier.of(Cim.MOD_ID, "sonic_rainboom_debug_stick"),
 			new SonicRainboomDebugStickItem(new Item.Settings().maxCount(1)));
 
+	/** Dev-only: show a teleport's departure, or its arrival, where you look. Not meant for normal play. */
+	public static final Item TELEPORT_DEPARTURE_DEBUG_STICK = Registry.register(Registries.ITEM,
+			Identifier.of(Cim.MOD_ID, "teleport_departure_debug_stick"),
+			new TeleportDebugStickItem(new Item.Settings().maxCount(1), false));
+	public static final Item TELEPORT_ARRIVAL_DEBUG_STICK = Registry.register(Registries.ITEM,
+			Identifier.of(Cim.MOD_ID, "teleport_arrival_debug_stick"),
+			new TeleportDebugStickItem(new Item.Settings().maxCount(1), true));
+
 	/** Dev-only: `/give @s cim:villager_debug_wand` - right-click a villager in Creative to open
 	 * the full debug editor (see {@code VillagerDebugEditorHandler}). Not meant for normal play. */
 	public static final Item VILLAGER_DEBUG_WAND = Registry.register(Registries.ITEM,

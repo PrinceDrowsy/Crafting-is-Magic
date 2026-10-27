@@ -49,6 +49,7 @@ import net.minecraft.util.math.random.Random;
 
 import craftingismagic.cim.Cim;
 import craftingismagic.cim.network.HornGlowS2CPayload;
+import craftingismagic.cim.network.TeleportS2CPayload;
 
 /**
  * Draws the magic aura (docs/magic-aura.md, the visual profile): on whatever a unicorn holds, and on
@@ -258,6 +259,24 @@ public final class MagicAuraRenderer {
 		WorldRenderEvents.AFTER_TRANSLUCENT.register(MagicSparks::render);
 		ClientPlayNetworking.registerGlobalReceiver(HornGlowS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> setHorn(payload.casterId(), payload.active(), payload.color())));
+		ClientPlayNetworking.registerGlobalReceiver(TeleportS2CPayload.ID, (payload, context) -> context.client().execute(() -> teleported(payload)));
+	}
+
+	/**
+	 * One end of a caster's teleport. The spell is spent in the jump, so the horn flashes and goes out
+	 * without throwing shards (the glow going out arrives just after this, and is then a no-op).
+	 */
+	private static void teleported(TeleportS2CPayload payload) {
+		Aura aura = AURAS.get(-payload.casterId() - 1);
+		if (aura != null && !aura.released) {
+			aura.released = true;
+			aura.sinceRelease = 0f;
+		}
+		if (payload.arrival()) {
+			MagicSparks.arrive(payload.at(), payload.size(), payload.color());
+		} else {
+			MagicSparks.depart(payload.at(), payload.size(), payload.color());
+		}
 	}
 
 	/** Grabbing fades an aura in (or back in, if it was still fading out); letting go fades it out. */
