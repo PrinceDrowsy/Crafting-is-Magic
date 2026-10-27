@@ -49,7 +49,7 @@ public abstract class VillagerBreedingMixin {
 	}
 
 	/**
-	 * Hard rule: only Adults pair (decided long before - see the content rules). The mod's Child and
+	 * Hard rule: only Adults pair (see the content rules). The mod's Child and
 	 * Teenager stages are vanilla adults (only Baby is a vanilla baby), so without this vanilla would
 	 * let them breed. A non-Adult pony is simply never ready to breed - it won't seek a partner or take
 	 * breeding food.

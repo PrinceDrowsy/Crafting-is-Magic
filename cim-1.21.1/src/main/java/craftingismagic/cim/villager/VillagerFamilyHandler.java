@@ -30,7 +30,7 @@ import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
  * another nearby unpaired Adult as a co-parent for the next child that comes along.
  * <p>
  * There is no "this batch of villagers belongs to the same village" signal anywhere in vanilla or
- * Fabric API (confirmed by inspecting the actual game/Fabric-API jars) - villages generate
+ * Fabric API - villages generate
  * piece-by-piece as chunks generate, not as one event. Every decision here is made per-villager, at
  * the exact moment its own {@code ENTITY_LOAD} fires, by querying whichever other villagers already
  * happen to be loaded nearby - there is no batching or deferral.

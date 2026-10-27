@@ -21,26 +21,11 @@ import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 
 /**
- * The land a pony village stands on, smoothed (decided by the user, 2026-10-26, after roads that bridged
- * and stair-stepped and carved their way over rough land all looked worse than the land itself): its hills
- * and dips stay, but its sharp steps are softened, so the village reads as settled on gentler ground.
+ * Smooths a village's land a little toward its broad shape ({@link Shape}). Roads go all the way to it,
+ * the ground beside roads and plots most of the way, the rest only partly; it fades out at the edge.
+ * Buildings are set on the same surface by the planner, so nothing ends up in a trench.
  * <p>
- * Everything is eased toward one surface - the land's broad shape ({@link Shape}), the village's coarse
- * ground grid softened - so nothing laid on it disagrees with anything else:
- * <ul>
- * <li>the roads all the way, so they climb smoothly instead of over every bump ({@link #ROAD_CHANGE} at
- * most);</li>
- * <li>the land beside a road or round a building's plot most of the way, fading out over {@link #NEAR}
- * blocks - the planner sets buildings on this same surface, so the ground round them meets them, and the
- * ground beside a road meets the road, with no trench or ridge between;</li>
- * <li>everywhere else part of the way ({@link #STRENGTH}, {@link #MAX_CHANGE} at most) - only slightly.</li>
- * </ul>
- * It all fades out toward the village's edge, so it meets the land round it without a seam. Plots
- * themselves (their buildings' own terrain adaptation fits the ground to them) and water are left alone.
- * Laid before the roads, so they're laid on it.
- * <p>
- * Its box is the village's area at the very bottom of the world, not at the ground, as the roads' is: the
- * village's terrain adaptation shapes the land round every piece's box.
+ * The box sits at the bottom of the world (like the road piece's) so terrain adaptation leaves it alone.
  */
 public final class VillageSmoothingPiece extends StructurePiece {
 	/** Out in the open, how far each column is pulled toward the land's broad shape (0-1), and the most it's moved. */

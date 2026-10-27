@@ -28,7 +28,7 @@ import craftingismagic.cim.Cim;
  * value per villager, same shape as {@link PonyGeneticsAttachment}.
  * <p>
  * Villages have no "this batch of villagers belongs together" signal anywhere in vanilla or Fabric
- * API (confirmed research) - family membership is decided per-villager, proximity-based, the
+ * API - family membership is decided per-villager, proximity-based, the
  * moment each one loads (see {@link VillagerFamilyHandler}), not as a single batch operation.
  */
 public final class PonyFamilyAttachment {

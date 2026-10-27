@@ -28,7 +28,7 @@ import craftingismagic.cim.villager.ChangelingAppearanceAttachment.ChangelingApp
  * shell hue), and {@code wing_eye_overlay.png} (tinted with a per-Changeling hue shared by both the
  * eyes and wings, since one mask covers both regions specifically so they always match) - all under
  * {@code assets/cim/textures/entity/pony/changeling/}. All three source PNGs are genuine grayscale
- * masks (confirmed by direct pixel inspection), read the same way {@link PonyGeneticsSkins}' own
+ * masks, read the same way {@link PonyGeneticsSkins}' own
  * masks are - no special-case outline/highlight preservation needed here, since neither `shell.png`
  * nor `wing_eye_overlay.png` has a near-white region that would need protecting from tinting.
  */

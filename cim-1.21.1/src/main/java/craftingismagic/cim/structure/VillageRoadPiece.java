@@ -64,11 +64,7 @@ public final class VillageRoadPiece extends StructurePiece {
 		}
 	}
 
-	/**
-	 * Clears plants standing on a column's top block: grass and flowers planted from a neighbouring chunk -
-	 * plants spread a few blocks over chunk borders - can be there before this chunk's village is laid, and
-	 * would be left floating over ground dug from under them, or standing on a path.
-	 */
+	/** Clears plants on top of a column. Neighbouring chunks can plant into this one before it's built. */
 	static void clearPlants(StructureWorldAccess world, int x, int top, int z) {
 		BlockPos.Mutable at = new BlockPos.Mutable(x, top + 1, z);
 		for (int i = 0; i < 3; i++) {
@@ -85,10 +81,8 @@ public final class VillageRoadPiece extends StructurePiece {
 	private static final int SURFACE_SLACK = 8;
 
 	/**
-	 * The top block of a column as it stands now - found by looking, from a little above where world
-	 * generation had the surface, down to the first solid block or water. The surface world generation keeps
-	 * isn't updated as this mod's village pieces change the land (VillageSmoothingPiece), and roads laid by it
-	 * ended up buried or sunk a block into the smoothed ground.
+	 * The column's current top block (solid or water). The worldgen heightmap doesn't follow changes made by
+	 * village pieces, so this scans down from a little above it.
 	 */
 	static int surface(StructureWorldAccess world, int x, int z) {
 		BlockPos.Mutable at = new BlockPos.Mutable(x, world.getTopY(Heightmap.Type.WORLD_SURFACE_WG, x, z) + SURFACE_SLACK, z);

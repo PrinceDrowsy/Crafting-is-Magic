@@ -106,7 +106,7 @@ public final class PonyGeneticsAttachment {
 		 * having whichever is further past 0.5 win outright rather than blending muddy. */
 		private static final float WHITE_COAT_CHANCE = 0.2f;
 		private static final float DARK_COAT_CHANCE = 0.2f;
-		// Researched 2026-08-05: sampled "Gradient Bottom" (the lighter, dominant iris shade - the
+		// Sampled "Gradient Bottom" (the lighter, dominant iris shade - the
 		// eye-color equivalent of coat/mane's "Fill", avoiding the darker "Gradient Top" shadow ring
 		// and the separate highlight gradient) from 16 canon characters via mlpvector.club/cg/pony.
 		// Real mean ~0.58 saturation - more vivid than coats (~0.39) and slightly more than manes
@@ -370,7 +370,7 @@ public final class PonyGeneticsAttachment {
 	 * {@code whiteCoat}/{@code darkCoat}: a separate, mutually-exclusive-on-natural-spawn special
 	 * trait layered on top of {@code hue}/{@code vividness} - real near-white (Rarity, Sweetie Belle)
 	 * and near-black (Luna, Thunderlane) coats can't come from the normal hue/vividness roll alone
-	 * (confirmed by this mod's own coat-color research: several sampled canon "Fill" hex values read
+	 * (several sampled canon "Fill" hex values read
 	 * as near-zero saturation, well outside the normal ~0.39-average range). Only takes effect past
 	 * a 0.5 threshold (see {@link PonyGeneticsSkins} for the blend), so most rolls land below that
 	 * and never visibly apply.
@@ -392,8 +392,7 @@ public final class PonyGeneticsAttachment {
 	}
 
 	/**
-	 * {@code hueCount}: most eyes are a single hue with ordinary light/dark shading (confirmed by
-	 * this mod's own research - Twilight, Rainbow Dash, Applejack, Rarity, and Fluttershy's canon
+	 * {@code hueCount}: most eyes are a single hue with ordinary light/dark shading (Twilight, Rainbow Dash, Applejack, Rarity, and Fluttershy's canon
 	 * "Gradient Top"/"Gradient Bottom" hex values are within ~2 degrees of each other, i.e. the same
 	 * hue, just shaded). A minority genuinely transition between two different hues, top to bottom -
 	 * Apple Bloom is the confirmed example (~359 degree red-pink top to ~34 degree orange-gold

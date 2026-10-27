@@ -17,7 +17,7 @@ import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
- * How friendships unfold (README: Affection, reworked - friendship pacing, decided 2026-10-21): there's
+ * How friendships unfold (README: Affection, reworked - friendship pacing): there's
  * no fixed timeline - it depends on the pony and on what you go through together. <b>Habits build
  * acquaintance; experiences build friendship.</b>
  * <ul>

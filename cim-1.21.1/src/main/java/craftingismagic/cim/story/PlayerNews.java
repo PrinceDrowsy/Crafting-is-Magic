@@ -39,7 +39,7 @@ import craftingismagic.cim.memory.Mood;
 import craftingismagic.cim.network.MomentS2CPayload;
 
 /**
- * News a player hasn't heard yet (decided 2026-10-14): you only feel what you know. A friend dying
+ * News a player hasn't heard yet: you only feel what you know. A friend dying
  * out of sight - or later, a birth or a wedding - waits here until someone tells you, and only then
  * do the feeling and its moment arrive.
  * <ul>

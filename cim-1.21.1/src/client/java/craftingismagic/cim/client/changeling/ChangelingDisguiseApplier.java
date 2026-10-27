@@ -21,7 +21,7 @@ import net.minecraft.world.World;
  * byte, the same trick the source mod uses ({@code player.getSkinTexture()}/{@code getModel()}),
  * just going through MineLP's own resolution instead of vanilla's.
  * <p>
- * <b>Figura path (not implemented)</b>: the user wants a disguised Changeling to copy a target's
+ * <b>Figura path (not implemented)</b>: a disguised Changeling should copy a target's
  * actual Figura avatar when that's the rendering backend they use instead of MineLP - flagged as a
  * real follow-up, not done here. It's blocked on a prerequisite that doesn't exist in this codebase
  * yet regardless: the README documents a player choosing MineLP vs. Figura for their own character,

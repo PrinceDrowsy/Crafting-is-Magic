@@ -50,7 +50,7 @@ public final class MomentDirector {
 	}
 
 	/**
-	 * Grief for a close friend (decided 2026-10-14): color drains, as if seen through tears, a touch
+	 * Grief for a close friend: color drains, as if seen through tears, a touch
 	 * cooler; the world's sounds go muffled and far away; the music fades into a gentle track. No vignette, no heartbeat -
 	 * sadness never borrows horror cues. Eases in over 5 seconds, holds a minute, and the color seeps
 	 * back over 3 minutes.

@@ -15,7 +15,7 @@ import net.minecraft.world.BlockView;
 
 /**
  * A chalkboard - the Teacher's job site (README: Progression - the Schoolhouse). A slim board in a
- * wooden frame, standing against whatever is behind it. Placeholder look, for the user to redo.
+ * wooden frame, standing against whatever is behind it. Placeholder look for now.
  */
 public class ChalkboardBlock extends HorizontalFacingBlock {
 	public static final MapCodec<ChalkboardBlock> CODEC = createCodec(ChalkboardBlock::new);

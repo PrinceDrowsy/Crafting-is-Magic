@@ -25,14 +25,14 @@ import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.story.PlayerNews;
 
 /**
- * When a pony dies, those close to them grieve (README: The mood system - "a close friend dies";
- * decided 2026-10-14 who counts as close):
+ * When a pony dies, those close to them grieve (README: The mood system - "a close friend dies").
+ * Who counts as close:
  * <ul>
  * <li><b>Ponies:</b> their family (parents, partner, children) grieve strongly; their friend group
  * clearly.</li>
  * <li><b>Players:</b> anyone with high or devoted Fondness or Trust toward them, or strong Shared
  * Memories with them, grieves strongly - and that is the first big scene-setting moment,
- * {@link #GRIEF_MOMENT}. But only once they know (decided 2026-10-14): seeing it happen means grief
+ * {@link #GRIEF_MOMENT}. But only once they know: seeing it happen means grief
  * at once; otherwise it waits as {@link PlayerNews} until a pony who was close to them tells you.
  * (Player family waits on family systems for players.)</li>
  * </ul>

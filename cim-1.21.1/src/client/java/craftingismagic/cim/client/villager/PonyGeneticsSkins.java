@@ -29,8 +29,8 @@ import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
  * villager's {@link PonyGenetics}, and registers the result as a real dynamic texture MineLP reads
  * directly (see {@link CimVillagerPonyRenderer}'s {@code getEntityPony} override - MineLP's own
  * trigger-pixel parsing reads straight from a registered {@link NativeImageBackedTexture}'s
- * in-memory image, no resource pack round-trip needed, confirmed by tracing MineLP's
- * {@code PonyManagerImpl}/{@code NativeUtil} bytecode).
+ * in-memory image, no resource pack round-trip needed - see MineLP's
+ * {@code PonyManagerImpl}/{@code NativeUtil}).
  * <p>
  * Building the composited image is the expensive part of this class and must only happen once per
  * villager, not per frame - {@link #resolveTexture} is called from the renderer's texture supplier,
@@ -50,7 +50,7 @@ public final class PonyGeneticsSkins {
 	 * strand groups for a two-tone look; also still drives per-pixel shading within each group. */
 	private static final int MANE_SECOND_HUE_GRAY_THRESHOLD = 128;
 
-	// Recalibrated 2026-08-05 against real HSV stats, not the ported FCA colormap targets (those
+	// Calibrated against real HSV stats, not the ported FCA colormap targets (those
 	// were calibrated to an artist-authored palette image's own non-linear axis, not raw HSV, and
 	// produced neon-looking coats when plugged straight into saturation - see README/PonyGenetics).
 	// Sampled Fill hex (never Outline/Shadow) from 17 canon coats and 13 canon manes via
@@ -80,23 +80,20 @@ public final class PonyGeneticsSkins {
 	// full extreme with the same mechanic.
 	private static final float MAX_COAT_TONE_BLEND = 0.85f;
 
-	// eye_overlay.png (decoded byte-for-byte 2026-08-05, after the user's own update to the asset)
-	// is a grayscale mask like coat/mane, not a pre-colored decal like the original version: a very
+	// eye_overlay.png is a grayscale mask like coat/mane, not a pre-colored decal like the original version: a very
 	// dark outline/pupil (~26/255), a pure-white highlight/sclera (255/255), and 4 mid-gray levels
 	// (45-206/255) forming the actual iris shading. Only the mid-range gets tinted with eye color
 	// genetics - the outline and highlight stay fixed regardless of eye color, same as how a real
 	// eye's pupil/sclera don't change color while the iris does.
 	private static final int EYE_OUTLINE_MAX_GRAY = 30;
 	private static final int EYE_HIGHLIGHT_MIN_GRAY = 250;
-	// Researched 2026-08-05 (see PonyGeneticsAttachment.EYE_VIVIDNESS_TARGET for the sampling
-	// methodology): real canon eyes average ~0.58 saturation. The iris mask's own gray range
+	// See PonyGeneticsAttachment.EYE_VIVIDNESS_TARGET for how this was sampled: real canon eyes average ~0.58 saturation. The iris mask's own gray range
 	// (~45-206/255, averaging ~0.45) is much darker than the real ~0.84 value average, same kind of
 	// gap the mane mask had, so it gets the same floor+range stretch treatment.
 	private static final float EYE_SATURATION_CAP = 0.75f;
 	private static final float EYE_VALUE_FLOOR = 0.60f;
 	private static final float EYE_VALUE_RANGE = 0.55f;
-	/** The iris mask's gray value rises top-to-bottom (confirmed by decoding eye_overlay.png's own
-	 * pixel rows), same as mane_overlay2.png's shading - so below this threshold is the "top" of the
+	/** The iris mask's gray value rises top-to-bottom, same as mane_overlay2.png's shading - so below this threshold is the "top" of the
 	 * iris (paints with the secondary hue for a two-hue gradient eye) and above is the "bottom"
 	 * (primary hue), matching Apple Bloom's real Gradient Top/Bottom split. */
 	private static final int EYE_SECOND_HUE_GRAY_THRESHOLD = 125;

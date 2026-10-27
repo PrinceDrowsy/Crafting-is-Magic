@@ -823,7 +823,7 @@ public class DialogueScreen extends Screen {
 		}
 		// Compact when crowded. The badge and the words are centered vertically in the bubble; a voice
 		// reply's odds hang from the bubble's top-right edge as a little tab - the same place on every
-		// bubble, taking no width from the words (decided 2026-10-14).
+		// bubble, taking no width from the words.
 		boolean crowded = options.size() > 4;
 		int pad = crowded ? 4 : 6;
 		int gap = crowded ? 3 : OPTION_GAP;

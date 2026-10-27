@@ -50,7 +50,7 @@ public final class ChangelingDisguiseHandler {
 	 * Also called directly by {@link VillagerDebugEditorHandler} - {@code ENTITY_LOAD} only ever
 	 * fires once, when a villager first loads, so manually switching an ALREADY-loaded villager's
 	 * species to {@link Species#CHANGELING} via the debug editor would otherwise never get a
-	 * disguise at all (a real bug, reported and fixed 2026-08-09). Safe to call unconditionally -
+	 * disguise at all. Safe to call unconditionally -
 	 * it's a no-op for anything that isn't a Changeling still missing its disguise.
 	 */
 	public static void assignDisguiseIfNeeded(VillagerEntity villager, ServerWorld world) {

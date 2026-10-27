@@ -33,7 +33,7 @@ import craftingismagic.cim.villager.PersonalityAttachment;
 
 /**
  * Furnished rooms, and who they suit (README: Village identity - interiors; docs/building-guide.md).
- * Each {@code data/<ns>/room_sets/*.json} names a structure the user built and when it fits:
+ * Each {@code data/<ns>/room_sets/*.json} names a built room structure and when it fits:
  * <pre>{@code
  * {
  *   "structure": "cim:rooms/bedroom/bookish_reading_nook",

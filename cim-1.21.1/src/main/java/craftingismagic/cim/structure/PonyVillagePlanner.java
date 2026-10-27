@@ -305,12 +305,9 @@ final class PonyVillagePlanner {
 	}
 
 	/**
-	 * The easiest walk from one end of a road to the other, a block at a time (diagonals too), over the
-	 * village's ground grid - an A* search that may stray up to {@link #CORRIDOR} blocks off the straight line
-	 * (asked for by the user, 2026-10-26: "slightly reroute to be more walkable"; nothing's built or dug for
-	 * it). A step costs more the steeper it is - sharply so past a block a block - and over water, and a
-	 * little for straying, so on even ground the road stays straight. Never across the plaza green; falls
-	 * back to the straight line if there's no way.
+	 * A* over the ground grid for the easiest walk between a road's ends, straying at most {@link #CORRIDOR}
+	 * off the straight line. Steep steps, water and straying cost extra, so flat ground keeps it straight.
+	 * Falls back to the straight line.
 	 */
 	private List<long[]> route(int sx, int sz, int gx, int gz, double dx, double dz) {
 		double length = Math.hypot(gx - sx, gz - sz);

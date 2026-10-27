@@ -11,7 +11,7 @@ import net.minecraft.entity.Entity;
  * The mood system - "mood is carried as emotional memories ... queried when needed, no new stat, the
  * same for players and NPCs"). Nothing ticks: it's worked out when something asks.
  * <p>
- * A feeling lingers by how strong it was (decided 2026-10-14): faint fades within about a day, clear
+ * A feeling lingers by how strong it was: faint fades within about a day, clear
  * over about three, strong over about two weeks - easing out gradually rather than switching off. The
  * memory itself stays; only the feeling it carries fades.
  */

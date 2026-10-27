@@ -9,8 +9,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 /**
- * How each inner voice looks and sounds in a conversation: its Mane Six rainbow color (the user's
- * palette), a symbol and its name, so a voice is never told apart by color alone (README: Further
+ * How each inner voice looks and sounds in a conversation: its Mane Six rainbow color, a symbol and its name, so a voice is never told apart by color alone (README: Further
  * rules - highlighting that never relies on color alone), and its own short vanilla sound, picked for
  * the pony it belongs to - played per letter as the voice talks, Undertale-style. The darker voice
  * has no name on screen and speaks in a muted, slanted hand.

@@ -62,7 +62,7 @@ public final class MemoryStore {
 	/**
 	 * Records a memory, dropping faded trivial memories and, if still over the cap, the least
 	 * important one. A memory of the same type about the same subject is refreshed instead of
-	 * stored twice (decided 2026-10-14): it's one memory however often it happens, so repeats
+	 * stored twice: it's one memory however often it happens, so repeats
 	 * can't crowd others out. Separate events use separate types.
 	 */
 	public static void add(Entity entity, Memory memory) {
