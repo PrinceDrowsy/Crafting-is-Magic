@@ -18,6 +18,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.gen.structure.Structure;
 
@@ -51,6 +52,23 @@ final class PonyVillagePlanner {
 	private static final int EXIT = 12;
 	/** How far a plot's ground may rise and fall. */
 	private static final int MAX_SLOPE = 3;
+	/**
+	 * Routing (see {@link #route}): how far a road out from the plaza may stray off its straight line for an
+	 * easier walk, and what a step costs - more the steeper (sharply past a block a block), over water, and
+	 * a little for straying.
+	 */
+	private static final int CORRIDOR = 6;
+	/**
+	 * If less than this share of the village's ground is reachable from the plaza (a ravine or a lake cuts
+	 * the rest off), it grows one ring further out to make up for it.
+	 */
+	private static final double CUT_OFF = 0.8;
+	/** How far above or below its real ground a building may be set, to sit on the smoothed land. */
+	private static final int MAX_SETTLE = 4;
+	private static final double SLOPE_COST = 3.0;
+	private static final double CLIFF_COST = 15.0;
+	private static final double WATER_COST = 3.0;
+	private static final double STRAY_COST = 0.04;
 
 	private enum Plot { PLAZA, HOMES, EDGE }
 
@@ -74,6 +92,10 @@ final class PonyVillagePlanner {
 	private final Set<Long> roads = new HashSet<>();
 	private final Set<Long> taken = new HashSet<>();
 	private VillageTerrain terrain;
+	/** The village's ground a pony could walk to from the plaza (VillageTerrain#reachableFrom). */
+	private VillageTerrain.Reach reached;
+	/** The village's land, smoothed (VillageSmoothingPiece) - what buildings and roads are set on. */
+	private VillageSmoothingPiece.Shape shape;
 	private final Map<String, Optional<Entrance>> entrances = new HashMap<>();
 	private final List<PonyVillageLayouts.Entry> plazaLeft;
 	private final List<Planned> buildings = new ArrayList<>();
@@ -103,10 +125,22 @@ final class PonyVillagePlanner {
 		long started = System.nanoTime();
 		centerpiece();
 		double[] radii = site.radii();
-		int rings = radii.length;
 		double outer = site.outerRing();
 		limit = Math.min(outer + 40, REACH);
 		terrain = new VillageTerrain(context, cx, cz, (int) Math.ceil(limit));
+		reached = terrain.reachableFrom(cx, cz, reachRadius(outer));
+		// A village only builds where a pony could walk to from the plaza. If a ravine, a cliff or a lake
+		// cuts off much of its ground, it grows a ring further out instead, spreading on its own side.
+		if (reached.share(cx, cz, outer) < CUT_OFF && outer + PonyVillageSite.RING_GAP + 40 <= REACH) {
+			radii = java.util.Arrays.copyOf(radii, radii.length + 1);
+			outer += PonyVillageSite.RING_GAP;
+			radii[radii.length - 1] = outer;
+			limit = Math.min(outer + 40, REACH);
+			terrain = new VillageTerrain(context, cx, cz, (int) Math.ceil(limit));
+			reached = terrain.reachableFrom(cx, cz, reachRadius(outer));
+		}
+		shape = terrain.softened();
+		int rings = radii.length;
 
 		// The plaza green stays open.
 		int green = (int) radii[0] - 2;
@@ -120,6 +154,7 @@ final class PonyVillagePlanner {
 		for (double radius : radii) ring(radius);
 		int schoolRoad = layout.schoolhouse() != null ? random.nextInt(4) * 2 : -1;
 		for (int k = 0; k < 8; k++) road(k, radii[0], k == schoolRoad ? outer : outer + EXIT); // never across the plaza
+		keepReachableRoads();
 		taken.addAll(roads);
 
 		if (schoolRoad >= 0) {
@@ -131,6 +166,7 @@ final class PonyVillagePlanner {
 				// No room past the edge there: that road runs on out of town like the rest, and the
 				// schoolhouse takes a plot on a ring instead - the outermost one with room.
 				road(schoolRoad, outer, outer + EXIT);
+				keepReachableRoads();
 				taken.addAll(roads);
 				PonyVillageLayouts.Entry school = new PonyVillageLayouts.Entry(layout.schoolhouse(), 1);
 				placing:
@@ -161,6 +197,12 @@ final class PonyVillagePlanner {
 			maxZ = Math.max(maxZ, z);
 		}
 		int bottom = context.world().getBottomY() + 1;
+		// The land smoothed a little first - everywhere but the building plots and the plaza - so the roads
+		// are laid on it.
+		long[] plots = taken.stream().filter(cell -> !roads.contains(cell)).mapToLong(Long::longValue).toArray();
+		int reach = (int) Math.ceil(limit);
+		pieces.addPiece(new VillageSmoothingPiece(shape, cx, cz, reach, plots, cells,
+				new BlockBox(cx - reach, bottom, cz - reach, cx + reach, bottom, cz + reach)));
 		pieces.addPiece(new VillageRoadPiece(cells, new BlockBox(minX, bottom, minZ, maxX, bottom, maxZ)));
 		int ponies = settle();
 		LOGGER.info("Planned a pony {} at {} {}: {} rings, {} buildings, {} ponies to start ({} ms, {} terrain readings)",
@@ -223,6 +265,16 @@ final class PonyVillagePlanner {
 		buildings.add(new Planned(piece, spots.computeIfAbsent(id, key -> VillageBuildingPiece.villagerSpots(template)), plaza));
 	}
 
+	/** Roads stop where the village's reachable ground does - none down into a ravine and out the far side. */
+	private void keepReachableRoads() {
+		roads.removeIf(cell -> !reached.at((int) (cell >> 32), (int) (long) cell));
+	}
+
+	/** How far out reachability's read: past the last ring, as far as its buildings and roads out go. */
+	private int reachRadius(double outer) {
+		return (int) Math.ceil(Math.min(outer + EXIT + 12, limit));
+	}
+
 	/** A ring road, three wide. */
 	private void ring(double radius) {
 		int reach = (int) radius + 2;
@@ -233,18 +285,86 @@ final class PonyVillagePlanner {
 		}
 	}
 
-	/** Road {@code k} of the eight out from the heart (0 = east, then on round by eighths), three wide. */
+	/**
+	 * Road {@code k} of the eight out from the heart (0 = east, then on round by eighths), three wide, from
+	 * radius {@code from} to {@code to}: starting and ending on the straight line, and bending a little off
+	 * it between where that's an easier walk (see {@link #route}).
+	 */
 	private void road(int k, double from, double to) {
 		double angle = k * Math.PI / 4;
 		double dx = Math.cos(angle), dz = Math.sin(angle);
-		for (double t = from; t <= to; t += 0.5) {
-			int x = cx + (int) Math.round(t * dx), z = cz + (int) Math.round(t * dz);
+		int sx = cx + (int) Math.round(from * dx), sz = cz + (int) Math.round(from * dz);
+		int gx = cx + (int) Math.round(to * dx), gz = cz + (int) Math.round(to * dz);
+		for (long[] at : route(sx, sz, gx, gz, dx, dz)) {
 			for (int ox = -1; ox <= 1; ox++) {
 				for (int oz = -1; oz <= 1; oz++) {
-					if (ox * ox + oz * oz <= 1) roads.add(VillageRoadPiece.cell(x + ox, z + oz));
+					if (ox * ox + oz * oz <= 1) roads.add(VillageRoadPiece.cell((int) at[0] + ox, (int) at[1] + oz));
 				}
 			}
 		}
+	}
+
+	/**
+	 * The easiest walk from one end of a road to the other, a block at a time (diagonals too), over the
+	 * village's ground grid - an A* search that may stray up to {@link #CORRIDOR} blocks off the straight line
+	 * (asked for by the user, 2026-10-26: "slightly reroute to be more walkable"; nothing's built or dug for
+	 * it). A step costs more the steeper it is - sharply so past a block a block - and over water, and a
+	 * little for straying, so on even ground the road stays straight. Never across the plaza green; falls
+	 * back to the straight line if there's no way.
+	 */
+	private List<long[]> route(int sx, int sz, int gx, int gz, double dx, double dz) {
+		double length = Math.hypot(gx - sx, gz - sz);
+		long start = VillageRoadPiece.cell(sx, sz), goal = VillageRoadPiece.cell(gx, gz);
+		Map<Long, Double> cost = new HashMap<>();
+		Map<Long, Long> came = new HashMap<>();
+		java.util.PriorityQueue<double[]> open = new java.util.PriorityQueue<>((a, b) -> Double.compare(a[0], b[0]));
+		cost.put(start, 0.0);
+		open.add(new double[] { length, sx, sz });
+		while (!open.isEmpty()) {
+			double[] at = open.poll();
+			int x = (int) at[1], z = (int) at[2];
+			long cell = VillageRoadPiece.cell(x, z);
+			if (cell == goal) break;
+			double here = cost.get(cell);
+			if (at[0] > here + Math.hypot(gx - x, gz - z) + 1.0e-6) continue;
+			float height = terrain.smoothGround(x, z);
+			for (int ox = -1; ox <= 1; ox++) {
+				for (int oz = -1; oz <= 1; oz++) {
+					if (ox == 0 && oz == 0) continue;
+					int nx = x + ox, nz = z + oz;
+					double along = (nx - sx) * dx + (nz - sz) * dz;
+					double stray = Math.abs((nx - sx) * -dz + (nz - sz) * dx);
+					if (stray > CORRIDOR || along < -2 || along > length + 2) continue;
+					long next = VillageRoadPiece.cell(nx, nz);
+					if (next != goal && taken.contains(next) && !roads.contains(next)) continue;
+					double step = ox != 0 && oz != 0 ? Math.sqrt(2) : 1.0;
+					double slope = Math.abs(terrain.smoothGround(nx, nz) - height) / step;
+					double price = step * (1 + SLOPE_COST * slope * slope) + (slope > 1 ? CLIFF_COST * (slope - 1) * step : 0)
+							+ (terrain.dry(nx, nz) ? 0 : WATER_COST * step) + STRAY_COST * stray;
+					double total = here + price;
+					Double had = cost.get(next);
+					if (had == null || total < had) {
+						cost.put(next, total);
+						came.put(next, cell);
+						open.add(new double[] { total + Math.hypot(gx - nx, gz - nz), nx, nz });
+					}
+				}
+			}
+		}
+		List<long[]> way = new ArrayList<>();
+		if (!came.containsKey(goal)) {
+			int steps = (int) Math.ceil(length * 2);
+			for (int i = 0; i <= steps; i++) {
+				double t = steps == 0 ? 0 : i / (double) steps;
+				way.add(new long[] { Math.round(sx + (gx - sx) * t), Math.round(sz + (gz - sz) * t) });
+			}
+			return way;
+		}
+		for (long cell = goal; ; cell = came.get(cell)) {
+			way.add(0, new long[] { cell >> 32, (int) cell });
+			if (cell == start) break;
+		}
+		return way;
 	}
 
 	/**
@@ -319,7 +439,11 @@ final class PonyVillagePlanner {
 			BlockPos pos = new BlockPos(jx - entrance.x(), terrain.ground(jx, jz) - entrance.y(), jz - entrance.z());
 			BlockBox box = template.get().calculateBoundingBox(VillageBuildingPiece.placement(rotation), pos);
 			if (!free(box) || !flatAndDry(box, jx, jz)) return false;
-			pos = pos.withY(terrain.exactGround(jx, jz) - entrance.y());
+			// On the village's smoothed land (VillageSmoothingPiece), the same level the ground round it is
+			// eased to - but never far from the real ground there.
+			int ground = terrain.exactGround(jx, jz);
+			int smoothed = MathHelper.clamp(Math.round(shape.at(jx, jz)), ground - MAX_SETTLE, ground + MAX_SETTLE);
+			pos = pos.withY(smoothed - entrance.y());
 			box = template.get().calculateBoundingBox(VillageBuildingPiece.placement(rotation), pos);
 			add(id, template.get(), pos, rotation, layout.plaza().stream().anyMatch(entry -> entry.structure().equals(id)), true);
 			for (int x = box.getMinX() - 1; x <= box.getMaxX() + 1; x++) {
@@ -363,6 +487,9 @@ final class PonyVillagePlanner {
 			int height = terrain.ground(at[0], at[1]);
 			if (!terrain.dry(at[0], at[1])) {
 				return false; // water over the ground
+			}
+			if (!reached.at(at[0], at[1])) {
+				return false; // cut off from the plaza
 			}
 			low = Math.min(low, height);
 			high = Math.max(high, height);

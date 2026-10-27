@@ -57,6 +57,8 @@ public final class PonyVillageStructure extends Structure {
 			Identifier.of(Cim.MOD_ID, "village_building"), (StructurePieceType.ManagerAware) VillageBuildingPiece::new);
 	public static final StructurePieceType.Simple ROAD = Registry.register(Registries.STRUCTURE_PIECE,
 			Identifier.of(Cim.MOD_ID, "village_road"), (StructurePieceType.Simple) VillageRoadPiece::new);
+	public static final StructurePieceType.Simple SMOOTHING = Registry.register(Registries.STRUCTURE_PIECE,
+			Identifier.of(Cim.MOD_ID, "village_smoothing"), (StructurePieceType.Simple) VillageSmoothingPiece::new);
 
 	/** The structure set villages are placed by - its grid is how a village finds its neighbours. */
 	private static final Identifier VILLAGES = Identifier.ofVanilla("villages");

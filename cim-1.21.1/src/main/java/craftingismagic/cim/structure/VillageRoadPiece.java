@@ -53,13 +53,53 @@ public final class VillageRoadPiece extends StructurePiece {
 			int x = (int) (cell >> 32);
 			int z = (int) cell;
 			if (x < chunkBox.getMinX() || x > chunkBox.getMaxX() || z < chunkBox.getMinZ() || z > chunkBox.getMaxZ()) continue;
-			BlockPos ground = new BlockPos(x, world.getTopY(Heightmap.Type.WORLD_SURFACE_WG, x, z) - 1, z);
+			BlockPos ground = new BlockPos(x, surface(world, x, z), z);
 			BlockState state = world.getBlockState(ground);
 			if (state.getFluidState().isIn(FluidTags.WATER)) {
 				world.setBlockState(ground, Blocks.OAK_PLANKS.getDefaultState(), 2);
 			} else if (state.isIn(BlockTags.DIRT) || state.isOf(Blocks.SAND) || state.isOf(Blocks.GRAVEL)) {
 				world.setBlockState(ground, Blocks.DIRT_PATH.getDefaultState(), 2);
+				clearPlants(world, x, ground.getY(), z);
 			}
 		}
+	}
+
+	/**
+	 * Clears plants standing on a column's top block: grass and flowers planted from a neighbouring chunk -
+	 * plants spread a few blocks over chunk borders - can be there before this chunk's village is laid, and
+	 * would be left floating over ground dug from under them, or standing on a path.
+	 */
+	static void clearPlants(StructureWorldAccess world, int x, int top, int z) {
+		BlockPos.Mutable at = new BlockPos.Mutable(x, top + 1, z);
+		for (int i = 0; i < 3; i++) {
+			BlockState state = world.getBlockState(at);
+			if (state.isAir() || !state.isReplaceable() || !state.getFluidState().isEmpty()) {
+				return;
+			}
+			world.setBlockState(at, Blocks.AIR.getDefaultState(), 2);
+			at.move(0, 1, 0);
+		}
+	}
+
+	/** How far above the world-generation surface the real top may be - the land may have been built up since. */
+	private static final int SURFACE_SLACK = 8;
+
+	/**
+	 * The top block of a column as it stands now - found by looking, from a little above where world
+	 * generation had the surface, down to the first solid block or water. The surface world generation keeps
+	 * isn't updated as this mod's village pieces change the land (VillageSmoothingPiece), and roads laid by it
+	 * ended up buried or sunk a block into the smoothed ground.
+	 */
+	static int surface(StructureWorldAccess world, int x, int z) {
+		BlockPos.Mutable at = new BlockPos.Mutable(x, world.getTopY(Heightmap.Type.WORLD_SURFACE_WG, x, z) + SURFACE_SLACK, z);
+		int bottom = world.getBottomY();
+		while (at.getY() > bottom) {
+			BlockState state = world.getBlockState(at);
+			if (!state.getFluidState().isEmpty() || (!state.isAir() && !state.isReplaceable())) {
+				return at.getY();
+			}
+			at.move(0, -1, 0);
+		}
+		return bottom;
 	}
 }
