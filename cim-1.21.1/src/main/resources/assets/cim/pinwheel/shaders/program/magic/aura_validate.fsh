@@ -1,7 +1,7 @@
 // Magic aura, first stage (docs/magic-aura.md): keeps only the parts of the mask the camera can
 // actually see - a held thing behind a wall gets no aura through it. Out: the aura's slot (red, as
-// the mask has it - see MagicAuraRenderer), and the thing's distance from the camera in blocks
-// (alpha; 0 = nothing here).
+// the mask has it - see MagicAuraRenderer), whether it's drawn solid (green), and the thing's
+// distance from the camera in blocks (alpha; 0 = nothing here).
 
 uniform sampler2D DiffuseSampler0;
 uniform sampler2D DiffuseDepthSampler;

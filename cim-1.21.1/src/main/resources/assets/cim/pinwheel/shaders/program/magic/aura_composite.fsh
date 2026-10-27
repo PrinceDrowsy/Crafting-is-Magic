@@ -231,7 +231,9 @@ void main() {
             fragColor = vec4(mix(scene.rgb, colorOf(dropSlot), 0.88 * fadeOf(dropSlot) * (1.0 - smoothstep(-1.5, 0.0, drop))), scene.a);
             return;
         }
-        fragColor = vec4(mix(scene.rgb, colorOf(slot), TINT * fadeOf(slot)), scene.a);
+        // Marked in green: the aura's own body (a horn swing's crescent), solid like a droplet.
+        float wash = inside.g > 0.5 ? 0.88 : TINT;
+        fragColor = vec4(mix(scene.rgb, colorOf(slot), wash * fadeOf(slot)), scene.a);
         return;
     }
 

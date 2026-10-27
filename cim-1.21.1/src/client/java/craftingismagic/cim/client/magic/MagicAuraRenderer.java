@@ -158,6 +158,18 @@ public final class MagicAuraRenderer {
 	private static final List<Drop> DROPS = new ArrayList<>();
 	private static final Random RANDOM = Random.create();
 
+	/**
+	 * A fast horn swing leaves a crescent along the tip's path (docs/magic-aura.md, how it moves). The path
+	 * is kept relative to the caster's body, so running alone draws none. Only drawn once the last
+	 * CRESCENT_SECONDS of path are longer than CRESCENT_MIN; it tapers from CRESCENT_WIDTH at the horn to a
+	 * point at its oldest end.
+	 */
+	private static final float CRESCENT_SECONDS = 0.3f;
+	private static final double CRESCENT_MIN = 0.3;
+	private static final float CRESCENT_WIDTH = 0.05f;
+	/** Seconds the renderer has been running, for timing the crescent's path. */
+	private static float clock;
+
 	/** A thing that moves further than this in one frame jumped (a teleport) - it leaves no trail. */
 	private static final double JUMP = 4.0;
 	/** The longest stretch the shader is asked to draw, in rim widths. */
@@ -193,6 +205,8 @@ public final class MagicAuraRenderer {
 		/** Droplets owed but not yet flung (a fraction carried from frame to frame), and how soon the next may go. */
 		float dropletsDue;
 		float dropGap;
+		/** A horn tip's recent path relative to its caster: x, y, z, and when. Newest last. */
+		final java.util.ArrayDeque<double[]> swing = new java.util.ArrayDeque<>();
 	}
 
 	/** Held entity id (or a horn's key - see {@link #setHorn}) -> its aura. */
@@ -331,6 +345,7 @@ public final class MagicAuraRenderer {
 		float seconds = lastFrameNanos == 0 ? 0f : MathHelper.clamp((now - lastFrameNanos) / 1.0e9f, 0f, 0.1f);
 		lastFrameNanos = now;
 		frameSeconds = seconds;
+		clock += seconds;
 		AURAS.values().removeIf(aura -> {
 			float in = aura.horn ? HORN_GATHER : FADE_IN;
 			float out = aura.horn ? HORN_FADE : FADE_OUT;
@@ -474,6 +489,9 @@ public final class MagicAuraRenderer {
 			if (aura.slot != 0) {
 				stretch(aura, at, camera, context);
 			}
+			if (aura.horn) {
+				crescent(aura, lerped, camera);
+			}
 			if (aura.horn || aura.slot == 0 || entity == null) {
 				continue;
 			}
@@ -518,6 +536,56 @@ public final class MagicAuraRenderer {
 				pipeline.getUniformSafe("Drop" + i).setVector(shown ? DROP_X[i] : 0f, shown ? DROP_Y[i] : 0f, shown ? DROP_RADIUS[i] : 0f, shown ? DROP_DEPTH[i] : 0f);
 				pipeline.getUniformSafe("DropSlot" + i).setFloat(shown ? DROP_SLOT[i] : -1f);
 			}
+		}
+	}
+
+	/**
+	 * Records the horn tip's path and, during a fast swing, draws it into the mask as a ribbon in the horn's
+	 * slot: solid like a droplet, with the horn's rim and haze round it.
+	 */
+	private static void crescent(Aura aura, Vec3d body, Vec3d camera) {
+		if (!aura.tipSeen || body == null || aura.released) {
+			aura.swing.clear();
+			return;
+		}
+		Vec3d tip = aura.tip.subtract(body);
+		aura.swing.addLast(new double[] { tip.x, tip.y, tip.z, clock });
+		while (clock - aura.swing.peekFirst()[3] > CRESCENT_SECONDS) {
+			aura.swing.pollFirst();
+		}
+		if (aura.slot == 0 || aura.swing.size() < 3) return;
+
+		double[][] path = aura.swing.toArray(new double[0][]);
+		double length = 0;
+		for (int i = 1; i < path.length; i++) {
+			length += Math.sqrt(Math.pow(path[i][0] - path[i - 1][0], 2) + Math.pow(path[i][1] - path[i - 1][1], 2)
+					+ Math.pow(path[i][2] - path[i - 1][2], 2));
+		}
+		if (length < CRESCENT_MIN) return;
+		// Fades in over a second CRESCENT_MIN of path, so a borderline flick doesn't pop.
+		float strength = (float) Math.min(1.0, (length - CRESCENT_MIN) / CRESCENT_MIN);
+
+		VertexConsumer out = new MaskConsumers(buffers, aura.slot).body();
+		for (int i = 1; i < path.length; i++) {
+			Vector3f a = new Vector3f((float) (body.x + path[i - 1][0] - camera.x), (float) (body.y + path[i - 1][1] - camera.y),
+					(float) (body.z + path[i - 1][2] - camera.z));
+			Vector3f b = new Vector3f((float) (body.x + path[i][0] - camera.x), (float) (body.y + path[i][1] - camera.y),
+					(float) (body.z + path[i][2] - camera.z));
+			Vector3f along = new Vector3f(b).sub(a);
+			Vector3f side = along.cross(new Vector3f(a).add(b).mul(-0.5f), new Vector3f());
+			if (side.lengthSquared() < 1.0e-10f) continue;
+			side.normalize();
+			// Full width at the horn, narrowing to nothing at the oldest end.
+			float wa = CRESCENT_WIDTH * strength * (float) Math.sqrt(1 - (clock - path[i - 1][3]) / CRESCENT_SECONDS);
+			float wb = CRESCENT_WIDTH * strength * (float) Math.sqrt(1 - (clock - path[i][3]) / CRESCENT_SECONDS);
+			quad(out, new Vector3f(a).sub(new Vector3f(side).mul(wa)), new Vector3f(a).add(new Vector3f(side).mul(wa)),
+					new Vector3f(b).add(new Vector3f(side).mul(wb)), new Vector3f(b).sub(new Vector3f(side).mul(wb)));
+		}
+	}
+
+	private static void quad(VertexConsumer out, Vector3f... corners) {
+		for (Vector3f corner : corners) {
+			out.vertex(corner.x, corner.y, corner.z).color(255, 255, 255, 255).texture(0f, 0f);
 		}
 	}
 
@@ -708,7 +776,12 @@ public final class MagicAuraRenderer {
 	private record MaskConsumers(VertexConsumerProvider.Immediate buffers, int slot) implements VertexConsumerProvider {
 		/** For shapes drawn whole (a horn, its flame): solid all over, both sides. */
 		VertexConsumer solid() {
-			return new Tinted(buffers.getBuffer(MASK_LAYERS.apply(VeilRenderType.WHITE_TEXTURE, VeilRenderType.noCullShard())), slot);
+			return new Tinted(buffers.getBuffer(MASK_LAYERS.apply(VeilRenderType.WHITE_TEXTURE, VeilRenderType.noCullShard())), slot, 0);
+		}
+
+		/** Like {@link #solid}, but marked (green) for the composite to paint opaque in the aura's color, as a droplet is. */
+		VertexConsumer body() {
+			return new Tinted(buffers.getBuffer(MASK_LAYERS.apply(VeilRenderType.WHITE_TEXTURE, VeilRenderType.noCullShard())), slot, 255);
 		}
 
 		@Override
@@ -723,12 +796,12 @@ public final class MagicAuraRenderer {
 			if (shards == null || shards.textureState() == null || shards.cullState() == null) {
 				return Discard.INSTANCE;
 			}
-			return new Tinted(buffers.getBuffer(MASK_LAYERS.apply(shards.textureState(), shards.cullState())), slot);
+			return new Tinted(buffers.getBuffer(MASK_LAYERS.apply(shards.textureState(), shards.cullState())), slot, 0);
 		}
 	}
 
 	/** Passes vertices through with the aura's slot (in red) in place of the model's own color. */
-	private record Tinted(VertexConsumer inner, int slot) implements VertexConsumer {
+	private record Tinted(VertexConsumer inner, int slot, int body) implements VertexConsumer {
 		@Override
 		public VertexConsumer vertex(float x, float y, float z) {
 			inner.vertex(x, y, z);
@@ -737,7 +810,7 @@ public final class MagicAuraRenderer {
 
 		@Override
 		public VertexConsumer color(int red, int green, int blue, int alpha) {
-			inner.color(slot, 0, 0, 255);
+			inner.color(slot, body, 0, 255);
 			return this;
 		}
 
