@@ -1,12 +1,15 @@
 package craftingismagic.cim.client.magic;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 
 import foundry.veil.api.client.render.VeilRenderBridge;
@@ -36,8 +39,6 @@ import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.decoration.DisplayEntity;
-import net.minecraft.particle.DustParticleEffect;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
@@ -98,6 +99,70 @@ public final class MagicAuraRenderer {
 	 */
 	private static final float HORN_RISE = 2.2f;
 
+	/**
+	 * Motion (docs/magic-aura.md, how it moves): anything moving trails its glow behind it, this many seconds
+	 * of its motion long, up to a limit (in blocks) - a horn's shorter, as it's smaller.
+	 */
+	private static final float TRAIL_SECONDS = 0.1f;
+	private static final float TRAIL_MAX = 0.8f;
+	private static final float HORN_TRAIL_SECONDS = 0.05f;
+	private static final float HORN_TRAIL_MAX = 0.35f;
+	/**
+	 * The magic has weight: its trail follows the motion on a spring, so it lags behind a sudden move, then
+	 * swings past when the move stops - billowing ahead - before settling. Underdamped on purpose.
+	 */
+	private static final float TRAIL_STIFFNESS = 120f;
+	private static final float TRAIL_DAMPING = 9f;
+	/**
+	 * A trail out of place by more than this (in blocks; a horn's half that) flings droplets - this many a
+	 * second for every block past it - so a sudden stop throws a handful.
+	 */
+	private static final float DROPLET_THRESHOLD = 0.12f;
+	private static final float DROPLET_RATE = 40f;
+	/** However hard it's swung, a held thing (or a horn) has only a few drops off it at once, a moment apart. */
+	private static final int DROPS_PER_AURA = 3;
+	private static final float DROP_GAP = 0.18f;
+	/**
+	 * Droplets are blobs of the aura itself, solid in its rim's color: each is handed to the composite as a
+	 * circle on screen, which flows it into its aura's own outline where they meet - so it swells out of
+	 * the rim like a bubble being blown, a neck joining them that thins and pinches off as it drifts
+	 * clear, like a lava lamp's. Slow, swelling and settling as it goes, rising a little, and shrinking
+	 * away. Only the {@link #DROPS_SHOWN} nearest the camera are drawn (the shader's uniform slots).
+	 */
+	private static final int DROPS_MAX = 24;
+	private static final int DROPS_SHOWN = 12;
+	private static final float DROP_RISE = 0.2f;
+	private static final float DROP_DRAG = 1.5f;
+	/** A drop grows out of the surface over this share of its life. */
+	private static final float DROP_GROW = 0.25f;
+	/** When the aura they came off fades out, its drops shrink away this much faster, with it. */
+	private static final float DROP_HURRY = 3f;
+	private static final float[] DROP_X = new float[DROPS_SHOWN];
+	private static final float[] DROP_Y = new float[DROPS_SHOWN];
+	private static final float[] DROP_RADIUS = new float[DROPS_SHOWN];
+	private static final float[] DROP_DEPTH = new float[DROPS_SHOWN];
+	private static final int[] DROP_SLOT = new int[DROPS_SHOWN];
+	private static int dropsShown;
+
+	private static final class Drop {
+		/** The aura it came off (its key in {@link #AURAS}) - it takes that aura's slot. */
+		int key;
+		Vec3d pos;
+		Vec3d velocity;
+		float age;
+		float life;
+		float radius;
+		float phase;
+	}
+
+	private static final List<Drop> DROPS = new ArrayList<>();
+	private static final Random RANDOM = Random.create();
+
+	/** A thing that moves further than this in one frame jumped (a teleport) - it leaves no trail. */
+	private static final double JUMP = 4.0;
+	/** The longest stretch the shader is asked to draw, in rim widths. */
+	private static final float STRETCH_MAX = 14f;
+
 	/** One aura: on a held thing, or on a caster's horn. Its caster's color, and how far it has faded in (0-1). */
 	private static final class Aura {
 		int color;
@@ -113,12 +178,21 @@ public final class MagicAuraRenderer {
 		int casterId;
 		/** Seconds since it was released (for the release flash). */
 		float sinceRelease;
-		/** Where the horn's tip was last seen (for its flame and the release burst), or null. */
+		/** Where the horn's tip and base were last seen (for its wisps and the release burst), or null. */
 		Vec3d tip;
+		Vec3d base;
 		/** Whether the horn was drawn this frame - its flame only shows then. */
 		boolean tipSeen;
 		/** This frame's slot (1-8), or 0 if it isn't drawn this frame. */
 		int slot;
+		/** Where it was last frame (a held thing's middle, a horn's tip), or null if it wasn't seen. */
+		Vec3d lastAt;
+		/** Its trail, in blocks behind it in the world, and how fast that's changing (the spring's state). */
+		final Vector3f trail = new Vector3f();
+		final Vector3f trailVelocity = new Vector3f();
+		/** Droplets owed but not yet flung (a fraction carried from frame to frame), and how soon the next may go. */
+		float dropletsDue;
+		float dropGap;
 	}
 
 	/** Held entity id (or a horn's key - see {@link #setHorn}) -> its aura. */
@@ -129,10 +203,12 @@ public final class MagicAuraRenderer {
 	private static final float[] SLOT_FADES = new float[SLOTS];
 	/** How wide each slot's rim and haze are, against the usual width. */
 	private static final float[] SLOT_WIDTHS = new float[SLOTS];
-	/** How much each slot's glow swells upward (a horn's flame; 0 for a held thing). */
-	private static final float[] SLOT_RISES = new float[SLOTS];
+	/** Which way and how far each slot's glow is drawn out on screen, in rim widths (a horn's flame, a trail). */
+	private static final float[] SLOT_STRETCH_X = new float[SLOTS];
+	private static final float[] SLOT_STRETCH_Y = new float[SLOTS];
 	private static int slotsUsed;
 	private static long lastFrameNanos;
+	private static float frameSeconds;
 
 	/** True between the start of the world's frame and its entities being done - the only time horns are taken. */
 	private static boolean entityPass;
@@ -161,6 +237,7 @@ public final class MagicAuraRenderer {
 	public static void register() {
 		WorldRenderEvents.START.register(MagicAuraRenderer::prepare);
 		WorldRenderEvents.AFTER_ENTITIES.register(MagicAuraRenderer::draw);
+		WorldRenderEvents.AFTER_TRANSLUCENT.register(MagicSparks::render);
 		ClientPlayNetworking.registerGlobalReceiver(HornGlowS2CPayload.ID,
 				(payload, context) -> context.client().execute(() -> setHorn(payload.casterId(), payload.active(), payload.color())));
 	}
@@ -207,6 +284,8 @@ public final class MagicAuraRenderer {
 	/** On leaving a world: entity ids are reused in the next one. */
 	public static void reset() {
 		AURAS.clear();
+		DROPS.clear();
+		MagicSparks.reset();
 	}
 
 	/** Which entity is rendering (null when it's done) - the horn hook needs to know whose horn it is. */
@@ -217,12 +296,13 @@ public final class MagicAuraRenderer {
 	/**
 	 * A horn is being rendered (MineLittlePony's, or a Figura avatar's labelled horn part): if its owner is
 	 * channelling magic, draw the part itself into the mask in their aura's slot - so the glow takes the
-	 * horn's own shape, and its flame rises off that shape (the shader's upward swell). {@code tipLocal} is
-	 * the tip in the part's own space (after its transform), in blocks - where a release's sparks fly from.
+	 * horn's own shape, and its flame rises off that shape (the shader's upward swell). {@code baseLocal}
+	 * and {@code tipLocal} are the horn's base and tip in the part's own space (after its transform), in
+	 * blocks - what its wisps circle, and where a release's shards fly from.
 	 *
 	 * @return whether this horn is lit (so the caller can hide its own glow)
 	 */
-	public static boolean onHornRendered(ModelPart part, MatrixStack matrices, int light, int overlay, Vector3f tipLocal) {
+	public static boolean onHornRendered(ModelPart part, MatrixStack matrices, int light, int overlay, Vector3f baseLocal, Vector3f tipLocal) {
 		if (!entityPass || maskPass || rendering == null || buffers == null) {
 			return false;
 		}
@@ -234,9 +314,13 @@ public final class MagicAuraRenderer {
 		part.render(matrices, out, light, overlay);
 		matrices.push();
 		part.rotate(matrices);
-		Vector3f tip = matrices.peek().getPositionMatrix().transformPosition(new Vector3f(tipLocal));
+		Matrix4f pose = matrices.peek().getPositionMatrix();
+		Vector3f tip = pose.transformPosition(new Vector3f(tipLocal));
+		Vector3f base = pose.transformPosition(new Vector3f(baseLocal));
 		matrices.pop();
-		aura.tip = new Vec3d(tip.x, tip.y, tip.z).add(MinecraftClient.getInstance().gameRenderer.getCamera().getPos());
+		Vec3d camera = MinecraftClient.getInstance().gameRenderer.getCamera().getPos();
+		aura.tip = new Vec3d(tip.x, tip.y, tip.z).add(camera);
+		aura.base = new Vec3d(base.x, base.y, base.z).add(camera);
 		aura.tipSeen = true;
 		return true;
 	}
@@ -246,6 +330,7 @@ public final class MagicAuraRenderer {
 		long now = System.nanoTime();
 		float seconds = lastFrameNanos == 0 ? 0f : MathHelper.clamp((now - lastFrameNanos) / 1.0e9f, 0f, 0.1f);
 		lastFrameNanos = now;
+		frameSeconds = seconds;
 		AURAS.values().removeIf(aura -> {
 			float in = aura.horn ? HORN_GATHER : FADE_IN;
 			float out = aura.horn ? HORN_FADE : FADE_OUT;
@@ -317,7 +402,6 @@ public final class MagicAuraRenderer {
 			SLOT_FADES[slot] = eased;
 			// A held thing's glow gathers out to its full width.
 			SLOT_WIDTHS[slot] = 0.4f + 0.6f * eased;
-			SLOT_RISES[slot] = aura.horn ? HORN_RISE : 0f;
 			if (aura.horn) {
 				float flash = aura.released ? MathHelper.clamp(1f - aura.sinceRelease / HORN_FLASH, 0f, 1f) : 0f;
 				// A horn's draws in from wide as it gathers, and swells a little in the release flash.
@@ -367,8 +451,29 @@ public final class MagicAuraRenderer {
 		boolean shadows = client.options.getEntityShadows().getValue();
 		dispatcher.setRenderShadows(false);
 		maskPass = true;
-		for (Aura aura : AURAS.values()) {
+		for (Map.Entry<Integer, Aura> entry : AURAS.entrySet()) {
+			Aura aura = entry.getValue();
 			Entity entity = aura.entity;
+			// A horn holding its spell, gathered and seen: its wisps circle and its glints jump.
+			if (aura.horn && aura.tipSeen && !aura.released && aura.strength >= 1f) {
+				MagicSparks.hold(entry.getKey(), aura.base, aura.tip, aura.color);
+			}
+			Vec3d lerped = entity == null ? null : new Vec3d(MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX()),
+					MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()), MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ()));
+			Vec3d at = null;
+			if (aura.slot != 0 && entity != null) {
+				if (aura.horn) {
+					at = aura.tipSeen ? aura.tip : null;
+				} else if (aura.placed == null) {
+					// A block display stands at its block's corner; anything else, its box's middle.
+					at = entity instanceof DisplayEntity.BlockDisplayEntity ? lerped.add(0.5, 0.5, 0.5)
+							: lerped.add(entity.getBoundingBox().getCenter().subtract(entity.getPos()));
+				}
+			}
+			move(entry.getKey(), aura, at);
+			if (aura.slot != 0) {
+				stretch(aura, at, camera, context);
+			}
 			if (aura.horn || aura.slot == 0 || entity == null) {
 				continue;
 			}
@@ -381,11 +486,9 @@ public final class MagicAuraRenderer {
 				matrices.pop();
 				continue;
 			}
-			double x = MathHelper.lerp(tickDelta, entity.lastRenderX, entity.getX()) - camera.x;
-			double y = MathHelper.lerp(tickDelta, entity.lastRenderY, entity.getY()) - camera.y;
-			double z = MathHelper.lerp(tickDelta, entity.lastRenderZ, entity.getZ()) - camera.z;
-			dispatcher.render(entity, x, y, z, entity.getYaw(tickDelta), tickDelta, matrices, consumers, dispatcher.getLight(entity, tickDelta));
+			dispatcher.render(entity, lerped.x - camera.x, lerped.y - camera.y, lerped.z - camera.z, entity.getYaw(tickDelta), tickDelta, matrices, consumers, dispatcher.getLight(entity, tickDelta));
 		}
+		moveDrops(camera, context);
 		maskPass = false;
 		buffers.draw();
 		dispatcher.setRenderShadows(shadows);
@@ -408,9 +511,175 @@ public final class MagicAuraRenderer {
 				pipeline.getUniformSafe("AuraColor" + i).setVector(((color >> 16) & 0xFF) / 255f, ((color >> 8) & 0xFF) / 255f, (color & 0xFF) / 255f);
 				pipeline.getUniformSafe("AuraFade" + i).setFloat(i < slotsUsed ? SLOT_FADES[i] : 0f);
 				pipeline.getUniformSafe("AuraWidth" + i).setFloat(i < slotsUsed ? SLOT_WIDTHS[i] : 1f);
-				pipeline.getUniformSafe("AuraRise" + i).setFloat(i < slotsUsed ? SLOT_RISES[i] : 0f);
+				pipeline.getUniformSafe("AuraStretch" + i).setVector(i < slotsUsed ? SLOT_STRETCH_X[i] : 0f, i < slotsUsed ? SLOT_STRETCH_Y[i] : 0f);
+			}
+			for (int i = 0; i < DROPS_SHOWN; i++) {
+				boolean shown = i < dropsShown;
+				pipeline.getUniformSafe("Drop" + i).setVector(shown ? DROP_X[i] : 0f, shown ? DROP_Y[i] : 0f, shown ? DROP_RADIUS[i] : 0f, shown ? DROP_DEPTH[i] : 0f);
+				pipeline.getUniformSafe("DropSlot" + i).setFloat(shown ? DROP_SLOT[i] : -1f);
 			}
 		}
+	}
+
+	/**
+	 * Moves an aura's trail on: aimed behind its motion this frame ({@code at}, or null if it isn't seen or
+	 * doesn't move), and following that aim on a spring, so it lags and overshoots. A trail snapping back
+	 * hard - a sudden stop, a sharp swing - flings droplets off ahead.
+	 */
+	private static void move(int key, Aura aura, Vec3d at) {
+		Vector3f aim = new Vector3f();
+		if (at != null && aura.lastAt != null && frameSeconds > 0f && at.squaredDistanceTo(aura.lastAt) < JUMP * JUMP) {
+			float seconds = aura.horn ? HORN_TRAIL_SECONDS : TRAIL_SECONDS;
+			Vec3d moved = aura.lastAt.subtract(at).multiply(seconds / frameSeconds);
+			aim.set((float) moved.x, (float) moved.y, (float) moved.z);
+			float max = aura.horn ? HORN_TRAIL_MAX : TRAIL_MAX;
+			if (aim.length() > max) {
+				aim.normalize(max);
+			}
+		} else if (at != null && aura.lastAt != null && at.squaredDistanceTo(aura.lastAt) >= JUMP * JUMP) {
+			// It jumped: no trail across the gap.
+			aura.trail.zero();
+			aura.trailVelocity.zero();
+		}
+		aura.lastAt = at;
+		float dt = frameSeconds;
+		Vector3f pull = new Vector3f(aim).sub(aura.trail).mul(TRAIL_STIFFNESS).sub(new Vector3f(aura.trailVelocity).mul(TRAIL_DAMPING));
+		aura.trailVelocity.add(pull.mul(dt));
+		aura.trail.add(new Vector3f(aura.trailVelocity).mul(dt));
+
+		float snap = new Vector3f(aura.trail).sub(aim).length() - (aura.horn ? DROPLET_THRESHOLD / 2f : DROPLET_THRESHOLD);
+		if (at == null || snap <= 0f || aura.released) {
+			aura.dropletsDue = 0f;
+			return;
+		}
+		aura.dropletsDue = Math.min(aura.dropletsDue + snap * DROPLET_RATE * dt, 1f);
+		aura.dropGap -= dt;
+		if (aura.dropletsDue >= 1f && aura.dropGap <= 0f && dropsOff(key) < DROPS_PER_AURA) {
+			aura.dropletsDue = 0f;
+			aura.dropGap = DROP_GAP;
+			fling(key, at, new Vector3f(aura.trail).sub(aim).negate(), aura.horn);
+		}
+	}
+
+	private static int dropsOff(int key) {
+		int count = 0;
+		for (Drop drop : DROPS) {
+			if (drop.key == key) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * A droplet breaks off a held thing's (or a horn's) aura, {@code ahead} being where its glow is swinging
+	 * to: it starts at the surface, still joined to the glow, and is thrown gently on.
+	 */
+	private static void fling(int key, Vec3d at, Vector3f ahead, boolean horn) {
+		float length = ahead.length();
+		if (length < 1.0e-4f || DROPS.size() >= DROPS_MAX) {
+			return;
+		}
+		float scale = horn ? 0.45f : 1f;
+		Vec3d direction = new Vec3d(ahead.x / length + RANDOM.nextGaussian() * 0.3, ahead.y / length + RANDOM.nextGaussian() * 0.3,
+				ahead.z / length + RANDOM.nextGaussian() * 0.3).normalize();
+		Drop drop = new Drop();
+		drop.key = key;
+		drop.pos = at.add(direction.multiply(horn ? 0.02 : 0.5));
+		drop.velocity = direction.multiply((0.35 + RANDOM.nextDouble() * 0.3) * scale);
+		drop.life = 0.7f + RANDOM.nextFloat() * 0.3f;
+		drop.radius = (0.09f + RANDOM.nextFloat() * 0.05f) * scale;
+		drop.phase = RANDOM.nextFloat() * MathHelper.TAU;
+		DROPS.add(drop);
+	}
+
+	/**
+	 * Moves the droplets on and works out where each is on screen this frame - its middle and radius in
+	 * pixels and its distance from the camera - for the composite to draw: growing out of the surface,
+	 * swelling and settling slowly, and shrinking away at the end. Nearest the camera first, if there are
+	 * more than it can take.
+	 */
+	private static void moveDrops(Vec3d camera, WorldRenderContext context) {
+		dropsShown = 0;
+		if (DROPS.isEmpty()) {
+			return;
+		}
+		if (DROPS.size() > DROPS_SHOWN) {
+			DROPS.sort((a, b) -> Double.compare(a.pos.squaredDistanceTo(camera), b.pos.squaredDistanceTo(camera)));
+		}
+		Matrix4f viewProjection = new Matrix4f(context.projectionMatrix()).mul(context.positionMatrix());
+		int width = MinecraftClient.getInstance().getFramebuffer().textureWidth;
+		int height = MinecraftClient.getInstance().getFramebuffer().textureHeight;
+		float pixelsPerBlock = height * context.projectionMatrix().m11() / 2f;
+		Iterator<Drop> drops = DROPS.iterator();
+		while (drops.hasNext()) {
+			Drop drop = drops.next();
+			Aura aura = AURAS.get(drop.key);
+			drop.age += frameSeconds * (aura != null && aura.released ? DROP_HURRY : 1f);
+			if (aura == null || drop.age >= drop.life) {
+				drops.remove();
+				continue;
+			}
+			drop.velocity = drop.velocity.multiply(Math.exp(-DROP_DRAG * frameSeconds)).add(0, DROP_RISE * frameSeconds, 0);
+			drop.pos = drop.pos.add(drop.velocity.multiply(frameSeconds));
+			if (aura.slot == 0 || dropsShown >= DROPS_SHOWN) {
+				continue;
+			}
+			float t = drop.age / drop.life;
+			// Blown out of the surface like a bubble, then shrinking away over the last part of its life.
+			float grow = MathHelper.clamp(t / DROP_GROW, 0f, 1f);
+			grow = grow * grow * (3f - 2f * grow);
+			float fade = MathHelper.clamp((t - 0.5f) / 0.5f, 0f, 1f);
+			fade = fade * fade * (3f - 2f * fade);
+			// Slowly swelling and settling, as a lava lamp's blobs do.
+			float radius = drop.radius * grow * (1f - fade) * (1f + 0.08f * MathHelper.sin(drop.age * 3.5f + drop.phase));
+
+			Vector4f clip = viewProjection.transform(new Vector4f((float) (drop.pos.x - camera.x), (float) (drop.pos.y - camera.y),
+					(float) (drop.pos.z - camera.z), 1f));
+			if (clip.w <= NEAR_PLANE || radius <= 0f) {
+				continue;
+			}
+			int i = dropsShown++;
+			DROP_X[i] = (clip.x / clip.w * 0.5f + 0.5f) * width;
+			DROP_Y[i] = (clip.y / clip.w * 0.5f + 0.5f) * height;
+			DROP_RADIUS[i] = radius * pixelsPerBlock / clip.w;
+			DROP_DEPTH[i] = clip.w;
+			DROP_SLOT[i] = aura.slot - 1;
+		}
+	}
+
+	/**
+	 * This frame's stretch for an aura's slot: its trail as it looks on screen, in rim widths (how far the
+	 * shader draws its glow out, and which way), plus a horn's flame rising straight up.
+	 */
+	private static void stretch(Aura aura, Vec3d at, Vec3d camera, WorldRenderContext context) {
+		int slot = aura.slot - 1;
+		float x = 0f;
+		float y = aura.horn ? HORN_RISE : 0f;
+		if (at != null && aura.trail.lengthSquared() > 1.0e-6f) {
+			Matrix4f viewProjection = new Matrix4f(context.projectionMatrix()).mul(context.positionMatrix());
+			Vector4f from = viewProjection.transform(new Vector4f((float) (at.x - camera.x), (float) (at.y - camera.y), (float) (at.z - camera.z), 1f));
+			Vector4f to = viewProjection.transform(new Vector4f((float) (at.x - camera.x) + aura.trail.x, (float) (at.y - camera.y) + aura.trail.y,
+					(float) (at.z - camera.z) + aura.trail.z, 1f));
+			if (from.w > NEAR_PLANE && to.w > NEAR_PLANE) {
+				int width = MinecraftClient.getInstance().getFramebuffer().textureWidth;
+				int height = MinecraftClient.getInstance().getFramebuffer().textureHeight;
+				float pixelsX = (to.x / to.w - from.x / from.w) * 0.5f * width;
+				float pixelsY = (to.y / to.w - from.y / from.w) * 0.5f * height;
+				// The rim's width in pixels at that distance, as the shader works it out.
+				float pixelsPerBlock = height * context.projectionMatrix().m11() / 2f;
+				float rimPixels = RIM_WIDTH * SLOT_WIDTHS[slot] * pixelsPerBlock / from.w;
+				x += pixelsX / rimPixels;
+				y += pixelsY / rimPixels;
+			}
+		}
+		float length = (float) Math.sqrt(x * x + y * y);
+		if (length > STRETCH_MAX) {
+			x *= STRETCH_MAX / length;
+			y *= STRETCH_MAX / length;
+		}
+		SLOT_STRETCH_X[slot] = x;
+		SLOT_STRETCH_Y[slot] = y;
 	}
 
 	private static int mix(int from, int to, float amount) {
@@ -420,29 +689,15 @@ public final class MagicAuraRenderer {
 		return r << 16 | g << 8 | b;
 	}
 
-	/**
-	 * Letting a spell go (docs/magic-aura.md, releasing): sparks flung upward and outward off the horn's
-	 * tip, white and in the caster's color, rising and fading.
-	 */
+	/** Letting a spell go (docs/magic-aura.md, releasing): the flash and shards off the horn's tip (see {@link MagicSparks#release}). */
 	private static void burst(Aura aura) {
 		MinecraftClient client = MinecraftClient.getInstance();
 		Entity entity = client.world == null ? null : client.world.getEntityById(aura.casterId);
 		if (entity == null) {
 			return;
 		}
-		Vec3d at = aura.tip != null ? aura.tip : entity.getEyePos().add(0, 0.3, 0);
-		Random random = client.world.getRandom();
-		Vector3f color = new Vector3f(((aura.color >> 16) & 0xFF) / 255f, ((aura.color >> 8) & 0xFF) / 255f, (aura.color & 0xFF) / 255f);
-		for (int i = 0; i < 16; i++) {
-			double angle = random.nextDouble() * Math.PI * 2;
-			double out = 0.03 + random.nextDouble() * 0.05;
-			double vx = Math.cos(angle) * out, vz = Math.sin(angle) * out, vy = 0.06 + random.nextDouble() * 0.08;
-			if (i % 2 == 0) {
-				client.world.addParticle(ParticleTypes.END_ROD, at.x, at.y, at.z, vx, vy, vz);
-			} else {
-				client.world.addParticle(new DustParticleEffect(color, 1.0f), at.x, at.y, at.z, vx * 10, vy * 10, vz * 10);
-			}
-		}
+		// Where the horn was last frame; if it wasn't drawn (in first person, say), just above the eyes.
+		MagicSparks.release(aura.tipSeen ? aura.tip : entity.getEyePos().add(0, 0.3, 0), aura.color);
 	}
 
 	/**

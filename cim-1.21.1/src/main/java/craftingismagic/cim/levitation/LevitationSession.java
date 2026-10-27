@@ -60,6 +60,14 @@ final class LevitationSession {
 	 * Heavy Core visibly resists being swung around while a Feather tracks the crosshair almost
 	 * instantly - see {@code LevitationManager#updateHeldPositions}. */
 	Vec3d followPos;
+	/** How fast {@link #followPos} is moving (blocks/tick) - it follows the aim point on a spring, so a
+	 * fast flick overshoots and rebounds - and where the aim point was last tick. */
+	Vec3d followVelocity = Vec3d.ZERO;
+	Vec3d lastTargetPos;
+	/** The held thing's recent swing (blocks/tick, relative to the player), fading like {@link
+	 * #scrollVelocity} - shaking it round with the camera builds throw energy, aimed the way it's going. */
+	Vec3d swingMomentum = Vec3d.ZERO;
+	Vec3d lastPlayerPos;
 	/** How far {@link #followPos} moved on the most recent tick (blocks/tick) - a proxy for "how
 	 * hard was this just swung," read by {@code LevitationManager#checkHeldHit} to size impact
 	 * damage from hitting an entity while still holding something, not just from throwing it. */

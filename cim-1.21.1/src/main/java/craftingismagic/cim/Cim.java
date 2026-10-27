@@ -346,6 +346,8 @@ public class Cim implements ModInitializer {
 			StaminaSync.invalidate(handler.getPlayer());
 		});
 
+		LevitationManager.registerStaleDisplayCleanup();
+
 		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
 			StaminaSync.invalidate(handler.getPlayer());
 			DebugOverlay.setSubscribed(handler.getPlayer(), false);

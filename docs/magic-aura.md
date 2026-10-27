@@ -291,12 +291,12 @@ about 0.65 s apart), then sits.
 | The object inside | fully visible, tinted pale | covered by a nearly opaque magenta fill (85%) |
 | Rim | the most **saturated**, deepest part | **pale** white-pink - the reverse |
 | Outer edge | a soft haze fading out | a sharp cut-off after the rim |
-| Motion | smears behind moving objects | none |
+| Motion | smears behind moving objects | rim and haze trail behind held things and horns, on a spring (good on blocks; a horn's straight smear reads awkward until it curves) |
 | Horn | lit, with a waving flame-shaped glow | nothing |
-| While held | wisps circulating round the horn | nothing |
-| Letting go | a flash, then a fan of shards flung upward that fade in under a second | the aura just stops |
+| While held | wisps circulating round the horn | white wisps up the horn's spiral, and glints jumping across it (within 24 blocks) |
+| Letting go | a flash, then a fan of shards flung upward that fade in under a second | a white flash and star at the tip, 15-20 shards in the caster's color flung up and out, and sparkle dust |
 | Lighting up | a faint, wide, pale haze that gathers into a tight, bright rim | nothing |
-| Sudden moves | lags, overshoots, flings droplets; a swing leaves a crescent | nothing |
+| Sudden moves | lags, overshoots, flings droplets; a swing leaves a crescent | lags, overshoots and flings droplets; no curved crescent yet (needs the horn's path over several frames) |
 | Teleport | a spiky bubble that collapses to a white star; arrival pops in with glints | vanilla's purple Enderman portal particles at both ends |
 | Sparkles | brief four-point glints | twinkling stars (keep, check timing) |
 

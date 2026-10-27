@@ -26,7 +26,8 @@ import craftingismagic.cim.client.magic.MagicAuraRenderer;
 @Pseudo
 @Mixin(targets = "com.minelittlepony.client.model.part.UnicornHorn", remap = false)
 public abstract class MineLpHornMixin {
-	/** The horn cube (minelittlepony:components/horn): from (-0.5, -11, -3.5), 1 x 4 x 1 pixels - its tip. */
+	/** The horn cube (minelittlepony:components/horn): from (-0.5, -11, -3.5), 1 x 4 x 1 pixels - its base and tip. */
+	private static final Vector3f CIM$BASE = new Vector3f(0f, -7f / 16f, -3f / 16f);
 	private static final Vector3f CIM$TIP = new Vector3f(0f, -11f / 16f, -3f / 16f);
 
 	@Shadow(remap = false)
@@ -43,7 +44,7 @@ public abstract class MineLpHornMixin {
 		if (!horn.visible) {
 			return;
 		}
-		if (MagicAuraRenderer.onHornRendered(horn, stack, light, overlay, CIM$TIP)) {
+		if (MagicAuraRenderer.onHornRendered(horn, stack, light, overlay, CIM$BASE, CIM$TIP)) {
 			glow.visible = false;
 		}
 	}

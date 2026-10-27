@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.block.Block;
@@ -49,6 +50,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
 import net.minecraft.world.WorldEvents;
 
+import craftingismagic.cim.Cim;
 import craftingismagic.cim.network.LevitationAuraS2CPayload;
 import craftingismagic.cim.network.LevitationSelectionBoxS2CPayload;
 import craftingismagic.cim.network.LevitationStateS2CPayload;
@@ -237,6 +239,26 @@ public final class LevitationManager {
 	 * things from feeling literally frozen. */
 	private static final double WEIGHT_SLUGGISHNESS = 0.3;
 	private static final double MIN_LERP_FACTOR = 0.05;
+	/**
+	 * The held thing follows the aim point on a spring, like a rubber band: a fast flick of the camera
+	 * leaves it lagging, then it overshoots past the aim and rebounds before settling. Its stiffness is
+	 * this times the follow factor above (so heavy things are softer and swing wider), and its damping
+	 * this fraction of what would stop it overshooting at all. Damped against the aim point's own motion,
+	 * so just walking along carries it without dragging behind.
+	 */
+	private static final double SPRING_STIFFNESS = 0.4;
+	private static final double SPRING_DAMPING_RATIO = 0.45;
+	/** An aim point this far from the held thing in one go (a teleport) snaps it there instead. */
+	private static final double SPRING_SNAP_DISTANCE = 16.0;
+	/**
+	 * Swinging builds throw energy as scrolling does: the held thing's own speed (blocks/tick, relative to
+	 * the player), fading at the same rate as a scroll's. A flick past {@link #SWING_DEAD_ZONE} makes
+	 * letting go a throw - a slow, steady turn never gets there - flung the way it's going, this fraction
+	 * of its speed, up to a limit.
+	 */
+	private static final double SWING_DEAD_ZONE = 0.6;
+	private static final double SWING_THROW_MULTIPLIER = 0.4;
+	private static final double MAX_SWING_THROW = 0.8;
 
 	/** Pickup cost is expressed as "how many seconds' worth of holding this would normally cost,"
 	 * not a separate flat number - ties the one-time pickup toll and the ongoing hold drain to the
@@ -426,7 +448,7 @@ public final class LevitationManager {
 			DisplayEntity.ItemDisplayEntity display = new DisplayEntity.ItemDisplayEntity(EntityType.ITEM_DISPLAY, world);
 			display.getStackReference(0).set(session.heldItemStack);
 			display.setNoGravity(true);
-			world.spawnEntity(display);
+			spawnDisplay(world, display);
 			session.itemDisplay = display;
 			item.discard();
 			auraEntityId = display.getId();
@@ -503,7 +525,7 @@ public final class LevitationManager {
 			DisplayEntity.BlockDisplayEntity display = new DisplayEntity.BlockDisplayEntity(EntityType.BLOCK_DISPLAY, world);
 			display.setBlockState(state);
 			display.setNoGravity(true);
-			world.spawnEntity(display);
+			spawnDisplay(world, display);
 
 			blocks.add(new LevitationBlock(pos, state, display));
 		}
@@ -519,6 +541,55 @@ public final class LevitationManager {
 		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.HOLDING));
 		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_PICKUP);
 		broadcastAura(world, player.getPos(), blockDisplayIds(blocks), true, magicColor(player));
+	}
+
+	/** Marks every stand-in display levitation spawns, so a stale one can be recognised when it loads. */
+	private static final String DISPLAY_TAG = Cim.MOD_ID + "_levitation";
+	/** The stand-in displays of holds still going on (the UUIDs of the ones spawned and not yet discarded). */
+	private static final Set<UUID> LIVE_DISPLAYS = new HashSet<>();
+
+	private static void spawnDisplay(ServerWorld world, DisplayEntity display) {
+		display.addCommandTag(DISPLAY_TAG);
+		LIVE_DISPLAYS.add(display.getUuid());
+		world.spawnEntity(display);
+	}
+
+	/**
+	 * A held thing is only a display entity standing in for it, and a hold never outlives the game - so a
+	 * stand-in that loads from a save (the world autosaved mid-hold, then the game closed without saving
+	 * again, say) belongs to no hold and would float there for good, unbreakable. And the thing it stood in
+	 * for was taken out of the world when it was picked up, in that same save. So each such one, as it
+	 * loads, gives back what it held - a block set back where it floated (or dropped, if that spot's taken),
+	 * an item dropped - and is removed. Done on the next tick: removing an entity while it's still being
+	 * loaded leaves the client drawing it.
+	 */
+	public static void registerStaleDisplayCleanup() {
+		ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+			if (entity instanceof DisplayEntity && entity.getCommandTags().contains(DISPLAY_TAG) && !LIVE_DISPLAYS.contains(entity.getUuid())) {
+				world.getServer().execute(() -> restoreStaleDisplay(world, entity));
+			}
+		});
+		ServerEntityEvents.ENTITY_UNLOAD.register((entity, world) -> {
+			if (entity.getRemovalReason() != null && entity.getRemovalReason().shouldDestroy()) {
+				LIVE_DISPLAYS.remove(entity.getUuid());
+			}
+		});
+	}
+
+	private static void restoreStaleDisplay(ServerWorld world, Entity entity) {
+		if (entity.isRemoved()) {
+			return;
+		}
+		if (entity instanceof DisplayEntity.BlockDisplayEntity display) {
+			// A block display stands at its block's lower corner.
+			setOrDrop(world, BlockPos.ofFloored(display.getPos().add(0.5, 0.5, 0.5)), display.getBlockState());
+		} else if (entity instanceof DisplayEntity.ItemDisplayEntity display) {
+			ItemStack stack = display.getStackReference(0).get();
+			if (!stack.isEmpty()) {
+				world.spawnEntity(new ItemEntity(world, display.getX(), display.getY(), display.getZ(), stack.copy()));
+			}
+		}
+		entity.discard();
 	}
 
 	private static List<Integer> blockDisplayIds(List<LevitationBlock> blocks) {
@@ -625,7 +696,8 @@ public final class LevitationManager {
 			return;
 		}
 
-		boolean throwing = !forceGentle && Math.abs(session.scrollVelocity) >= SCROLL_VELOCITY_DEAD_ZONE;
+		boolean throwing = !forceGentle && (Math.abs(session.scrollVelocity) >= SCROLL_VELOCITY_DEAD_ZONE
+				|| session.swingMomentum.length() >= SWING_DEAD_ZONE);
 
 		if (session.heldItemStack != null) {
 			SESSIONS.remove(player.getUuid());
@@ -749,7 +821,7 @@ public final class LevitationManager {
 		display.setNoGravity(true);
 		Vec3d pos = session.followPos != null ? session.followPos : projectile.getPos();
 		display.refreshPositionAndAngles(pos.x, pos.y, pos.z, 0, 0);
-		world.spawnEntity(display);
+		spawnDisplay(world, display);
 
 		projectile.discard();
 		session.heldEntity = null;
@@ -773,16 +845,31 @@ public final class LevitationManager {
 	 * should only clear a few blocks; heavier things fall short of that, lighter ones exceed it, and
 	 * both draining Stamina in the moment and growing the pool over a playthrough scale the whole
 	 * thing up or down together. Tunable/testable numbers, not derived from any real physics model.
+	 *
+	 * <p>Two kinds of energy add together: scrolling throws it straight along the look direction (or back
+	 * toward the player), and swinging it flings it the way it's swinging - so a sideways flick while
+	 * scrolling forward sends it off on a diagonal. Each only counts past its own dead zone. A swing's
+	 * already slower for something heavy (it's on a softer spring), so only Stamina scales it.
 	 */
 	private static Vec3d computeThrowVelocity(ServerPlayerEntity player, LevitationSession session) {
-		Vec3d lookDir = player.getRotationVec(1.0F);
-		double scrollVelocity = session.scrollVelocity;
-		double baseSpeed = THROW_SPEED + Math.abs(scrollVelocity) * SCROLL_THROW_SPEED_MULTIPLIER;
 		double staminaFactor = StaminaAttachment.getStamina(player).current() / StaminaAttachment.BASE_MAX_STAMINA;
-		double weightFactor = computeDrainRate(session);
-		double speed = baseSpeed * staminaFactor / weightFactor;
-		Vec3d direction = scrollVelocity < 0 ? lookDir.multiply(-1) : lookDir;
-		return direction.multiply(speed);
+		Vec3d velocity = Vec3d.ZERO;
+		double scrollVelocity = session.scrollVelocity;
+		if (Math.abs(scrollVelocity) >= SCROLL_VELOCITY_DEAD_ZONE) {
+			Vec3d lookDir = player.getRotationVec(1.0F);
+			double baseSpeed = THROW_SPEED + Math.abs(scrollVelocity) * SCROLL_THROW_SPEED_MULTIPLIER;
+			double weightFactor = computeDrainRate(session);
+			double speed = baseSpeed * staminaFactor / weightFactor;
+			velocity = (scrollVelocity < 0 ? lookDir.multiply(-1) : lookDir).multiply(speed);
+		}
+		if (session.swingMomentum.length() >= SWING_DEAD_ZONE) {
+			Vec3d swing = session.swingMomentum.multiply(SWING_THROW_MULTIPLIER);
+			if (swing.length() > MAX_SWING_THROW) {
+				swing = swing.normalize().multiply(MAX_SWING_THROW);
+			}
+			velocity = velocity.add(swing.multiply(staminaFactor));
+		}
+		return velocity;
 	}
 
 	/** 1.0 = reference weight (a single block, a villager/player-sized mob, a light item stack) -
@@ -894,7 +981,8 @@ public final class LevitationManager {
 	/** Releases a held item - respawns a real {@code ItemEntity} from the saved stack (see {@link
 	 * #startEntityHold}) at wherever the display was floating, then discards the display. */
 	private static void releaseItem(ServerPlayerEntity player, LevitationSession session, boolean throwing) {
-		Vec3d spawnPos = heldWorldPosition(player, session.distance);
+		// Where it's actually floating - mid-swing, that may not be the aim point.
+		Vec3d spawnPos = session.followPos != null ? session.followPos : heldWorldPosition(player, session.distance);
 		ItemEntity item = new ItemEntity(session.world, spawnPos.x, spawnPos.y, spawnPos.z, session.heldItemStack);
 
 		if (throwing) {
@@ -1057,7 +1145,10 @@ public final class LevitationManager {
 			}
 
 			updateHeldPositions(player, session);
-			checkHeldHit(player, session);
+			if (checkHeldHit(player, session)) {
+				iterator.remove();
+				continue;
+			}
 
 			if (session.heldTicks++ % LOOP_INTERVAL_TICKS == 0) {
 				SoundEvent loopSound = session.nextLoopIsSecond ? ModSounds.LEVITATION_LOOP_2 : ModSounds.LEVITATION_LOOP_1;
@@ -1085,17 +1176,18 @@ public final class LevitationManager {
 	}
 
 	/**
-	 * Eases toward the aim point rather than snapping straight to it - {@link LevitationSession
-	 * #followPos} tracks the actual eased position everything renders/positions relative to, and how
-	 * fast it catches up depends on how heavy the held thing is (see {@link #lerpFactorFor}): a
-	 * Heavy Core visibly resists being swung around, a Feather tracks the crosshair almost instantly.
+	 * Follows the aim point on a spring rather than snapping straight to it - {@link LevitationSession
+	 * #followPos} tracks the actual position everything renders/positions relative to, and how stiff
+	 * the spring is depends on how heavy the held thing is (see {@link #lerpFactorFor}): a Heavy Core
+	 * visibly resists being swung around and sails wide on a flick, a Feather tracks the crosshair
+	 * almost instantly.
 	 */
 	private static void updateHeldPositions(ServerPlayerEntity player, LevitationSession session) {
 		double lerpFactor = lerpFactorFor(session);
 
 		if (session.heldItemStack != null) {
 			Vec3d targetPos = heldWorldPosition(player, session.distance);
-			applyFollowPos(session, targetPos, lerpFactor);
+			applyFollowPos(player, session, targetPos, lerpFactor);
 			session.itemDisplay.refreshPositionAndAngles(session.followPos.x, session.followPos.y, session.followPos.z, player.getYaw(), 0);
 			return;
 		}
@@ -1106,7 +1198,7 @@ public final class LevitationManager {
 		}
 
 		Vec3d targetAnchorRenderPos = heldRenderPosition(player, session.distance);
-		applyFollowPos(session, targetAnchorRenderPos, lerpFactor);
+		applyFollowPos(player, session, targetAnchorRenderPos, lerpFactor);
 		for (LevitationBlock block : session.blocks) {
 			BlockPos offset = block.originalPos().subtract(session.anchorPos);
 			Vec3d pos = session.followPos.add(offset.getX(), offset.getY(), offset.getZ());
@@ -1121,13 +1213,39 @@ public final class LevitationManager {
 		return MathHelper.clamp(1.0 / (1.0 + drainRate * WEIGHT_SLUGGISHNESS), MIN_LERP_FACTOR, 1.0);
 	}
 
-	/** Eases {@code session.followPos} toward {@code targetPos} (snapping instead on the first tick,
-	 * when there's no prior position to ease from), and records how far it actually moved this tick
-	 * in {@code session.lastSwingSpeed} - {@link #checkHeldHit} reads that to size a swing's damage. */
-	private static void applyFollowPos(LevitationSession session, Vec3d targetPos, double lerpFactor) {
+	/**
+	 * Springs {@code session.followPos} toward {@code targetPos} (snapping instead on the first tick, when
+	 * there's no prior position to spring from, or after a teleport), and records how far it actually
+	 * moved this tick in {@code session.lastSwingSpeed} - {@link #checkHeldHit} reads that to size a
+	 * swing's damage - and its swing relative to the player, as throw energy.
+	 */
+	private static void applyFollowPos(ServerPlayerEntity player, LevitationSession session, Vec3d targetPos, double lerpFactor) {
 		Vec3d previous = session.followPos;
-		session.followPos = previous == null ? targetPos : previous.lerp(targetPos, lerpFactor);
-		session.lastSwingSpeed = previous == null ? 0.0 : previous.distanceTo(session.followPos);
+		Vec3d playerPos = player.getPos();
+		if (previous == null || previous.distanceTo(targetPos) > SPRING_SNAP_DISTANCE) {
+			session.followPos = targetPos;
+			session.followVelocity = Vec3d.ZERO;
+			session.swingMomentum = Vec3d.ZERO;
+			session.lastSwingSpeed = 0.0;
+			session.lastTargetPos = targetPos;
+			session.lastPlayerPos = playerPos;
+			return;
+		}
+		double stiffness = SPRING_STIFFNESS * lerpFactor;
+		double damping = 2.0 * SPRING_DAMPING_RATIO * Math.sqrt(stiffness);
+		Vec3d targetVelocity = session.lastTargetPos != null ? targetPos.subtract(session.lastTargetPos) : Vec3d.ZERO;
+		Vec3d pull = targetPos.subtract(previous).multiply(stiffness).subtract(session.followVelocity.subtract(targetVelocity).multiply(damping));
+		session.followVelocity = session.followVelocity.add(pull);
+		session.followPos = previous.add(session.followVelocity);
+		session.lastTargetPos = targetPos;
+		session.lastSwingSpeed = previous.distanceTo(session.followPos);
+
+		// Its swing, apart from the player's own walking - kept while it's the biggest lately, fading after.
+		Vec3d playerMoved = session.lastPlayerPos != null ? playerPos.subtract(session.lastPlayerPos) : Vec3d.ZERO;
+		session.lastPlayerPos = playerPos;
+		Vec3d swing = session.followVelocity.subtract(playerMoved);
+		Vec3d faded = session.swingMomentum.multiply(SCROLL_VELOCITY_DECAY);
+		session.swingMomentum = swing.lengthSquared() > faded.lengthSquared() ? swing : faded;
 	}
 
 	/**
@@ -1143,7 +1261,7 @@ public final class LevitationManager {
 		Vec3d targetPos = heldWorldPosition(player, session.distance);
 		double halfHeight = entity.getHeight() / 2.0;
 		Vec3d targetCenterPos = new Vec3d(targetPos.x, targetPos.y - halfHeight, targetPos.z);
-		applyFollowPos(session, targetCenterPos, lerpFactor);
+		applyFollowPos(player, session, targetCenterPos, lerpFactor);
 		entity.refreshPositionAndAngles(session.followPos.x, session.followPos.y, session.followPos.z, entity.getYaw(), entity.getPitch());
 		entity.setVelocity(Vec3d.ZERO);
 		if (entity instanceof MobEntity mob) {
@@ -1157,14 +1275,20 @@ public final class LevitationManager {
 	 * fast it was just swung ({@code lastSwingSpeed}). Cools down per-session afterward rather than
 	 * per-target, so standing an object in contact with someone can't repeatedly clock them, but
 	 * swinging into a second target during the same cooldown window also has to wait.
+	 *
+	 * <p>A held block or item that lands a hit is knocked loose: the hold ends and it drops where it
+	 * struck, as items - so Levitation can land one blow with it, not keep clubbing. (A held mob stays
+	 * held.)
+	 *
+	 * @return whether the hold ended (the caller removes the session)
 	 */
-	private static void checkHeldHit(ServerPlayerEntity player, LevitationSession session) {
+	private static boolean checkHeldHit(ServerPlayerEntity player, LevitationSession session) {
 		if (session.heldHitCooldown > 0) {
 			session.heldHitCooldown--;
-			return;
+			return false;
 		}
 		if (session.followPos == null) {
-			return;
+			return false;
 		}
 
 		Box hitBox = new Box(session.followPos, session.followPos).expand(HELD_HIT_RADIUS);
@@ -1172,7 +1296,7 @@ public final class LevitationManager {
 				entity -> entity instanceof LivingEntity && !entity.getUuid().equals(session.throwerUuid)
 						&& entity != session.heldEntity);
 		if (hitEntities.isEmpty()) {
-			return;
+			return false;
 		}
 
 		LivingEntity target = (LivingEntity) hitEntities.get(0);
@@ -1181,6 +1305,44 @@ public final class LevitationManager {
 				MIN_THROW_DAMAGE, MAX_THROW_DAMAGE);
 		target.damage(session.world.getDamageSources().playerAttack(player), damage);
 		session.heldHitCooldown = HELD_HIT_COOLDOWN_TICKS;
+		if (session.heldEntity != null) {
+			return false;
+		}
+		knockLoose(player, session);
+		return true;
+	}
+
+	/**
+	 * A held block or item that struck something falls out of the magic: each block drops as its own item
+	 * (the block itself, not what breaking it would give - nothing's lost), a held item just drops, all
+	 * where they were floating and carrying a little of the swing.
+	 */
+	private static void knockLoose(ServerPlayerEntity player, LevitationSession session) {
+		ServerWorld world = session.world;
+		Vec3d carried = session.followVelocity.multiply(0.3);
+		List<Integer> displayIds;
+		if (session.heldItemStack != null) {
+			ItemEntity item = new ItemEntity(world, session.followPos.x, session.followPos.y, session.followPos.z, session.heldItemStack);
+			item.setVelocity(carried);
+			world.spawnEntity(item);
+			session.itemDisplay.discard();
+			displayIds = List.of(session.itemDisplay.getId());
+		} else {
+			for (LevitationBlock block : session.blocks) {
+				ItemStack stack = new ItemStack(block.state().getBlock().asItem());
+				if (!stack.isEmpty()) {
+					Vec3d at = block.displayEntity().getPos().add(0.5, 0.5, 0.5);
+					ItemEntity item = new ItemEntity(world, at.x, at.y, at.z, stack);
+					item.setVelocity(carried);
+					world.spawnEntity(item);
+				}
+				block.displayEntity().discard();
+			}
+			displayIds = blockDisplayIds(session.blocks);
+		}
+		ServerPlayNetworking.send(player, new LevitationStateS2CPayload(LevitationState.NONE));
+		playLevitationSound(world, player.getPos(), ModSounds.LEVITATION_RELEASE);
+		broadcastAura(world, session.followPos, displayIds, false);
 	}
 
 	/** Advances a thrown group one tick. Returns true once its session is over (hit something, or timed out). */
