@@ -4,7 +4,8 @@
 //   u in 2-3: a four-point star - white, the color only at its faint edges (glints, sparkle dust, the
 //             release flash);
 //   u from 4: a teleport's bubble with its spikes - see the bubble's branch below.
-// The vertex color is the caster's color, its alpha how far the spark has faded.
+// The vertex color is the caster's color, its alpha how far the spark has faded - except a bubble's (see
+// its branch).
 
 in vec2 texCoord0;
 in vec4 vertexColor;
@@ -62,8 +63,9 @@ float star(vec2 p, float seed, float burst) {
 // thick at its base and sharp at its tip, joined onto the bubble's outline by a smooth neck - one shape, so
 // they grow out of its edge rather than float over it. They boil, as drawn animation does: each frame
 // redraws every spike with its own bends and bulges - some near straight, some kinked - round the same
-// direction and length.
-float bubbleShape(vec2 p, float seed, float frame, float burst) {
+// direction and length. Resting on the ground (the floor line, {@code floorAt} radii below its middle along
+// {@code up}), it flattens against it, and any spike that would go into the ground runs along it instead.
+float bubbleShape(vec2 p, float seed, float frame, float burst, float floorAt, vec2 up) {
     float r = length(p);
     float spikes = 1.0e3;
     // They break out as the star's points reach the wall.
@@ -100,6 +102,7 @@ float bubbleShape(vec2 p, float seed, float frame, float burst) {
             }
             // Its base sits a little inside the bubble, so the neck joins it.
             vec2 point = outward * (0.85 + a * (span + 0.15)) + across * side;
+            point += up * max(-floorAt + 0.04 - dot(point, up), 0.0);
             float width = base * pow(1.0 - a, 0.8) * (1.0 + 0.35 * sin(a * 7.0 + hash(f + 11.0) * 6.28));
             if (j > 0) {
                 vec2 pa = p - lastPoint;
@@ -111,7 +114,9 @@ float bubbleShape(vec2 p, float seed, float frame, float burst) {
             lastWidth = width;
         }
     }
-    return smoothUnion(r - 1.0, spikes, 0.12);
+    float shape = smoothUnion(r - 1.0, spikes, 0.12);
+    // Flattened against the floor, a little rounded where it meets it.
+    return -smoothUnion(-shape, dot(p, up) + floorAt, 0.08);
 }
 
 // How much of a curl stroke is at p (0-1): CURLS strokes, each starting at the bubble's edge, running
@@ -166,29 +171,40 @@ void main() {
         // A bubble: the color throughout, see-through, lighter and more solid round its whole outline
         // (spikes too) and along the strokes curling round inside. At the end of its life a star in the
         // same color swells fast in its middle - the force of the pop - its points bursting out through
-        // the wall as the spikes. v's whole part carries its seed and its animation frame (seed * FRAMES +
-        // frame); u's, how far through its life it is (in LIFE_STEPS, packed as 4 + 2 * stage).
+        // the wall as the spikes. Resting on the ground, it's squashed against it like a bubble blown in a
+        // box: flat underneath, spreading wider the harder it's pressed.
+        // Packed in: v's whole part carries its seed and its animation frame (seed * FRAMES + frame); u's,
+        // how far through its life it is and which way is up on it (4 + 2 * (stage + 64 * facing), up being
+        // facing / 64 of a turn); alpha, how far below its middle the floor line crosses it (alpha * 4
+        // radii; 1 for no floor).
         float whole = floor(texCoord0.y);
         float seed = floor(whole / FRAMES);
         float frame = whole - seed * FRAMES;
-        float stage = floor((texCoord0.x - 4.0) / 2.0);
+        float code = floor((texCoord0.x - 4.0) / 2.0);
+        float stage = mod(code, 64.0);
+        float facing = floor(code / 64.0) / 64.0 * 6.2831853;
+        vec2 up = vec2(cos(facing), sin(facing));
+        float floorAt = vertexColor.a > 0.99 ? 1.0e3 : vertexColor.a * 4.0;
         float burst = clamp((stage / LIFE_STEPS - BURST_START) / (1.0 - BURST_START), 0.0, 1.0);
         burst = 1.0 - (1.0 - burst) * (1.0 - burst);
-        vec2 p = (vec2(texCoord0.x - 4.0 - 2.0 * stage, texCoord0.y - whole) * 2.0 - 1.0) * BUBBLE_REACH;
-        float sd = bubbleShape(p, seed, frame, burst);
+        vec2 p = (vec2(texCoord0.x - 4.0 - 2.0 * code, texCoord0.y - whole) * 2.0 - 1.0) * BUBBLE_REACH;
+        vec2 along = vec2(-up.y, up.x);
+        p = up * dot(p, up) + along * dot(p, along) / (1.0 + 0.35 * clamp(1.0 - floorAt, 0.0, 1.0));
+        float sd = bubbleShape(p, seed, frame, burst, floorAt, up);
         // A pixel's size, from p itself: the shape jumps past each spike's tip, and its own fwidth there
         // smeared the tips into blunt blobs.
         float aa = max(fwidth(length(p)), 1.0e-4);
         // Faded out toward the quad's own edge, so nothing ever ends there in a hard cut.
         float inside = (1.0 - smoothstep(-aa, aa, sd)) * (1.0 - smoothstep(BUBBLE_REACH - 0.6, BUBBLE_REACH, max(abs(p.x), abs(p.y))));
         float starSd = star(p, seed, burst);
-        float inStar = burst > 0.0 ? 1.0 - smoothstep(-aa, aa, starSd) : 0.0;
+        float inStar = burst > 0.0 ? (1.0 - smoothstep(-aa, aa, starSd)) * smoothstep(-aa, aa, dot(p, up) + floorAt) : 0.0;
         // The star is the lowest layer, inside the orb: plain color, solid but see-through. The edge and
         // the curls - folds of the same skin - lie over it.
         float edge = max(smoothstep(-0.14, -0.02, sd), curls(p, seed, burst));
         float under = max(0.3 + 0.2 * smoothstep(-0.5, -0.1, sd), inStar * 0.5);
         rgb = mix(vertexColor.rgb, vec3(1.0), edge * 0.55);
         alpha = min(under + edge * 0.35, 0.95) * inside;
+        fade = 1.0;
     } else {
         vec2 p = vec2(texCoord0.x - 2.0, texCoord0.y) * 2.0 - 1.0;
         vec2 a = abs(p);

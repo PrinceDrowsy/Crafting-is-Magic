@@ -16,7 +16,9 @@ import foundry.veil.api.client.render.light.renderer.LightRenderHandle;
 import foundry.veil.api.client.render.rendertype.VeilRenderType;
 
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.RenderPhase;
 import net.minecraft.client.render.VertexConsumer;
@@ -25,9 +27,12 @@ import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
 import net.minecraft.client.util.BufferAllocator;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
+import net.minecraft.world.RaycastContext;
 
 import craftingismagic.cim.Cim;
 
@@ -124,8 +129,9 @@ final class MagicSparks {
 		/** A glint on a held thing: kept at this offset from its middle as it moves. */
 		Held held;
 		Vec3d offset;
-		/** A bubble's: which spikes it grows (the shader picks them from this). */
+		/** A bubble's: which spikes it grows (the shader picks them from this), and how far below its middle the ground is (blocks; negative for none in reach). */
 		int seed;
+		float floorDrop = -1f;
 		/** How fast it falls (blocks a second, each second). */
 		float gravity;
 		/** A firework sparkle's: how often it leaves a speck behind it (seconds; 0 for none), and how soon the next. */
@@ -309,6 +315,15 @@ final class MagicSparks {
 		if (bubble != null) {
 			bubble.turn = RANDOM.nextFloat() * MathHelper.TAU;
 			bubble.seed = RANDOM.nextInt(BUBBLE_SEEDS);
+			// The ground it rests on and squashes against, if any is within reach of it and its spikes.
+			ClientWorld world = MinecraftClient.getInstance().world;
+			if (world != null) {
+				BlockHitResult ground = world.raycast(new RaycastContext(from, from.add(0, -radius * BUBBLE_REACH, 0), RaycastContext.ShapeType.COLLIDER,
+						RaycastContext.FluidHandling.NONE, ShapeContext.absent()));
+				if (ground.getType() == HitResult.Type.BLOCK) {
+					bubble.floorDrop = (float) (from.y - ground.getPos().y);
+				}
+			}
 		}
 		// A firework: white sparkles burst from its middle - a stream from the start, and a big burst with
 		// the pop - slow, and fall a little as they fade, each leaving a trail of specks.
@@ -448,8 +463,20 @@ final class MagicSparks {
 				float turn = spark.turn + spark.age * 3f;
 				Vector3f spunRight = new Vector3f(right).mul(MathHelper.cos(turn)).add(new Vector3f(up).mul(MathHelper.sin(turn)));
 				Vector3f spunUp = new Vector3f(up).mul(MathHelper.cos(turn)).sub(new Vector3f(right).mul(MathHelper.sin(turn)));
-				billboard(out, at, spunRight, spunUp, spark.size * BUBBLE_REACH * bubbleScale(spark.age), spark.color, 1f,
-						4f + 2f * stage, spark.seed * BUBBLE_FRAMES + frame);
+				// Where the ground crosses it: which way is up on the quad (its own y runs down it), and how many
+				// of its radii below its middle the floor line sits.
+				float scale = bubbleScale(spark.age);
+				float upX = spunRight.y;
+				float upY = -spunUp.y;
+				float tilt = (float) Math.sqrt(upX * upX + upY * upY);
+				float floorAt = 1f;
+				int facing = 0;
+				if (spark.floorDrop >= 0f && tilt > 0.05f && scale > 0.01f) {
+					floorAt = Math.min(spark.floorDrop / (tilt * spark.size / 2f * scale) / 4f, 0.99f);
+					facing = Math.floorMod(Math.round((float) Math.atan2(upY, upX) / MathHelper.TAU * 64f), 64);
+				}
+				billboard(out, at, spunRight, spunUp, spark.size * BUBBLE_REACH * scale, spark.color, floorAt,
+						4f + 2f * (stage + 64 * facing), spark.seed * BUBBLE_FRAMES + frame);
 			} else {
 				streak(out, at, spark, t);
 			}
