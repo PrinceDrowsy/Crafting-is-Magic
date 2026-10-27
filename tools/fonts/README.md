@@ -34,6 +34,14 @@ D:\dev-tools\fonttools-venv\Scripts\python.exe tools/fonts/convert_opendyslexic.
 (fontTools is installed in that venv: `python -m venv D:\dev-tools\fonttools-venv`,
 then `pip install fonttools`.)
 
-**In-game naming:** the setting is labeled "Dyslexia-Friendly Font" and never
+**In-game naming:** the font is labeled "Equestria Reader" and never
 "OpenDyslexic", since the OFL also restricts using the original's name to promote
 a modified version (acknowledging it as the source, as above, is fine).
+
+## Atkinson Hyperlegible (a reading font option)
+
+[Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/) by the Braille
+Institute of America, under the SIL Open Font License 1.1. Shipped **unmodified**
+(it's already TrueType, and its license names no Reserved Font Name), from Google
+Fonts' repository (`ofl/atkinsonhyperlegible/`): `atkinson-hyperlegible-regular.ttf`
+and `atkinson-hyperlegible-ofl.txt` (the license text, unaltered).

@@ -120,7 +120,9 @@ look in-game: "it looks bad") - plus the movie's wisps, shards and flash for lif
 
 - **A reduced-effects setting:** releases and teleports flash white, which can bother
   photosensitive players, so a client option softens the flashes (and stills the edge wave), the
-  same magic otherwise.
+  same magic otherwise. Built as the Visual Comfort options (README: Accessibility, grounded in what
+  photosensitive and migraine players say): Flash Intensity, Flashes in Magic's Color, Steady Effects
+  and Particle Amount - and, for everyone, never more than three bright flashes a second.
 - **Cheap at every scale:** effects are drawn on each viewer's own game, simplified with distance
   (beyond a short range: the tinted shell and rim only, no flame, wisps or sparkles), and capped
   in number - weighed for singleplayer, small and large servers alike, where a crowd of unicorns

@@ -48,6 +48,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.client.accessibility.VisualComfort;
 import craftingismagic.cim.network.HornGlowS2CPayload;
 import craftingismagic.cim.network.TeleportS2CPayload;
 
@@ -441,11 +442,14 @@ public final class MagicAuraRenderer {
 			// A held thing's glow gathers out to its full width.
 			SLOT_WIDTHS[slot] = 0.4f + 0.6f * eased;
 			if (aura.horn) {
-				float flash = aura.released ? MathHelper.clamp(1f - aura.sinceRelease / HORN_FLASH, 0f, 1f) : 0f;
+				// The release flash, as bright as the player's chosen flash intensity allows.
+				float flash = aura.released ? MathHelper.clamp(1f - aura.sinceRelease / HORN_FLASH, 0f, 1f) * VisualComfort.flashIntensity() : 0f;
 				// A horn's draws in from wide as it gathers, and swells a little in the release flash.
 				SLOT_WIDTHS[slot] = aura.released ? HORN_WIDTH * (1f + 0.6f * flash) : MathHelper.lerp(eased, HORN_GATHER_WIDTH, HORN_WIDTH);
-				// Gathering, it starts pale and takes on the color; releasing, it flares white first.
-				SLOT_COLORS[slot] = mix(aura.color, 0xFFFFFF, aura.released ? 0.85f * flash : 0.6f * (1f - eased));
+				// Gathering, it starts pale and takes on the color; releasing, it flares white first (or only
+				// brightens in its own color, for a player who's asked for color flashes).
+				float flare = VisualComfort.colorFlashes() ? 0f : 0.85f * flash;
+				SLOT_COLORS[slot] = mix(aura.color, 0xFFFFFF, aura.released ? flare : 0.6f * (1f - eased));
 				if (aura.released) {
 					SLOT_FADES[slot] = Math.max(eased, flash);
 				}
@@ -551,7 +555,7 @@ public final class MagicAuraRenderer {
 			pipeline.getUniformSafe("FarPlane").setFloat(client.gameRenderer.getFarPlaneDistance());
 			pipeline.getUniformSafe("RimWidth").setFloat(RIM_WIDTH);
 			pipeline.getUniformSafe("HazeWidth").setFloat(HAZE_WIDTH);
-			pipeline.getUniformSafe("WaveSpeed").setFloat(WAVE_SPEED);
+			pipeline.getUniformSafe("WaveSpeed").setFloat(VisualComfort.steady() ? 0f : WAVE_SPEED);
 			for (int i = 0; i < SLOTS; i++) {
 				int color = i < slotsUsed ? SLOT_COLORS[i] : 0;
 				pipeline.getUniformSafe("AuraColor" + i).setVector(((color >> 16) & 0xFF) / 255f, ((color >> 8) & 0xFF) / 255f, (color & 0xFF) / 255f);

@@ -1,4 +1,5 @@
 {
 	"vertex": "cim:quasar/charge_cone",
-	"fragment": "cim:quasar/charge_cone"
+	"fragment": "cim:quasar/charge_cone",
+	"definitions": ["CIM_STEADY"]
 }

@@ -35,6 +35,7 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.RaycastContext;
 
 import craftingismagic.cim.Cim;
+import craftingismagic.cim.client.accessibility.VisualComfort;
 
 /**
  * The loose, bright parts of unicorn magic (docs/magic-aura.md), drawn by this class itself so each
@@ -122,6 +123,8 @@ final class MagicSparks {
 		int color;
 		/** A glint: swells in and out again, rather than fading as it goes. */
 		boolean twinkle;
+		/** A flash star drawn in the magic's own color, without its white core (for a player who's asked for color flashes). */
+		boolean colored;
 		/** A wisp: circles its horn's spiral instead of flying free. */
 		Horn horn;
 		/** Where a wisp starts round its spiral, or how a bubble is turned to begin with (radians). */
@@ -193,11 +196,15 @@ final class MagicSparks {
 		FLASHES.clear();
 	}
 
-	private static void flash(Vec3d at, int color, float delay, float life, float radius, float brightness) {
+	/**
+	 * A flash of real light in the magic's color - paled toward white when {@code paled}, unless the player
+	 * has asked for flashes in color. Callers check {@link VisualComfort#flash} first.
+	 */
+	private static void flash(Vec3d at, int color, boolean paled, float delay, float life, float radius, float brightness) {
 		PointLightData data = new PointLightData();
 		data.setPosition(at.x, at.y, at.z);
 		data.setRadius(radius);
-		data.setColor(color);
+		data.setColor(paled && !VisualComfort.colorFlashes() ? whiten(color, 0.5f) : color);
 		data.setBrightness(0f);
 		Flash flash = new Flash();
 		flash.handle = VeilRenderSystem.renderer().getLightRenderer().addLight(data);
@@ -205,6 +212,19 @@ final class MagicSparks {
 		flash.life = life;
 		flash.brightness = brightness;
 		FLASHES.add(flash);
+	}
+
+	/**
+	 * A white flash star (a release, an arrival). Turned down, it's smaller and fades in more slowly rather
+	 * than popping; and it's drawn in the magic's own color for a player who's asked for color flashes.
+	 * Callers check {@link VisualComfort#flash} first.
+	 */
+	private static void flashStar(Vec3d at, float size, int color) {
+		float intensity = VisualComfort.flashIntensity();
+		Spark star = add(Shape.STAR, at, Vec3d.ZERO, 0f, MathHelper.lerp(intensity, FLASH_LIFE * 2.5f, FLASH_LIFE), size * (0.4f + 0.6f * intensity), color);
+		if (star != null) {
+			star.colored = VisualComfort.colorFlashes();
+		}
 	}
 
 	private static void updateFlashes(float seconds) {
@@ -219,10 +239,13 @@ final class MagicSparks {
 				flashes.remove();
 				continue;
 			}
+			// Turned down, it's dimmer and swells up gently, rather than spiking.
+			float intensity = VisualComfort.flashIntensity();
+			float rise = MathHelper.lerp(intensity, 0.45f, 0.15f);
 			float t = Math.max(flash.age, 0f) / flash.life;
-			float fall = (1f - t) / 0.85f;
-			float level = flash.age < 0f ? 0f : t < 0.15f ? t / 0.15f : fall * fall;
-			flash.handle.getLightData().setBrightness(flash.brightness * level);
+			float fall = (1f - t) / (1f - rise);
+			float level = flash.age < 0f ? 0f : t < rise ? t / rise : fall * fall;
+			flash.handle.getLightData().setBrightness(flash.brightness * level * intensity);
 			flash.handle.markDirty();
 		}
 	}
@@ -266,7 +289,8 @@ final class MagicSparks {
 
 	/** Sparkle dust - given off by a held spell, thrown off by a sudden move or a release: white specks drifting slowly, lingering about 0.6 s. */
 	static void dust(Vec3d at, int count, int color) {
-		for (int i = 0; i < count; i++) {
+		int shown = VisualComfort.particles(count);
+		for (int i = 0; i < shown; i++) {
 			Vec3d drift = new Vec3d(RANDOM.nextGaussian() * 0.15, 0.1 + RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.15);
 			add(Shape.STAR, at.add(RANDOM.nextGaussian() * 0.12, RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.12), drift, 1f,
 					0.5f + RANDOM.nextFloat() * 0.2f, 0.05f + RANDOM.nextFloat() * 0.03f, color);
@@ -279,11 +303,10 @@ final class MagicSparks {
 	 * and fading, with a little sparkle dust left drifting after them.
 	 */
 	static void release(Vec3d tip, int color) {
-		Spark flash = add(Shape.STAR, tip, Vec3d.ZERO, 0f, FLASH_LIFE, 0.35f, color);
-		if (flash == null) {
-			return;
+		if (VisualComfort.flash(0f)) {
+			flashStar(tip, 0.35f, color);
 		}
-		int shards = SHARDS_MIN + RANDOM.nextInt(SHARDS_MAX - SHARDS_MIN + 1);
+		int shards = VisualComfort.particles(SHARDS_MIN + RANDOM.nextInt(SHARDS_MAX - SHARDS_MIN + 1));
 		for (int i = 0; i < shards; i++) {
 			double angle = RANDOM.nextDouble() * Math.PI * 2;
 			double out = 0.5 + RANDOM.nextDouble() * 0.9;
@@ -309,8 +332,12 @@ final class MagicSparks {
 		int pale = whiten(color, 0.3f);
 		float gone = TELEPORT_SWELL + TELEPORT_HOLD + TELEPORT_BURST;
 		// It lights the world round it as it swells, and flashes as it pops.
-		flash(from, color, 0f, gone, 6f, 0.8f);
-		flash(from, whiten(color, 0.5f), gone, 0.3f, 10f, 1.5f);
+		if (VisualComfort.flash(0f)) {
+			flash(from, color, false, 0f, gone, 6f, 0.8f);
+		}
+		if (VisualComfort.flash(gone)) {
+			flash(from, color, true, gone, 0.3f, 10f, 1.5f);
+		}
 		Spark bubble = add(Shape.BUBBLE, from, Vec3d.ZERO, 0f, gone, radius * 2f, color);
 		if (bubble != null) {
 			bubble.turn = RANDOM.nextFloat() * MathHelper.TAU;
@@ -327,16 +354,19 @@ final class MagicSparks {
 		}
 		// A firework: white sparkles burst from its middle - a stream from the start, and a big burst with
 		// the pop - slow, and fall a little as they fade, each leaving a trail of specks.
-		for (int i = 0; i < 44; i++) {
+		int stream = VisualComfort.particles(16);
+		int sparkles = stream + VisualComfort.particles(28);
+		for (int i = 0; i < sparkles; i++) {
 			Spark sparkle = add(Shape.STAR, from, randomDirection().multiply(3.0 + RANDOM.nextDouble() * 3.0), 2.5f,
 					0.7f + RANDOM.nextFloat() * 0.4f, 0.1f + RANDOM.nextFloat() * 0.05f, whiten(color, 0.9f));
 			if (sparkle != null) {
 				sparkle.gravity = 1.5f;
 				sparkle.trailEvery = 0.035f;
 			}
-			delay(sparkle, i < 16 ? gone * i / 16f : gone);
+			delay(sparkle, i < stream ? gone * i / stream : gone);
 		}
-		for (int i = 0; i < 18; i++) {
+		int shards = VisualComfort.particles(18);
+		for (int i = 0; i < shards; i++) {
 			Vec3d out = randomDirection();
 			Spark shard = add(Shape.STREAK, from.add(out.multiply(radius)), out.multiply(3.0 + RANDOM.nextDouble() * 2.0), 6f,
 					0.2f + RANDOM.nextFloat() * 0.1f, 0.04f, pale);
@@ -345,7 +375,8 @@ final class MagicSparks {
 			}
 			delay(shard, gone);
 		}
-		for (int i = 0; i < 3; i++) {
+		int afterglow = VisualComfort.particles(3);
+		for (int i = 0; i < afterglow; i++) {
 			Spark glint = add(Shape.STAR, from.add(randomDirection().multiply(0.25)), Vec3d.ZERO, 0f, 0.2f, 0.12f, whiten(color, 0.85f));
 			if (glint != null) {
 				glint.twinkle = true;
@@ -366,15 +397,19 @@ final class MagicSparks {
 	static void arrive(Vec3d to, float size, int color) {
 		float radius = size * 0.75f;
 		int pale = whiten(color, 0.3f);
-		flash(to, whiten(color, 0.5f), 0f, 0.3f, 10f, 1.4f);
-		add(Shape.STAR, to, Vec3d.ZERO, 0f, FLASH_LIFE, 0.5f, whiten(color, 0.7f));
-		for (int i = 0; i < 8; i++) {
+		if (VisualComfort.flash(0f)) {
+			flash(to, color, true, 0f, 0.3f, 10f, 1.4f);
+			flashStar(to, 0.5f, whiten(color, 0.7f));
+		}
+		int lines = VisualComfort.particles(8);
+		for (int i = 0; i < lines; i++) {
 			Spark line = add(Shape.STREAK, to, randomDirection().multiply(6.0), 14f, 0.15f, 0.03f, pale);
 			if (line != null) {
 				line.stretch = 0.05f;
 			}
 		}
-		for (int i = 0; i < 7; i++) {
+		int glints = VisualComfort.particles(7);
+		for (int i = 0; i < glints; i++) {
 			Spark glint = add(Shape.STAR, to.add(randomDirection().multiply(radius * (0.6 + RANDOM.nextDouble() * 0.4))), Vec3d.ZERO, 0f,
 					0.12f + RANDOM.nextFloat() * 0.06f, 0.14f, whiten(color, 0.85f));
 			if (glint != null) {
@@ -455,9 +490,10 @@ final class MagicSparks {
 				float rise = MathHelper.sin(t * MathHelper.PI);
 				float alpha = spark.twinkle ? rise : spark.drag == 0f ? 1f - t : 1f - t * t;
 				float size = spark.size * (spark.twinkle ? 0.6f + 0.4f * rise : spark.drag == 0f ? 1f - 0.5f * t : 1f);
-				billboard(out, at, right, up, size, spark.color, alpha, 2f, 0);
+				billboard(out, at, right, up, size, spark.color, alpha, 2f, spark.colored ? 2 : 0);
 			} else if (spark.shape == Shape.BUBBLE) {
-				int frame = (int) (spark.age / BUBBLE_FRAME) % BUBBLE_FRAMES;
+				// Its spikes boil frame to frame - unless the player has asked for steady effects.
+				int frame = VisualComfort.steady() ? 0 : (int) (spark.age / BUBBLE_FRAME) % BUBBLE_FRAMES;
 				int stage = Math.min(Math.round(t * BUBBLE_LIFE_STEPS), BUBBLE_LIFE_STEPS);
 				// Turning slightly as it lives, everything on it with it.
 				float turn = spark.turn + spark.age * 3f;
@@ -511,7 +547,7 @@ final class MagicSparks {
 			}
 			horn.untilGlint -= seconds;
 			if (horn.untilGlint <= 0f) {
-				horn.untilGlint = GLINT_EVERY_MIN + RANDOM.nextFloat() * (GLINT_EVERY_MAX - GLINT_EVERY_MIN);
+				horn.untilGlint = glintGap();
 				Vec3d along = horn.base.lerp(horn.tip, 0.2 + RANDOM.nextDouble() * 0.85);
 				Vec3d jitter = new Vec3d(RANDOM.nextGaussian(), RANDOM.nextGaussian(), RANDOM.nextGaussian()).multiply(0.02);
 				Spark glint = add(Shape.STAR, along.add(jitter), Vec3d.ZERO, 0f, glintLife(), 0.14f, whiten(horn.color, 0.85f));
@@ -540,7 +576,7 @@ final class MagicSparks {
 			if (held.untilGlint > 0f) {
 				continue;
 			}
-			held.untilGlint = GLINT_EVERY_MIN + RANDOM.nextFloat() * (GLINT_EVERY_MAX - GLINT_EVERY_MIN);
+			held.untilGlint = glintGap();
 			Vec3d offset = onSurface(held);
 			Spark glint = add(Shape.STAR, held.middle.add(offset), Vec3d.ZERO, 0f, glintLife(), 0.22f, whiten(held.color, 0.85f));
 			if (glint != null) {
@@ -569,11 +605,17 @@ final class MagicSparks {
 	}
 
 	private static float dustGap() {
-		return DUST_EVERY_MIN + RANDOM.nextFloat() * (DUST_EVERY_MAX - DUST_EVERY_MIN);
+		return (DUST_EVERY_MIN + RANDOM.nextFloat() * (DUST_EVERY_MAX - DUST_EVERY_MIN)) * VisualComfort.particleGap();
 	}
 
+	/** Glints come more seldom at a lower particle amount, and half as often again with steady effects. */
+	private static float glintGap() {
+		return (GLINT_EVERY_MIN + RANDOM.nextFloat() * (GLINT_EVERY_MAX - GLINT_EVERY_MIN)) * VisualComfort.particleGap() * (VisualComfort.steady() ? 2f : 1f);
+	}
+
+	/** With steady effects, each glint swells in and out half as fast. */
 	private static float glintLife() {
-		return GLINT_LIFE_MIN + RANDOM.nextFloat() * (GLINT_LIFE_MAX - GLINT_LIFE_MIN);
+		return (GLINT_LIFE_MIN + RANDOM.nextFloat() * (GLINT_LIFE_MAX - GLINT_LIFE_MIN)) * (VisualComfort.steady() ? 2f : 1f);
 	}
 
 	private static void update(float seconds) {

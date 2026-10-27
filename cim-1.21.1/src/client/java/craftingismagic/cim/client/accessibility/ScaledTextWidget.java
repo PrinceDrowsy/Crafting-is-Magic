@@ -11,35 +11,31 @@ import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
 /**
- * A scrollable block of reading text that honors {@link AccessibilityConfig}'s font and text size -
- * a drop-in for vanilla's {@code ScrollableTextWidget}, which can't do either. Text is wrapped to the
- * widget's width divided by the scale, then drawn scaled up, so bigger text wraps into more lines
- * and scrolls instead of overflowing. Screens re-create their widgets on resize, so wrapping is
- * computed once here.
+ * A scrollable block of reading text that honors {@link AccessibilityConfig}'s reading settings (through
+ * {@link CimText}) - a drop-in for vanilla's {@code ScrollableTextWidget}, which can't. Bigger or more
+ * spaced-out text wraps into more lines and scrolls instead of overflowing. Screens re-create their
+ * widgets on resize, so wrapping is computed once here.
  */
 public class ScaledTextWidget extends ScrollableWidget {
 	private final TextRenderer textRenderer;
 	private final Text text;
-	private final float scale;
 	private final List<OrderedText> lines;
 
 	public ScaledTextWidget(int x, int y, int width, int height, Text text, TextRenderer textRenderer) {
 		super(x, y, width, height, text);
 		this.textRenderer = textRenderer;
 		this.text = text;
-		this.scale = CimText.scale();
-		int wrapWidth = Math.max(1, Math.round((width - this.getPaddingDoubled()) / scale));
-		this.lines = textRenderer.wrapLines(CimText.style(text), wrapWidth);
+		this.lines = CimText.wrap(textRenderer, text, width - this.getPaddingDoubled());
 	}
 
 	@Override
 	protected int getContentsHeight() {
-		return Math.round(lines.size() * textRenderer.fontHeight * scale);
+		return lines.size() * CimText.lineHeight(textRenderer);
 	}
 
 	@Override
 	protected double getDeltaYPerScroll() {
-		return textRenderer.fontHeight * scale;
+		return CimText.lineHeight(textRenderer);
 	}
 
 	/** Like vanilla's scrollable text, the frame only appears once there's something to scroll. */
@@ -52,15 +48,7 @@ public class ScaledTextWidget extends ScrollableWidget {
 
 	@Override
 	protected void renderContents(DrawContext context, int mouseX, int mouseY, float delta) {
-		context.getMatrices().push();
-		context.getMatrices().translate(this.getX() + this.getPadding(), this.getY() + this.getPadding(), 0);
-		context.getMatrices().scale(scale, scale, 1f);
-		int lineY = 0;
-		for (OrderedText line : lines) {
-			context.drawText(textRenderer, line, 0, lineY, 0xFFFFFFFF, false);
-			lineY += textRenderer.fontHeight;
-		}
-		context.getMatrices().pop();
+		CimText.drawLines(context, textRenderer, lines, this.getX() + this.getPadding(), this.getY() + this.getPadding(), 0xFFFFFFFF, false, true);
 	}
 
 	@Override

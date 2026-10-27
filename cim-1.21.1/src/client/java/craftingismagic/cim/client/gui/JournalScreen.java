@@ -13,6 +13,7 @@ import net.minecraft.util.Formatting;
 import craftingismagic.cim.client.ability.AbilityLoreRegistry;
 import craftingismagic.cim.client.ability.AbilityLoreRegistry.AbilityLoreEntry;
 import craftingismagic.cim.client.accessibility.CimText;
+import craftingismagic.cim.client.accessibility.ReadingSetupScreen;
 import craftingismagic.cim.client.accessibility.ScaledTextWidget;
 import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
@@ -59,6 +60,7 @@ public class JournalScreen extends Screen {
 
 	@Override
 	protected void init() {
+		ReadingSetupScreen.offer(this);
 		int x = (this.width - CONTENT_WIDTH) / 2;
 		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
 		int tabsY = Math.max(TABS_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 6);
@@ -94,20 +96,20 @@ public class JournalScreen extends Screen {
 	private static Text bodyFor(Tab tab, PlayerEntity player) {
 		return switch (tab) {
 			case ABILITIES -> abilitiesBody(player);
-			case FRIENDSHIPS -> Text.translatable("screen.cim.journal.friendships_placeholder").formatted(Formatting.ITALIC);
-			case QUESTS -> Text.translatable("screen.cim.journal.quests_placeholder").formatted(Formatting.ITALIC);
+			case FRIENDSHIPS -> Text.translatable("screen.cim.journal.friendships_placeholder").formatted(Formatting.GRAY);
+			case QUESTS -> Text.translatable("screen.cim.journal.quests_placeholder").formatted(Formatting.GRAY);
 		};
 	}
 
 	private static Text abilitiesBody(PlayerEntity player) {
 		if (!SpeciesAttachment.hasChosenSpecies(player)) {
-			return Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.ITALIC);
+			return Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.GRAY);
 		}
 
 		Species species = SpeciesAttachment.getSpecies(player);
 		List<AbilityLoreEntry> abilities = AbilityLoreRegistry.abilitiesFor(species);
 		if (abilities.isEmpty()) {
-			return Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.ITALIC);
+			return Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.GRAY);
 		}
 
 		MutableText body = Text.empty();

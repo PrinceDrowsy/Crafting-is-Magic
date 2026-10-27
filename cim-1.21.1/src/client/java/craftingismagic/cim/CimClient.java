@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 
 import craftingismagic.cim.client.ability.AbilityActivationHandler;
+import craftingismagic.cim.client.accessibility.VisualComfort;
 import craftingismagic.cim.client.ability.AbilityActivationKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuKeyBinding;
 import craftingismagic.cim.client.ability.RadialMenuOpener;
@@ -153,6 +154,7 @@ public class CimClient implements ClientModInitializer {
 		PegasusChargeEffectHandler.register();
 		PegasusRainboomTrailEffectHandler.register();
 		LevitationAuraEffectHandler.register();
+		VisualComfort.register();
 
 		// Every piece of client-side ability/effect state is static and per-world, but nothing used
 		// to clear it - quitting mid-hold left Levitation stuck thinking it was still holding in the

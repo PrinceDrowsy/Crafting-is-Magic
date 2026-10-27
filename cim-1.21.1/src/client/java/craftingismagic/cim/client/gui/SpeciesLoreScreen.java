@@ -12,6 +12,7 @@ import net.minecraft.util.Formatting;
 
 import craftingismagic.cim.client.ability.AbilityLoreRegistry;
 import craftingismagic.cim.client.accessibility.CimText;
+import craftingismagic.cim.client.accessibility.ReadingSetupScreen;
 import craftingismagic.cim.client.accessibility.ScaledTextWidget;
 import craftingismagic.cim.client.ability.AbilityLoreRegistry.AbilityLoreEntry;
 import craftingismagic.cim.network.SelectSpeciesC2SPayload;
@@ -44,6 +45,7 @@ public class SpeciesLoreScreen extends Screen {
 
 	@Override
 	protected void init() {
+		ReadingSetupScreen.offer(this);
 		int x = (this.width - CONTENT_WIDTH) / 2;
 		// Below the title by its actual (possibly scaled) height, so a larger text size never overlaps.
 		int bodyY = Math.max(BODY_Y, TITLE_Y + CimText.lineHeight(this.textRenderer) + 8);
@@ -88,12 +90,13 @@ public class SpeciesLoreScreen extends Screen {
 	private static Text buildBody(Species species) {
 		MutableText body = Text.translatable(species.translationKey() + ".lore").copy()
 				.append(Text.literal("\n\n"))
-				.append(Text.translatable("screen.cim.species_detail.abilities_header").formatted(Formatting.UNDERLINE));
+				// Bold, never underline or italics - those make words harder to read for many dyslexic readers.
+				.append(Text.translatable("screen.cim.species_detail.abilities_header").formatted(Formatting.BOLD));
 
 		List<AbilityLoreEntry> abilities = AbilityLoreRegistry.abilitiesFor(species);
 		if (abilities.isEmpty()) {
 			body.append(Text.literal("\n"))
-					.append(Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.ITALIC));
+					.append(Text.translatable("screen.cim.species_detail.no_abilities").formatted(Formatting.GRAY));
 		} else {
 			for (AbilityLoreEntry entry : abilities) {
 				body.append(Text.literal("\n"))

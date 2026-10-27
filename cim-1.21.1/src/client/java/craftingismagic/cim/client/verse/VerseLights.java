@@ -17,6 +17,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
+import craftingismagic.cim.client.accessibility.VisualComfort;
 import craftingismagic.cim.network.VerseLightS2CPayload;
 import craftingismagic.cim.verse.VerseRuntime;
 
@@ -135,7 +136,13 @@ public final class VerseLights {
 				} else {
 					data.setPosition(base.x, base.y, base.z);
 				}
-				float flash = source.twinkle() ? 0.1f + 0.9f * VerseRuntime.twinkle(glow.age + tickDelta, sparkle) : 1f;
+				// A twinkling light flashes on its rhythm - gentler as flashes are turned down, and held at a
+				// steady glow for a player who's asked for steady effects.
+				float flash = 1f;
+				if (source.twinkle()) {
+					float twinkle = VisualComfort.steady() ? 0.5f : 0.1f + 0.9f * VerseRuntime.twinkle(glow.age + tickDelta, sparkle);
+					flash = MathHelper.lerp(VisualComfort.flashIntensity(), 0.5f, twinkle);
+				}
 				data.setBrightness(brightness * flash);
 				handle.markDirty();
 			}

@@ -62,9 +62,14 @@ void main() {
     vec3 rainbowEdge = hsv2rgb(vec3(angleNorm, 1.0, 1.0));
     vec3 baseColor = mix(vec3(1.0), rainbowEdge, edgeT * 0.6);
 
-    // Electric sparks crackling across the shape - fast-flickering random bright points.
+    // Electric sparks crackling across the shape - fast-flickering random bright points, held still for a
+    // player who's asked for steady effects (VisualComfort sets CIM_STEADY).
     float sparkGrid = 14.0;
+#ifdef CIM_STEADY
+    vec2 sparkCell = floor(centered * sparkGrid);
+#else
     vec2 sparkCell = floor(centered * sparkGrid) + floor(GameTime * 4000.0 * 25.0);
+#endif
     float sparkChance = hash(sparkCell);
     float spark = step(0.965, sparkChance) * shapeAlpha * (0.4 + 0.6 * chargeT);
     vec3 sparkColor = vec3(1.0) * spark * 4.0;

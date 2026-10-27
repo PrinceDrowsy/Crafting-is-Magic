@@ -5,6 +5,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
 import craftingismagic.cim.client.accessibility.CimText;
+import craftingismagic.cim.client.accessibility.ReadingSetupScreen;
 import craftingismagic.cim.species.Species;
 
 /**
@@ -22,6 +23,7 @@ public class SpeciesSelectScreen extends Screen {
 
 	@Override
 	protected void init() {
+		ReadingSetupScreen.offer(this);
 		Species[] species = Species.values();
 		int totalHeight = species.length * (BUTTON_HEIGHT + BUTTON_SPACING) - BUTTON_SPACING;
 		int startY = (this.height - totalHeight) / 2;

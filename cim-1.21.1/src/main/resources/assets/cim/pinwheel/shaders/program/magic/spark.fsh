@@ -2,7 +2,7 @@
 //   u in 0-1: a streak - a teardrop stretched along its flight, head at u = 1, the caster's color with a
 //             white core (a release's shards, the wisps round a held spell's horn);
 //   u in 2-3: a four-point star - white, the color only at its faint edges (glints, sparkle dust, the
-//             release flash);
+//             release flash) - or, with v from 2, in the color throughout;
 //   u from 4: a teleport's bubble with its spikes - see the bubble's branch below.
 // The vertex color is the caster's color, its alpha how far the spark has faded - except a bubble's (see
 // its branch).
@@ -206,14 +206,17 @@ void main() {
         alpha = min(under + edge * 0.35, 0.95) * inside;
         fade = 1.0;
     } else {
-        vec2 p = vec2(texCoord0.x - 2.0, texCoord0.y) * 2.0 - 1.0;
+        // v from 2: a flash star in the magic's own color, its white core left out (for a player who's
+        // asked for color flashes).
+        float colored = step(1.5, texCoord0.y);
+        vec2 p = vec2(texCoord0.x - 2.0, texCoord0.y - 2.0 * colored) * 2.0 - 1.0;
         vec2 a = abs(p);
         float across = 1.0 - smoothstep(0.0, 0.1 * (1.0 - a.x) + 0.02, a.y);
         float down = 1.0 - smoothstep(0.0, 0.1 * (1.0 - a.y) + 0.02, a.x);
         float rays = max(max(1.0 - a.x, 0.0) * across, max(1.0 - a.y, 0.0) * down);
         float glow = exp(-dot(p, p) * 10.0);
         float lit = clamp(max(rays, glow), 0.0, 1.0);
-        rgb = mix(vertexColor.rgb, vec3(1.0), clamp(lit * 1.4, 0.0, 1.0));
+        rgb = mix(vertexColor.rgb, vec3(1.0), clamp(lit * mix(1.4, 0.2, colored), 0.0, 1.0));
         alpha = lit;
     }
     alpha *= fade;

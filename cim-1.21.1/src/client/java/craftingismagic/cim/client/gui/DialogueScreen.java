@@ -372,7 +372,7 @@ public class DialogueScreen extends Screen {
 		} else if (!option.text().isEmpty()) {
 			body = Text.literal(option.text());
 		} else {
-			body = Text.translatable("screen.cim.idle_chatter." + option.tone()).formatted(Formatting.GRAY, Formatting.ITALIC);
+			body = Text.translatable("screen.cim.idle_chatter." + option.tone()).formatted(Formatting.GRAY);
 		}
 		return new Entry(Text.translatable("screen.cim.dialogue.you"), color, body, false, SOUND_NONE, "");
 	}
@@ -638,21 +638,21 @@ public class DialogueScreen extends Screen {
 	}
 
 	private int lineHeight() {
-		return Math.round(this.textRenderer.fontHeight * scale());
+		return CimText.lineHeight(this.textRenderer);
 	}
 
 	private List<OrderedText> wrap(Text text, int width) {
-		return this.textRenderer.wrapLines(CimText.style(text), Math.max(1, Math.round(width / scale())));
+		return CimText.wrap(this.textRenderer, text, width);
 	}
 
+	/** On the screen's own bubbles and buttons, so never over the chosen backdrop - a dark one would fight their ink. */
 	private void drawLines(DrawContext context, List<OrderedText> lines, int x, int y, int color) {
-		context.getMatrices().push();
-		context.getMatrices().translate(x, y, 0);
-		context.getMatrices().scale(scale(), scale(), 1f);
-		for (int i = 0; i < lines.size(); i++) {
-			context.drawText(this.textRenderer, lines.get(i), 0, i * this.textRenderer.fontHeight, color, false);
-		}
-		context.getMatrices().pop();
+		CimText.drawLines(context, this.textRenderer, lines, x, y, color, false, false);
+	}
+
+	/** How wide a line of reading text is on screen. */
+	private int readingWidth(Text text) {
+		return CimText.width(this.textRenderer, CimText.style(text).asOrderedText());
 	}
 
 	@Override
@@ -806,13 +806,12 @@ public class DialogueScreen extends Screen {
 		if (ended && playersTurn() && requests.isEmpty()) {
 			Text label = CimText.style(Text.translatable("screen.cim.dialogue.close"));
 			int height = lineHeight + 10;
-			int buttonWidth = Math.min(width, Math.round(this.textRenderer.getWidth(label) * scale()) + 40);
+			int buttonWidth = Math.min(width, readingWidth(label) + 40);
 			int bx = x + (width - buttonWidth) / 2;
 			int by = bottom - height;
 			Hit hit = new Hit(bx, by, bx + buttonWidth, by + height, CLOSE);
 			bubble(context, hit, Bubbly.TONE_BUBBLE, hit.contains(mouseX, mouseY));
-			drawLines(context, wrap(label, buttonWidth), bx + (buttonWidth - Math.round(this.textRenderer.getWidth(label) * scale())) / 2,
-					by + 5, Bubbly.INK);
+			drawLines(context, wrap(label, buttonWidth), bx + (buttonWidth - readingWidth(label)) / 2, by + 5, Bubbly.INK);
 			hits.add(hit);
 			return by;
 		}
@@ -950,13 +949,12 @@ public class DialogueScreen extends Screen {
 		// "Never mind" at the very bottom.
 		Text back = CimText.style(Text.translatable("screen.cim.dialogue.never_mind"));
 		int backHeight = lineHeight + 10;
-		int backWidth = Math.min(width, Math.round(this.textRenderer.getWidth(back) * scale()) + 40);
+		int backWidth = Math.min(width, readingWidth(back) + 40);
 		int backX = x + (width - backWidth) / 2;
 		int backY = bottom - backHeight;
 		Hit backHit = new Hit(backX, backY, backX + backWidth, backY + backHeight, BRING_UP);
 		bubble(context, backHit, Bubbly.TONE_BUBBLE, backHit.contains(mouseX, mouseY));
-		drawLines(context, wrap(back, backWidth), backX + (backWidth - Math.round(this.textRenderer.getWidth(back) * scale())) / 2,
-				backY + 5, Bubbly.INK);
+		drawLines(context, wrap(back, backWidth), backX + (backWidth - readingWidth(back)) / 2, backY + 5, Bubbly.INK);
 		hits.add(backHit);
 
 		int perRow = Math.max(1, width / ITEM_CELL);
