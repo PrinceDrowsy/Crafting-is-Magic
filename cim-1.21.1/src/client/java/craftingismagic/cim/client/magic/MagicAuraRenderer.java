@@ -1,5 +1,6 @@
 package craftingismagic.cim.client.magic;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -161,12 +162,15 @@ public final class MagicAuraRenderer {
 	/**
 	 * A fast horn swing leaves a crescent along the tip's path (docs/magic-aura.md, how it moves). The path
 	 * is kept relative to the caster's body, so running alone draws none. Only drawn once the last
-	 * CRESCENT_SECONDS of path are longer than CRESCENT_MIN; it tapers from CRESCENT_WIDTH at the horn to a
-	 * point at its oldest end.
+	 * CRESCENT_SECONDS of path are longer than CRESCENT_MIN; it narrows from CRESCENT_WIDTH at the horn, and
+	 * its oldest end hooks over (HOOK_SHARE of its length, turning HOOK_TURN radians) to a point.
 	 */
 	private static final float CRESCENT_SECONDS = 0.3f;
 	private static final double CRESCENT_MIN = 0.3;
 	private static final float CRESCENT_WIDTH = 0.05f;
+	private static final float HOOK_SHARE = 0.25f;
+	private static final float HOOK_TURN = 2.6f;
+	private static final int HOOK_STEPS = 6;
 	/** Seconds the renderer has been running, for timing the crescent's path. */
 	private static float clock;
 
@@ -206,7 +210,7 @@ public final class MagicAuraRenderer {
 		float dropletsDue;
 		float dropGap;
 		/** A horn tip's recent path relative to its caster: x, y, z, and when. Newest last. */
-		final java.util.ArrayDeque<double[]> swing = new java.util.ArrayDeque<>();
+		final ArrayDeque<double[]> swing = new ArrayDeque<>();
 	}
 
 	/** Held entity id (or a horn's key - see {@link #setHorn}) -> its aura. */
@@ -558,28 +562,57 @@ public final class MagicAuraRenderer {
 		double[][] path = aura.swing.toArray(new double[0][]);
 		double length = 0;
 		for (int i = 1; i < path.length; i++) {
-			length += Math.sqrt(Math.pow(path[i][0] - path[i - 1][0], 2) + Math.pow(path[i][1] - path[i - 1][1], 2)
-					+ Math.pow(path[i][2] - path[i - 1][2], 2));
+			length += segment(path, i).length();
 		}
 		if (length < CRESCENT_MIN) return;
 		// Fades in over a second CRESCENT_MIN of path, so a borderline flick doesn't pop.
 		float strength = (float) Math.min(1.0, (length - CRESCENT_MIN) / CRESCENT_MIN);
 
-		VertexConsumer out = new MaskConsumers(buffers, aura.slot).body();
-		for (int i = 1; i < path.length; i++) {
-			Vector3f a = new Vector3f((float) (body.x + path[i - 1][0] - camera.x), (float) (body.y + path[i - 1][1] - camera.y),
-					(float) (body.z + path[i - 1][2] - camera.z));
-			Vector3f b = new Vector3f((float) (body.x + path[i][0] - camera.x), (float) (body.y + path[i][1] - camera.y),
-					(float) (body.z + path[i][2] - camera.z));
-			Vector3f along = new Vector3f(b).sub(a);
-			Vector3f side = along.cross(new Vector3f(a).add(b).mul(-0.5f), new Vector3f());
+		// The path, oldest first, after the hook's points; narrowing with age, but only so far - the hook ends it.
+		Vector3f origin = new Vector3f((float) (body.x - camera.x), (float) (body.y - camera.y), (float) (body.z - camera.z));
+		Vector3f[] points = new Vector3f[HOOK_STEPS + path.length];
+		float[] widths = new float[points.length];
+		for (int i = 0; i < path.length; i++) {
+			points[HOOK_STEPS + i] = new Vector3f((float) path[i][0], (float) path[i][1], (float) path[i][2]).add(origin);
+			widths[HOOK_STEPS + i] = CRESCENT_WIDTH * strength * (float) Math.sqrt(1 - 0.6 * (clock - path[i][3]) / CRESCENT_SECONDS);
+		}
+		// The hook curls on round the way the swing was turning (or across the view, if it ran straight).
+		Vector3f turning = new Vector3f();
+		for (int i = 2; i < path.length; i++) {
+			turning.add(segment(path, i - 1).cross(segment(path, i)));
+		}
+		if (turning.lengthSquared() < 1.0e-12f) {
+			turning.set(points[HOOK_STEPS]).negate();
+		}
+		turning.normalize();
+		Vector3f heading = new Vector3f();
+		for (int i = 1; i < path.length && heading.lengthSquared() < 1.0e-8f; i++) {
+			heading.set(points[HOOK_STEPS]).sub(points[HOOK_STEPS + i]);
+		}
+		heading.normalize();
+		float step = (float) length * HOOK_SHARE / HOOK_STEPS;
+		for (int i = HOOK_STEPS - 1; i >= 0; i--) {
+			heading.rotateAxis(-HOOK_TURN / HOOK_STEPS, turning.x, turning.y, turning.z);
+			points[i] = new Vector3f(heading).mul(step).add(points[i + 1]);
+			widths[i] = widths[HOOK_STEPS] * i / HOOK_STEPS;
+		}
+		ribbon(new MaskConsumers(buffers, aura.slot).body(), points, widths);
+	}
+
+	private static Vector3f segment(double[][] path, int i) {
+		return new Vector3f((float) (path[i][0] - path[i - 1][0]), (float) (path[i][1] - path[i - 1][1]), (float) (path[i][2] - path[i - 1][2]));
+	}
+
+	/** A camera-facing ribbon through points relative to the camera, each with its half-width. */
+	private static void ribbon(VertexConsumer out, Vector3f[] points, float[] widths) {
+		for (int i = 1; i < points.length; i++) {
+			Vector3f a = points[i - 1];
+			Vector3f b = points[i];
+			Vector3f side = new Vector3f(b).sub(a).cross(new Vector3f(a).add(b).mul(-0.5f));
 			if (side.lengthSquared() < 1.0e-10f) continue;
 			side.normalize();
-			// Full width at the horn, narrowing to nothing at the oldest end.
-			float wa = CRESCENT_WIDTH * strength * (float) Math.sqrt(1 - (clock - path[i - 1][3]) / CRESCENT_SECONDS);
-			float wb = CRESCENT_WIDTH * strength * (float) Math.sqrt(1 - (clock - path[i][3]) / CRESCENT_SECONDS);
-			quad(out, new Vector3f(a).sub(new Vector3f(side).mul(wa)), new Vector3f(a).add(new Vector3f(side).mul(wa)),
-					new Vector3f(b).add(new Vector3f(side).mul(wb)), new Vector3f(b).sub(new Vector3f(side).mul(wb)));
+			quad(out, new Vector3f(a).sub(new Vector3f(side).mul(widths[i - 1])), new Vector3f(a).add(new Vector3f(side).mul(widths[i - 1])),
+					new Vector3f(b).add(new Vector3f(side).mul(widths[i])), new Vector3f(b).sub(new Vector3f(side).mul(widths[i])));
 		}
 	}
 

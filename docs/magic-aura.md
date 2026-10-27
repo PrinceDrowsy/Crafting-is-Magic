@@ -296,7 +296,7 @@ about 0.65 s apart), then sits.
 | While held | wisps circulating round the horn | white wisps up the horn's spiral, and glints jumping across it (within 24 blocks) |
 | Letting go | a flash, then a fan of shards flung upward that fade in under a second | a white flash and star at the tip, 15-20 shards in the caster's color flung up and out, and sparkle dust |
 | Lighting up | a faint, wide, pale haze that gathers into a tight, bright rim | nothing |
-| Sudden moves | lags, overshoots, flings droplets; a swing leaves a crescent | lags, overshoots and flings droplets; a fast horn swing leaves a solid crescent along the tip's path that tapers and draws back in (no curled hook or ring yet) |
+| Sudden moves | lags, overshoots, flings droplets; a swing leaves a crescent | lags, overshoots and flings droplets; a fast horn swing leaves a solid crescent along the tip's path, its tail hooking over. The ring is saved for blocking another pony's spell, not built until spells can be blocked |
 | Teleport | a spiky bubble that collapses to a white star; arrival pops in with glints | vanilla's purple Enderman portal particles at both ends |
 | Sparkles | brief four-point glints | twinkling stars (keep, check timing) |
 
@@ -329,6 +329,15 @@ about 0.65 s apart), then sits.
    the horn, the bubble, its collapse to a white star) and arrival (a flash and glints), arrival
    starting at once rather than after the departure ends; held objects keep their auras across
    the jump.
+
+## Waiting on other systems
+
+- **The blocking ring:** when a unicorn blocks another pony's spell, the leftover glow curls once
+  round the horn as a thin ring (Reference 4, frames 8-11) - only then, never on an ordinary
+  swing. Tried and liked as a thin line drawn like the wisps (white core, colored edges): it sweeps
+  once round the horn's middle (radius about 0.4 horn-lengths) in the first third of about 0.35 s,
+  then widens by about 60% and fades. Drawn into the aura's mask instead, the horn's rim and flame
+  swell it into a blob. Built with spell blocking.
 
 ## Still wanted
 

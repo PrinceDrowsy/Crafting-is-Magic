@@ -19,6 +19,8 @@ import craftingismagic.cim.pegasus.SonicRainboomEffect;
  */
 public class SonicRainboomDebugStickItem extends Item {
 	private static final double TRIGGER_DISTANCE = 80.0;
+	/** Holding use repeats it every few ticks - this keeps it to one rainboom per click. */
+	private static final int COOLDOWN_TICKS = 40;
 
 	public SonicRainboomDebugStickItem(Settings settings) {
 		super(settings);
@@ -30,6 +32,7 @@ public class SonicRainboomDebugStickItem extends Item {
 			Vec3d pos = user.getEyePos().add(user.getRotationVec(1.0F).multiply(TRIGGER_DISTANCE));
 			SonicRainboomEffect.trigger(serverWorld, pos);
 		}
+		user.getItemCooldownManager().set(this, COOLDOWN_TICKS);
 
 		return TypedActionResult.success(user.getStackInHand(hand), world.isClient());
 	}
