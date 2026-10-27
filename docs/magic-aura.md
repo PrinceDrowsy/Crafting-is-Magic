@@ -298,7 +298,7 @@ about 0.65 s apart), then sits.
 | Lighting up | a faint, wide, pale haze that gathers into a tight, bright rim | nothing |
 | Sudden moves | lags, overshoots, flings droplets; a swing leaves a crescent | lags, overshoots and flings droplets; a fast horn swing leaves a solid crescent along the tip's path, its tail hooking over. The ring is saved for blocking another pony's spell, not built until spells can be blocked |
 | Teleport | a spiky bubble that collapses to a white star; arrival pops in with glints | vanilla's purple Enderman portal particles at both ends |
-| Sparkles | brief four-point glints | twinkling stars (keep, check timing) |
+| Sparkles | brief four-point glints | white four-point glints on the horn and on each held thing's surface, each swelling in and out over 0.25-0.4 s, a few always lit (slower and more of them than the references, which read as too sparse in-game); sparkle dust (~0.6 s) given off steadily by a held spell, and thrown off by releases and droplet flings |
 
 ## Fixes, in order
 

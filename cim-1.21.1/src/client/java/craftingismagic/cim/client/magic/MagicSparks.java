@@ -30,9 +30,9 @@ import craftingismagic.cim.Cim;
 
 /**
  * The loose, bright parts of unicorn magic (docs/magic-aura.md), drawn by this class itself so each
- * takes its caster's own color: the white wisps circling a horn while a spell is held and the glints
- * jumping across it, and a release's flash, its shards flung upward and outward, and the sparkle dust
- * left drifting. Each spark is a quad facing the camera, shaped by the {@code cim:magic/spark} shader -
+ * takes its caster's own color: the white wisps circling a horn while a spell is held, the glints
+ * jumping across it and across whatever it holds, a release's flash and its shards flung upward and
+ * outward, and the sparkle dust a release or a sudden move leaves drifting. Each spark is a quad facing the camera, shaped by the {@code cim:magic/spark} shader -
  * a streak stretched along its flight, or a four-point star.
  *
  * <p>Cheap at every scale: everything here lives only on each viewer's own game, a horn's wisps and
@@ -59,11 +59,20 @@ final class MagicSparks {
 	private static final int SHARDS_MAX = 20;
 	private static final float FLASH_LIFE = 0.12f;
 
-	/** A held spell: a wisp runs up the horn's spiral this often, and a glint jumps somewhere on it this often. */
+	/**
+	 * A held spell: a wisp runs up the horn's spiral this often, and a glint jumps somewhere on the horn, or
+	 * on a held thing, this often - each fading in and out within GLINT_LIFE, so a few are always lit, each
+	 * somewhere new.
+	 */
 	private static final float WISP_EVERY = 0.16f;
 	private static final float WISP_LIFE = 0.45f;
-	private static final float GLINT_EVERY_MIN = 0.3f;
-	private static final float GLINT_EVERY_MAX = 0.7f;
+	private static final float GLINT_EVERY_MIN = 0.07f;
+	private static final float GLINT_EVERY_MAX = 0.14f;
+	private static final float GLINT_LIFE_MIN = 0.25f;
+	private static final float GLINT_LIFE_MAX = 0.4f;
+	/** A held spell gives off a speck of sparkle dust this often, even standing still. */
+	private static final float DUST_EVERY_MIN = 0.2f;
+	private static final float DUST_EVERY_MAX = 0.5f;
 
 	private enum Shape {
 		STREAK, STAR
@@ -84,6 +93,9 @@ final class MagicSparks {
 		/** A wisp: circles its horn's spiral instead of flying free. */
 		Horn horn;
 		float turn;
+		/** A glint on a held thing: kept at this offset from its middle as it moves. */
+		Held held;
+		Vec3d offset;
 	}
 
 	/** A lit horn as last seen: its base and tip in the world, refreshed every frame it's drawn. */
@@ -94,10 +106,22 @@ final class MagicSparks {
 		long seenFrame;
 		float untilWisp;
 		float untilGlint;
+		float untilDust;
+	}
+
+	/** A held thing as last seen: its middle and half its size on each axis, refreshed every frame it's drawn. */
+	private static final class Held {
+		Vec3d middle;
+		Vec3d half;
+		int color;
+		long seenFrame;
+		float untilGlint;
+		float untilDust;
 	}
 
 	private static final List<Spark> SPARKS = new ArrayList<>();
 	private static final Map<Integer, Horn> HORNS = new HashMap<>();
+	private static final Map<Integer, Held> HELD = new HashMap<>();
 	private static final Random RANDOM = Random.create();
 	private static long frame;
 	private static long lastNanos;
@@ -109,6 +133,7 @@ final class MagicSparks {
 	static void reset() {
 		SPARKS.clear();
 		HORNS.clear();
+		HELD.clear();
 	}
 
 	/**
@@ -129,6 +154,32 @@ final class MagicSparks {
 		horn.tip = tip;
 		horn.color = color;
 		horn.seenFrame = frame;
+	}
+
+	/** A thing held in a spell, seen this frame: keeps glints jumping on its surface. {@code key} is its aura's own key. */
+	static void shine(int key, Vec3d middle, Vec3d half, int color) {
+		Vec3d camera = MinecraftClient.getInstance().gameRenderer.getCamera().getPos();
+		if (middle.squaredDistanceTo(camera) > HOLD_RANGE * HOLD_RANGE) {
+			return;
+		}
+		Held held = HELD.computeIfAbsent(key, k -> {
+			Held fresh = new Held();
+			fresh.untilGlint = RANDOM.nextFloat() * GLINT_EVERY_MAX;
+			return fresh;
+		});
+		held.middle = middle;
+		held.half = half;
+		held.color = color;
+		held.seenFrame = frame;
+	}
+
+	/** Sparkle dust - given off by a held spell, thrown off by a sudden move or a release: white specks drifting slowly, lingering about 0.6 s. */
+	static void dust(Vec3d at, int count, int color) {
+		for (int i = 0; i < count; i++) {
+			Vec3d drift = new Vec3d(RANDOM.nextGaussian() * 0.15, 0.1 + RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.15);
+			add(Shape.STAR, at.add(RANDOM.nextGaussian() * 0.12, RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.12), drift, 1f,
+					0.5f + RANDOM.nextFloat() * 0.2f, 0.05f + RANDOM.nextFloat() * 0.03f, color);
+		}
 	}
 
 	/**
@@ -152,11 +203,7 @@ final class MagicSparks {
 				shard.stretch = 0.07f;
 			}
 		}
-		for (int i = 0; i < 5; i++) {
-			Vec3d drift = new Vec3d(RANDOM.nextGaussian() * 0.15, 0.1 + RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.15);
-			add(Shape.STAR, tip.add(RANDOM.nextGaussian() * 0.12, RANDOM.nextDouble() * 0.2, RANDOM.nextGaussian() * 0.12), drift, 1f,
-					0.5f + RANDOM.nextFloat() * 0.2f, 0.05f + RANDOM.nextFloat() * 0.03f, color);
-		}
+		dust(tip, 5, color);
 	}
 
 	private static int whiten(int color, float amount) {
@@ -188,11 +235,12 @@ final class MagicSparks {
 		float seconds = lastNanos == 0 ? 0f : MathHelper.clamp((now - lastNanos) / 1.0e9f, 0f, 0.1f);
 		lastNanos = now;
 		frame++;
-		if (SPARKS.isEmpty() && HORNS.isEmpty()) {
+		if (SPARKS.isEmpty() && HORNS.isEmpty() && HELD.isEmpty()) {
 			lastNanos = 0;
 			return;
 		}
 		updateHorns(seconds);
+		updateHeld(seconds);
 		update(seconds);
 		if (SPARKS.isEmpty()) {
 			return;
@@ -211,9 +259,11 @@ final class MagicSparks {
 			float t = spark.age / spark.life;
 			Vector3f at = new Vector3f((float) (spark.pos.x - camera.x), (float) (spark.pos.y - camera.y), (float) (spark.pos.z - camera.z));
 			if (spark.shape == Shape.STAR) {
-				// A glint is lit only a moment; dust and the flash fade as they go.
-				float alpha = spark.horn == null && spark.drag == 0f ? 1f - t : 1f - t * t;
-				float size = spark.size * (spark.drag == 0f ? 1f - 0.5f * t : 1f);
+				// A glint swells in and out again within its moment; dust and the flash fade as they go.
+				boolean glint = spark.horn != null || spark.held != null;
+				float rise = MathHelper.sin(t * MathHelper.PI);
+				float alpha = glint ? rise : spark.drag == 0f ? 1f - t : 1f - t * t;
+				float size = spark.size * (glint ? 0.6f + 0.4f * rise : spark.drag == 0f ? 1f - 0.5f * t : 1f);
 				star(out, at, right, up, size, spark.color, alpha);
 			} else {
 				streak(out, at, spark, t);
@@ -242,12 +292,17 @@ final class MagicSparks {
 					wisp.stretch = 0.06f;
 				}
 			}
+			horn.untilDust -= seconds;
+			if (horn.untilDust <= 0f) {
+				horn.untilDust = dustGap();
+				dust(horn.base.lerp(horn.tip, 0.5 + RANDOM.nextDouble() * 0.6), 1, horn.color);
+			}
 			horn.untilGlint -= seconds;
 			if (horn.untilGlint <= 0f) {
 				horn.untilGlint = GLINT_EVERY_MIN + RANDOM.nextFloat() * (GLINT_EVERY_MAX - GLINT_EVERY_MIN);
 				Vec3d along = horn.base.lerp(horn.tip, 0.2 + RANDOM.nextDouble() * 0.85);
 				Vec3d jitter = new Vec3d(RANDOM.nextGaussian(), RANDOM.nextGaussian(), RANDOM.nextGaussian()).multiply(0.02);
-				Spark glint = add(Shape.STAR, along.add(jitter), Vec3d.ZERO, 0f, 0.08f + RANDOM.nextFloat() * 0.08f, 0.085f, whiten(horn.color, 0.6f));
+				Spark glint = add(Shape.STAR, along.add(jitter), Vec3d.ZERO, 0f, glintLife(), 0.14f, whiten(horn.color, 0.85f));
 				if (glint != null) {
 					glint.horn = horn;
 				}
@@ -255,13 +310,70 @@ final class MagicSparks {
 		}
 	}
 
+	private static void updateHeld(float seconds) {
+		Iterator<Held> all = HELD.values().iterator();
+		while (all.hasNext()) {
+			Held held = all.next();
+			if (held.seenFrame < frame - 1) {
+				all.remove();
+				continue;
+			}
+			held.untilDust -= seconds;
+			if (held.untilDust <= 0f) {
+				held.untilDust = dustGap();
+				dust(held.middle.add(onSurface(held)), 1, held.color);
+			}
+			held.untilGlint -= seconds;
+			if (held.untilGlint > 0f) {
+				continue;
+			}
+			held.untilGlint = GLINT_EVERY_MIN + RANDOM.nextFloat() * (GLINT_EVERY_MAX - GLINT_EVERY_MIN);
+			Vec3d offset = onSurface(held);
+			Spark glint = add(Shape.STAR, held.middle.add(offset), Vec3d.ZERO, 0f, glintLife(), 0.22f, whiten(held.color, 0.85f));
+			if (glint != null) {
+				glint.held = held;
+				glint.offset = offset;
+			}
+		}
+	}
+
+	/** A random spot on a held thing's surface, from its middle - just off it, so the thing itself doesn't hide what's there. */
+	private static Vec3d onSurface(Held held) {
+		double x = (RANDOM.nextDouble() * 2 - 1) * held.half.x;
+		double y = (RANDOM.nextDouble() * 2 - 1) * held.half.y;
+		double z = (RANDOM.nextDouble() * 2 - 1) * held.half.z;
+		int face = RANDOM.nextInt(6);
+		double out = face % 2 == 0 ? 1.0 : -1.0;
+		if (face < 2) {
+			x = out * (held.half.x + 0.03);
+		} else if (face < 4) {
+			y = out * (held.half.y + 0.03);
+		} else {
+			z = out * (held.half.z + 0.03);
+		}
+		return new Vec3d(x, y, z);
+	}
+
+	private static float dustGap() {
+		return DUST_EVERY_MIN + RANDOM.nextFloat() * (DUST_EVERY_MAX - DUST_EVERY_MIN);
+	}
+
+	private static float glintLife() {
+		return GLINT_LIFE_MIN + RANDOM.nextFloat() * (GLINT_LIFE_MAX - GLINT_LIFE_MIN);
+	}
+
 	private static void update(float seconds) {
 		Iterator<Spark> sparks = SPARKS.iterator();
 		while (sparks.hasNext()) {
 			Spark spark = sparks.next();
 			spark.age += seconds;
-			if (spark.age >= spark.life || (spark.horn != null && !HORNS.containsValue(spark.horn))) {
+			if (spark.age >= spark.life || (spark.horn != null && !HORNS.containsValue(spark.horn))
+					|| (spark.held != null && !HELD.containsValue(spark.held))) {
 				sparks.remove();
+				continue;
+			}
+			if (spark.held != null) {
+				spark.pos = spark.held.middle.add(spark.offset);
 				continue;
 			}
 			if (spark.horn != null && spark.shape == Shape.STREAK) {

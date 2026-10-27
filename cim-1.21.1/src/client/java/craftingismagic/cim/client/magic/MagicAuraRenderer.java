@@ -485,8 +485,13 @@ public final class MagicAuraRenderer {
 					at = aura.tipSeen ? aura.tip : null;
 				} else if (aura.placed == null) {
 					// A block display stands at its block's corner; anything else, its box's middle.
-					at = entity instanceof DisplayEntity.BlockDisplayEntity ? lerped.add(0.5, 0.5, 0.5)
-							: lerped.add(entity.getBoundingBox().getCenter().subtract(entity.getPos()));
+					boolean block = entity instanceof DisplayEntity.BlockDisplayEntity;
+					at = block ? lerped.add(0.5, 0.5, 0.5) : lerped.add(entity.getBoundingBox().getCenter().subtract(entity.getPos()));
+					if (!aura.released) {
+						Vec3d half = block ? new Vec3d(0.5, 0.5, 0.5)
+								: new Vec3d(Math.max(entity.getWidth() / 2, 0.15), Math.max(entity.getHeight() / 2, 0.15), Math.max(entity.getWidth() / 2, 0.15));
+						MagicSparks.shine(entry.getKey(), at, half, aura.color);
+					}
 				}
 			}
 			move(entry.getKey(), aura, at);
@@ -658,7 +663,7 @@ public final class MagicAuraRenderer {
 		if (aura.dropletsDue >= 1f && aura.dropGap <= 0f && dropsOff(key) < DROPS_PER_AURA) {
 			aura.dropletsDue = 0f;
 			aura.dropGap = DROP_GAP;
-			fling(key, at, new Vector3f(aura.trail).sub(aim).negate(), aura.horn);
+			fling(key, aura, at, new Vector3f(aura.trail).sub(aim).negate());
 		}
 	}
 
@@ -674,9 +679,11 @@ public final class MagicAuraRenderer {
 
 	/**
 	 * A droplet breaks off a held thing's (or a horn's) aura, {@code ahead} being where its glow is swinging
-	 * to: it starts at the surface, still joined to the glow, and is thrown gently on.
+	 * to: it starts at the surface, still joined to the glow, and is thrown gently on, with a little sparkle
+	 * dust.
 	 */
-	private static void fling(int key, Vec3d at, Vector3f ahead, boolean horn) {
+	private static void fling(int key, Aura aura, Vec3d at, Vector3f ahead) {
+		boolean horn = aura.horn;
 		float length = ahead.length();
 		if (length < 1.0e-4f || DROPS.size() >= DROPS_MAX) {
 			return;
@@ -692,6 +699,7 @@ public final class MagicAuraRenderer {
 		drop.radius = (0.09f + RANDOM.nextFloat() * 0.05f) * scale;
 		drop.phase = RANDOM.nextFloat() * MathHelper.TAU;
 		DROPS.add(drop);
+		MagicSparks.dust(drop.pos, 2, aura.color);
 	}
 
 	/**
