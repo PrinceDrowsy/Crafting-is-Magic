@@ -60,14 +60,14 @@ import craftingismagic.cim.villager.FriendshipAttachment;
 import craftingismagic.cim.villager.PonyGeneticsAttachment;
 
 /**
- * Makes verses real (README: The sorcery system, Verse): a unicorn casts, pays Stamina, and the equation
+ * Makes verses real (design doc: The sorcery system, Verse): a unicorn casts, pays Stamina, and the equation
  * runs - step by step, each step's actions together, a step with "when" waiting for what it senses.
  * <p>
  * The first slice's effects: <b>Move</b> (creatures, items and blocks), <b>Light</b> (real light,
  * glowing, twinkling - in a crown), <b>Sound</b> (sound colors) and <b>Shift</b> (going yonder,
  * sending away). Senses: strike, gaze, something coming near, night falling, dawn breaking, landing.
  * <p>
- * Protections are technical only (README: no censorship): a few verses, effects, lights and flying
+ * Protections are technical only (design doc: no censorship): a few verses, effects, lights and flying
  * blocks per caster at a time; waiting verses give up after a while; nothing keeps a chunk loaded; and
  * everything placed is put right when the server stops.
  */
@@ -143,7 +143,7 @@ public final class VerseRuntime {
 		abstract boolean tick(ServerWorld world);
 
 		/**
-		 * Stamina a tick while the caster holds this (README: held costs upkeep, done costs once) - 0 for
+		 * Stamina a tick while the caster holds this (design doc: held costs upkeep, done costs once) - 0 for
 		 * a finished act (a recolor, a block already flying to its landing).
 		 */
 		float upkeep() {

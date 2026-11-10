@@ -14,7 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import craftingismagic.cim.Cim;
 
 /**
- * Comfort settings for scene-setting moments (README: The mood system - "perception effects get
+ * Comfort settings for scene-setting moments (design doc: The mood system - "perception effects get
  * intensity sliders and toggles"). Client-only: how one person wants big moments to feel.
  */
 public final class MomentConfig {

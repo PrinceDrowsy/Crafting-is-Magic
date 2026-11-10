@@ -32,7 +32,7 @@ import craftingismagic.cim.species.SpeciesAttachment;
 import craftingismagic.cim.villager.PersonalityAttachment;
 
 /**
- * Furnished rooms, and who they suit (README: Village identity - interiors; docs/building-guide.md).
+ * Furnished rooms, and who they suit (design doc: Village identity - interiors; docs/building-guide.md).
  * Each {@code data/<ns>/room_sets/*.json} names a built room structure and when it fits:
  * <pre>{@code
  * {

@@ -15,8 +15,8 @@ import craftingismagic.cim.villager.PonyFamilyAttachment.PonyFamily;
  * Vanilla's own baby-villager growth timer fires {@code onGrowUp} once a baby's breeding age
  * reaches 0, turning it into a full vanilla adult. Rather than block that (this mod deliberately
  * lets Child/Teenager stay full vanilla adults underneath - profession/trading gating is a
- * separate, deferred concern, see README), this lets vanilla's own transition happen normally and
- * then layers our own Child stage on top of it, per the README's "Child and Teenager are new
+ * separate, deferred concern, see design doc), this lets vanilla's own transition happen normally and
+ * then layers our own Child stage on top of it, per the design doc's "Child and Teenager are new
  * stages layered on top once vanilla's own growth timer would otherwise have made them an adult."
  */
 @Mixin(VillagerEntity.class)

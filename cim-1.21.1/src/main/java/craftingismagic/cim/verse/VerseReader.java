@@ -13,7 +13,7 @@ import craftingismagic.cim.verse.VerseLanguage.Meaning;
 import craftingismagic.cim.verse.VerseLanguage.Role;
 
 /**
- * Reads a verse into its equation (README: Verse - spells as poetic equations). Words the language
+ * Reads a verse into its equation (design doc: Verse - spells as poetic equations). Words the language
  * knows become the spell; everything else is poetry, and anything in parentheses is always poetry.
  * Alongside the equation it returns what each word meant (for highlighting), scholarly notes on
  * anything unbalanced ("Your light has nothing to shine on"), and the cost and tier.
@@ -614,7 +614,7 @@ public final class VerseReader {
 
 	// ---- Describing (the notation preview) ----
 
-	/** The notation preview: exactly what the verse will do, in plain words (README: rule 1). */
+	/** The notation preview: exactly what the verse will do, in plain words (design doc: rule 1). */
 	public static List<String> describe(VerseEquation equation) {
 		List<String> lines = new ArrayList<>();
 		int number = 1;

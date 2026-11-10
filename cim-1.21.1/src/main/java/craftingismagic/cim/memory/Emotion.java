@@ -3,8 +3,8 @@ package craftingismagic.cim.memory;
 import com.mojang.serialization.Codec;
 
 /**
- * The feeling a memory carries (README: The mood system - mood is a query over emotional
- * memories). Matches the emotions dialogue can check in docs/narrative-reference.md.
+ * The feeling a memory carries (design doc: The mood system - mood is a query over emotional
+ * memories). Matches the emotions dialogue can check in design/narrative-reference.md.
  */
 public enum Emotion {
 	JOY,

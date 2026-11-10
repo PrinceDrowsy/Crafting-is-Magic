@@ -19,7 +19,7 @@ import craftingismagic.cim.network.DebugOverlayToggleC2SPayload;
 import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 
 /**
- * Client side of the debug HUD overlay (docs/implementation-plan.md: Debug and testing tools) -
+ * Client side of the debug HUD overlay (design/implementation-plan.md: Debug and testing tools) -
  * toggled with a keybind (default F7), like F3 but for the mod's own internals. Shows the server's
  * readouts (sent once a second while toggled on, see {@code DebugOverlay}) plus the client's own
  * view of the same systems, so the two can be compared directly - e.g. the Stamina the server holds

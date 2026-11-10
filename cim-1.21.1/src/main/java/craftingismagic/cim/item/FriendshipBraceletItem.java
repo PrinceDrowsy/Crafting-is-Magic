@@ -24,7 +24,7 @@ import net.minecraft.util.Uuids;
 import craftingismagic.cim.Cim;
 
 /**
- * A Friendship Bracelet (README: Becoming friends, concretely). Crafted plain, it's given as a gift -
+ * A Friendship Bracelet (design doc: Becoming friends, concretely). Crafted plain, it's given as a gift -
  * and only taken once the pony feels close enough. Then the player gets one of their own back,
  * named for the friend and beaded in their colors ({@link Friend}).
  */

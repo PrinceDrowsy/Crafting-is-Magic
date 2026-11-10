@@ -12,7 +12,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.speech.SpeakingVoice;
 
 /**
- * A pony nearby starts humming (README: Humming). The client plays the notes from them, in their voice,
+ * A pony nearby starts humming (design doc: Humming). The client plays the notes from them, in their voice,
  * with note particles - or skips it, depending on its Pony Humming setting.
  *
  * @param notes       scale degrees, {@code HumLibrary.REST} for a rest

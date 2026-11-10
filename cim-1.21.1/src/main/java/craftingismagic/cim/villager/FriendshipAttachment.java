@@ -121,7 +121,7 @@ public final class FriendshipAttachment {
 
 	/**
 	 * The player's shared history with this pony - conversations had, gifts given - that a verse reads
-	 * as the caster's own love for them ("my love", README: Verse). It's what the player has invested,
+	 * as the caster's own love for them ("my love", design doc: Verse). It's what the player has invested,
 	 * never the pony's feelings.
 	 */
 	public static int getSharedMoments(Entity entity, UUID player) {

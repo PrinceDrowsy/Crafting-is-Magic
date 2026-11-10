@@ -85,7 +85,7 @@ public final class PonyGeneticsAttachment {
 		private static final int MIN_PARENTS = 2;
 		private static final int MAX_PARENTS = 5;
 
-		// --- Tunable starting constants - see the Pony Genetics README section for the research
+		// --- Tunable starting constants - see the Pony Genetics section of the design doc for the research
 		// these translate (canon color cross-referencing, mane-hue-count/analogous-hue sampling). ---
 		private static final float COAT_VIVIDNESS_TARGET = 1.00f;
 		private static final float MANE_VIVIDNESS_TARGET = 0.74f;
@@ -143,7 +143,7 @@ public final class PonyGeneticsAttachment {
 					tailLength, tailShape, bodyType);
 		}
 
-		// Ported directly from the FCA research (see README/PonyGenetics) - this is real color-theory
+		// Ported directly from the FCA research (see design doc: Pony Genetics) - this is real color-theory
 		// data (hue position 0-1 for common color words), not show-specific research, so it doesn't
 		// need re-deriving. Deliberately excludes achromatic words (silver, ivory, ebony, etc.) since
 		// those don't map to a meaningful hue - White/Dark coat (above) already covers that territory.

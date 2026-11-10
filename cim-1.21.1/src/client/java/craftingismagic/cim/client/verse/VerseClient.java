@@ -8,7 +8,7 @@ import craftingismagic.cim.network.VerseStrikeC2SPayload;
 import craftingismagic.cim.network.VerseWatchS2CPayload;
 
 /**
- * The client's part in Verse's "when I strike" (README: Verse, caster inputs): while the server says a
+ * The client's part in Verse's "when I strike" (design doc: Verse, caster inputs): while the server says a
  * verse is waiting for a strike, pressing the attack key reports one - only then, never every swing.
  */
 public final class VerseClient {

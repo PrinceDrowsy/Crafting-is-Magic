@@ -37,7 +37,7 @@ Put a `.json` file in `data/cim_show_hums/hums/`, one tune per file:
   but take over when it fits, e.g. on a holiday.
 - **when** *(optional)* — conditions in the same grammar as `.tale` files, all of which must hold:
   `time_of_day(morning)`, `night`, `personality(peppy)`, `holiday(cim:nightmare_night)`,
-  `not profession(none)`, … (see `docs/narrative-reference.md`).
+  `not profession(none)`, … (see `design/narrative-reference.md`).
 
 Every note is played in the pony's own speaking voice, and the whole tune is moved up or down to fit
 the game's two-octave pitch range, so it keeps its shape. Pentatonic scales can't play every note of

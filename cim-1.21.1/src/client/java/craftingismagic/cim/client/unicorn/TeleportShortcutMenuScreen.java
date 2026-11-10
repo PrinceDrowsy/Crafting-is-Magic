@@ -28,7 +28,7 @@ import craftingismagic.cim.unicorn.TeleportShortcutAttachment.TeleportShortcuts;
  * and fires its choice immediately instead of just selecting an ability for later. An empty slot
  * saves the player's current position/dimension into it; a filled slot starts a Teleport charge
  * toward it (see {@code TeleportManager#useShortcut}) - skipping the line-of-sight raycast
- * entirely, per the README's own shortcut spec.
+ * entirely, per the design doc's own shortcut spec.
  */
 public final class TeleportShortcutMenuScreen extends RadialMenuScreen {
 	public TeleportShortcutMenuScreen() {

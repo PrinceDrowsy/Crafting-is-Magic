@@ -22,7 +22,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.sound.ModSounds;
 
 /**
- * The client's scene director (README: The mood system - "set the scene, never label the feeling").
+ * The client's scene director (design doc: The mood system - "set the scene, never label the feeling").
  * A moment is a recipe for the shared mood grade (saturation, tint, contrast, brightness, glow), a dip
  * in the world's sounds, and maybe a change of music, played as an arc: it eases in, holds, then eases
  * back out slowly - color returning reads as healing. Only one moment plays at a time; a new one

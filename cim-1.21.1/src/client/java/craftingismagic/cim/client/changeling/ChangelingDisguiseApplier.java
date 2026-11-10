@@ -24,7 +24,7 @@ import net.minecraft.world.World;
  * <b>Figura path (not implemented)</b>: a disguised Changeling should copy a target's
  * actual Figura avatar when that's the rendering backend they use instead of MineLP - flagged as a
  * real follow-up, not done here. It's blocked on a prerequisite that doesn't exist in this codebase
- * yet regardless: the README documents a player choosing MineLP vs. Figura for their own character,
+ * yet regardless: the design doc documents a player choosing MineLP vs. Figura for their own character,
  * but that choice has no attachment/setting anywhere in the project to actually branch on.
  */
 public final class ChangelingDisguiseApplier {

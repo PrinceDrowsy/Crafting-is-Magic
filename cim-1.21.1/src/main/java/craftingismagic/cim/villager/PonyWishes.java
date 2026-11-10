@@ -42,7 +42,7 @@ import craftingismagic.cim.memory.MemoryKnowledge;
 import craftingismagic.cim.memory.MemoryStore;
 
 /**
- * Small wishes, and the thoughtful gifts that answer them (README: Friendship, deepened - "a gift that
+ * Small wishes, and the thoughtful gifts that answer them (design doc: Friendship, deepened - "a gift that
  * answers something the pony mentioned counts the most: it shows you listened, so it builds Trust").
  * <ul>
  * <li>A pony mentions in chatter that they've been missing something - {@code ~ mention_wish} - picked

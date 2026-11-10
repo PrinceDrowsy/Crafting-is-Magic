@@ -17,7 +17,7 @@ import craftingismagic.cim.villager.ChangelingAppearanceAttachment.ChangelingApp
 import craftingismagic.cim.villager.ChangelingDisguiseAttachment.ChangelingDisguise;
 
 /**
- * Assigns every freshly-loaded Changeling a disguise (see Village changelings in the README) - a
+ * Assigns every freshly-loaded Changeling a disguise (see Village changelings in the design doc) - a
  * species to present as, a true name, a separate disguise name, and true-form coloring - the moment
  * it loads, the same proximity-based, per-villager approach {@link VillagerFamilyHandler}/
  * {@link VillagerFriendGroupHandler} already use for everything "village-scoped" (there's still no

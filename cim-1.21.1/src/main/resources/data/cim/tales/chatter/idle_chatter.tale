@@ -1,4 +1,4 @@
-// Idle Chatter (README: Idle Chatter, in more detail).
+// Idle Chatter (design doc: Idle Chatter, in more detail).
 //
 // PLACEHOLDER LINES - carried over word for word from the old Java version so behavior stays the
 // same while the engine changes. They're meant to be rewritten by hand.
@@ -100,7 +100,7 @@ weight: +3 if quirk(gossip)
 
 
 // ---- Real gossip: what this pony has actually heard ----
-// PLACEHOLDER lines - wiring for the gossip system (README: The memory system). Unlike the made-up
+// PLACEHOLDER lines - wiring for the gossip system (design doc: The memory system). Unlike the made-up
 // rumors above, these tell real news this pony has seen or heard about another pony - each story
 // once - and Gossip-quirked ponies bring it up far more. For one kind of story, branch on
 // gossip(<memory type>); {gossip_subject} is who it's about, {gossip_source} who told them.
@@ -138,7 +138,7 @@ weight: 2
 
 // ---- Best friends ----
 // PLACEHOLDER lines. When a friend has all three feelings high and you've lived through something
-// major together, they say it themselves - once (README: Affection, reworked).
+// major together, they say it themselves - once (design doc: Affection, reworked).
 
 === best_friend_moment
 start: chatter
@@ -260,7 +260,7 @@ when: news(cim:loss)
 
 // ---- When you're grieving ----
 // PLACEHOLDER lines. Ponies soften around a grieving player - even grumpy ones are gentler
-// (README: The mood system). While you grieve, this opener takes over Idle Chatter.
+// (design doc: The mood system). While you grieve, this opener takes over Idle Chatter.
 
 === gentle_with_you
 start: chatter
@@ -290,7 +290,7 @@ when: player.mood(grief, clear)
 
 
 // ---- Replies ----
-// No pick is ever penalized; a mismatch just doesn't earn the bonus (README: Personality system).
+// No pick is ever penalized; a mismatch just doesn't earn the bonus (design doc: Personality system).
 
 === replies
 * Friendly:

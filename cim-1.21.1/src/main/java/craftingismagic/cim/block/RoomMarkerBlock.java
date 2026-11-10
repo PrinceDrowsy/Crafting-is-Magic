@@ -13,7 +13,7 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 
 /**
- * Marks an empty room in a house shell, and what kind of room it is (README: Village identity -
+ * Marks an empty room in a house shell, and what kind of room it is (design doc: Village identity -
  * house exteriors and interiors generate separately). When ponies move in, the room is furnished
  * with a room set that suits them ({@code HomeDecorator}). Invisible and walk-through, like a light
  * block - it only shows while you hold a room marker, so builders can see and break them.

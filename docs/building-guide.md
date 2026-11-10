@@ -1,7 +1,7 @@
 # Building guide: houses, rooms, and the Schoolhouse
 
 How to build the mod's buildings in-game so they plug straight into villages. You design; the mod
-does the rest (README: Village identity — house exteriors and interiors generate separately).
+does the rest (design doc: Village identity — house exteriors and interiors generate separately).
 
 Everything here is in the creative inventory: **room markers** and the **keepsake spot** are in the
 *Operator Utilities* tab (next to structure blocks); the **chalkboard** is in *Functional Blocks*.

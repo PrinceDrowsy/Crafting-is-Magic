@@ -8,7 +8,7 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
 
 /**
- * The shared quirk pool (README: Personality system, Quirks) - 2-3 rolled per pony. {@code
+ * The shared quirk pool (design doc: Personality system, Quirks) - 2-3 rolled per pony. {@code
  * SWEET_TOOTH}/{@code COLLECTOR}/{@code SENTIMENTAL}/{@code GRUDGE_HOLDER} are the 4 with a
  * described mechanical hook (Give Gift/grudge-decay effects - not built by this pass, just the
  * enum + assignment); the rest are flavor-only today, some (NIGHT_OWL/EARLY_RISER/GOSSIP) as

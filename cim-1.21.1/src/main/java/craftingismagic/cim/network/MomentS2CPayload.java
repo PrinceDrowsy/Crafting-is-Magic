@@ -8,7 +8,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * Starts a scene-setting moment on this player's screen (README: The mood system - "set the scene,
+ * Starts a scene-setting moment on this player's screen (design doc: The mood system - "set the scene,
  * never label the feeling"). Client-side only and seen only by this player; the client decides what
  * the moment looks and sounds like, within their comfort settings.
  */

@@ -33,7 +33,7 @@ import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
 import craftingismagic.cim.villager.RelationshipType;
 
 /**
- * A wandering hostile pony (README: Mobs, "Rogue Ponies") - villain-flavored, not a vanilla
+ * A wandering hostile pony (design doc: Mobs, "Rogue Ponies") - villain-flavored, not a vanilla
  * Pillager reskin, and deliberately not boss-tier: the intended base for a future redemption
  * system, not the whole system. Reuses the same {@code Species}/{@code PonyGenetics}/{@code
  * PersonalityAttachment} data model villagers use (all confirmed {@code Entity}-typed, not

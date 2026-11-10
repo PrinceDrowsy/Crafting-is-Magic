@@ -4,7 +4,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.random.Random;
 
 /**
- * What a pony village is, worked out from the world seed and the chunk it starts in alone (README: Village
+ * What a pony village is, worked out from the world seed and the chunk it starts in alone (design doc: Village
  * identity - districts): its size, plaza and rings, and whether it's abandoned. Anything can work it out
  * again and get the same answer - the village's own districts, which are structures of their own, use it
  * to find their village and carry on its roads.
@@ -32,7 +32,7 @@ public record PonyVillageSite(ChunkPos start, Size size, double[] radii, boolean
 		final int weight;
 		/**
 		 * About how many ponies live there when it's found: the rest of its homes stand empty and fill over
-		 * time, as foals grow up and newcomers settle (README: Performance - pony population and AI).
+		 * time, as foals grow up and newcomers settle (design doc: Performance - pony population and AI).
 		 */
 		public final int population;
 

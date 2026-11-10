@@ -25,7 +25,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.species.Species;
 
 /**
- * A villager's {@link PersonalityType} base type plus 2-3 {@link Quirk}s (README: Personality
+ * A villager's {@link PersonalityType} base type plus 2-3 {@link Quirk}s (design doc: Personality
  * system) - one value per villager, same shape as {@link PonyGeneticsAttachment}. Assigned
  * alongside genetics in {@link VillagerFamilyHandler}, since like genetics it doesn't depend on
  * family/life-stage at all, just species (and, best-effort, profession).
@@ -34,17 +34,17 @@ public final class PersonalityAttachment {
 	private static final int MIN_QUIRKS = 2;
 	private static final int MAX_QUIRKS = 3;
 
-	/** Soft bias, not an exclusive pick - a biased type is just more likely, per the README. */
+	/** Soft bias, not an exclusive pick - a biased type is just more likely, per the design doc. */
 	private static final float SPECIES_BIAS_WEIGHT = 2.5f;
 	/** Stacks multiplicatively on top of any species bias already applied to that same type. */
 	private static final float PROFESSION_BIAS_MULTIPLIER = 1.5f;
 
 	/**
-	 * README: "Pegasi skew Daring/Lazy, Earth Ponies skew Steadfast/Peppy, Unicorns skew
+	 * design doc: "Pegasi skew Daring/Lazy, Earth Ponies skew Steadfast/Peppy, Unicorns skew
 	 * Bookish/Refined, guards skew Steadfast/Cranky, librarians skew Bookish." No {@code GUARD}
 	 * profession exists anywhere in vanilla or this mod - only the Librarian half of that sentence
 	 * is actually implementable today (see {@link #applyProfessionBias}). Bat Pony/Kirin get no
-	 * species bias (not mentioned in the README's examples).
+	 * species bias (not mentioned in the design doc's examples).
 	 */
 	private static final Map<Species, PersonalityType[]> SPECIES_BIAS = Map.of(
 			Species.PEGASUS, new PersonalityType[] {PersonalityType.DARING, PersonalityType.LAZY},

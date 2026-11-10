@@ -8,7 +8,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * The things a player can bring up in conversation, in place of the old interact menu (README:
+ * The things a player can bring up in conversation, in place of the old interact menu (design doc:
  * Conversations replace the interact menu). Each opens a short {@code .tale} conversation under its
  * own start context, where the pony reacts in character - and may say no - and effects like
  * {@code ~ take_gift} or {@code ~ open_trade} do the actual thing. The player's words for each are
@@ -27,7 +27,7 @@ public final class ConversationRequests {
 
 	public static final String GIFT = "gift";
 	public static final String TRADE = "trade";
-	/** Making amends (README: Harm & forgiveness). */
+	/** Making amends (design doc: Harm & forgiveness). */
 	public static final String APOLOGY = "apology";
 
 	/** "See you later." - not a request in the list, but sent the same way: the pony says goodbye, then it closes. */

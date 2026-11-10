@@ -3,7 +3,7 @@ package craftingismagic.cim.memory;
 import com.mojang.serialization.Codec;
 
 /**
- * How much a memory matters - which decides what gets forgotten (README: The memory system -
+ * How much a memory matters - which decides what gets forgotten (design doc: The memory system -
  * "trivial memories fade, important ones never do"). Ordered least to most important.
  */
 public enum MemoryImportance {

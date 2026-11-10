@@ -9,7 +9,7 @@ import net.minecraft.network.codec.PacketCodecs;
 
 /**
  * Adult body-proportion presets, mirroring MineLP's {@code SizePreset} minus {@code TALL} (reserved
- * for Alicorns, which never spawn naturally through this genetics system - see the README's Pony
+ * for Alicorns, which never spawn naturally through this genetics system - see the design doc's Pony
  * Genetics section) and minus {@code YEARLING}/{@code FOAL}/{@code UNSET} (those come from the
  * entity's actual life-stage/age, not this heritable-ish gene).
  */

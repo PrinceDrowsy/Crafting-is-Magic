@@ -24,7 +24,7 @@ import craftingismagic.cim.Cim;
 
 /**
  * A villager's real family - {@link LifeStage}, how long it's been in that stage, and links to
- * whichever other villagers are its parents/partner (see Village Families in the README). One
+ * whichever other villagers are its parents/partner (see Village Families in the design doc). One
  * value per villager, same shape as {@link PonyGeneticsAttachment}.
  * <p>
  * Villages have no "this batch of villagers belongs together" signal anywhere in vanilla or Fabric

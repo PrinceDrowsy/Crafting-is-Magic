@@ -58,7 +58,7 @@ import craftingismagic.cim.villager.VillagerGossip;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
- * The game's own {@code .tale} words (docs/narrative-reference.md): the inner voices, reply tones,
+ * The game's own {@code .tale} words (design/narrative-reference.md): the inner voices, reply tones,
  * feelings, every built-in condition, effect, thread event, and variable, and the {@code chatter}
  * start context. Other mods register theirs the same way, under their own namespace.
  * <p>
@@ -69,7 +69,7 @@ import craftingismagic.cim.voice.VoiceLeanings;
  */
 public final class CimTaleVocabulary {
 	public static final String CHATTER = "chatter";
-	/** Said first when a conversation opens, then it carries on into the topic (README: Greetings). */
+	/** Said first when a conversation opens, then it carries on into the topic (design doc: Greetings). */
 	public static final String GREETING = "greeting";
 	/** The pony's goodbye when the player says "See you later." - then the conversation closes. */
 	public static final String FAREWELL = "farewell";
@@ -93,7 +93,7 @@ public final class CimTaleVocabulary {
 		TaleVocabulary.registerLeadInContext(GREETING);
 		TaleVocabulary.registerLeadInContext(FAREWELL);
 		TaleVocabulary.registerLeadInContext(SEEK);
-		// What the player can bring up in conversation (README: Conversations replace the interact menu).
+		// What the player can bring up in conversation (design doc: Conversations replace the interact menu).
 		for (ConversationRequests.Request request : ConversationRequests.ALL) {
 			TaleVocabulary.registerStartContext(request.startContext());
 		}
@@ -118,13 +118,13 @@ public final class CimTaleVocabulary {
 	private static void registerConditions() {
 		for (Feeling feeling : Feeling.values()) {
 			String name = feeling.name().toLowerCase(Locale.ROOT);
-			// Feelings are compared with bands, never numbers (README: no numbers shown to players).
+			// Feelings are compared with bands, never numbers (design doc: no numbers shown to players).
 			TaleVocabulary.registerCondition(cim(name), ArgSpec.compared(name + " >= <band>", ArgSpec.word("band", () -> names(FeelingBand.values()))),
 					(tale, args, cmp) -> compare(FriendshipAttachment.getBand(tale.speaker(), tale.player().getUuid(), feeling).ordinal(),
 							cmp.orElse("=="), band(args.get(0)).ordinal()));
 		}
 		condition("mood", ArgSpec.of("mood(<emotion>[, <tier>])", ArgSpec.arg(EMOTION), ArgSpec.optionalArg(TIER)), CimTaleVocabulary::mood);
-		// How the player is feeling - ponies notice, and soften around grief (README: The mood system).
+		// How the player is feeling - ponies notice, and soften around grief (design doc: The mood system).
 		condition("player.mood", ArgSpec.of("player.mood(<emotion>[, <tier>])", ArgSpec.arg(EMOTION), ArgSpec.optionalArg(TIER)),
 				(tale, args, cmp) -> feels(tale.player(), args));
 		condition("fact", ArgSpec.of("fact(<fact>)", ArgSpec.arg(FACT)), (tale, args, cmp) -> hasFact(tale, id(args.get(0))));
@@ -141,7 +141,7 @@ public final class CimTaleVocabulary {
 		condition("quirk", oneWord("quirk", "quirk", () -> names(Quirk.values())),
 				(tale, args, cmp) -> personality(tale.speaker()).map(p -> p.quirks().stream().anyMatch(q -> q.name().equalsIgnoreCase(args.get(0))))
 						.orElse(false));
-		// The tone that suits this pony's personality (README: Personality system, Mechanical hook).
+		// The tone that suits this pony's personality (design doc: Personality system, Mechanical hook).
 		condition("likes_tone", oneWord("likes_tone", "tone", () -> names(ReplyTone.values())),
 				(tale, args, cmp) -> personality(tale.speaker()).flatMap(p -> p.baseType().toneAffinity())
 						.map(tone -> tone.name().equalsIgnoreCase(args.get(0))).orElse(false));
@@ -165,7 +165,7 @@ public final class CimTaleVocabulary {
 		condition("news", ArgSpec.of("news[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("news type"))),
 				(tale, args, cmp) -> PlayerNews.tellable(tale.player(), tale.speaker(), args.isEmpty() ? Optional.empty() : Optional.of(id(args.get(0))))
 						.isPresent());
-		// Village gossip (README: The memory system): news about another pony this pony would tell the
+		// Village gossip (design doc: The memory system): news about another pony this pony would tell the
 		// player - gossip, or gossip(<memory type>) for one kind. Gentle news goes through news(...).
 		condition("gossip", ArgSpec.of("gossip[(<type>)]", ArgSpec.optionalArg(ArgSpec.id("memory type"))),
 				(tale, args, cmp) -> VillagerGossip.storyFor(tale.player(), tale.speaker(), false, optionalId(args)).isPresent());
@@ -187,7 +187,7 @@ public final class CimTaleVocabulary {
 		// Whether the pony will take another gift today - there's a daily limit, and they can say so.
 		condition("can_take_gift", ArgSpec.none("can_take_gift"),
 				(tale, args, cmp) -> VillagerInteractionHandler.canTakeGift(tale.player(), tale.speaker()));
-		// Friend status (README: Becoming friends, concretely). bracelet: the gift offered is a plain
+		// Friend status (design doc: Becoming friends, concretely). bracelet: the gift offered is a plain
 		// Friendship Bracelet; friend_ready: close enough to take it; friend: already friends (or best);
 		// best_friend_ready: friends with all three feelings high and a shared hardship behind them.
 		condition("bracelet", ArgSpec.none("bracelet"), (tale, args, cmp) -> FriendshipBonds.isBracelet(tale.item()));
@@ -199,7 +199,7 @@ public final class CimTaleVocabulary {
 		condition("friend", ArgSpec.none("friend"), (tale, args, cmp) -> FriendshipBonds.isFriend(tale.speaker(), tale.player().getUuid()));
 		condition("best_friend_ready", ArgSpec.none("best_friend_ready"),
 				(tale, args, cmp) -> FriendshipBonds.bestFriendReady(tale.speaker(), tale.player().getUuid()));
-		// Wishes (README: Friendship, deepened - thoughtful gifts): wish_to_share - the pony has something
+		// Wishes (design doc: Friendship, deepened - thoughtful gifts): wish_to_share - the pony has something
 		// they've been missing to mention to you; granting_wish - the gift offered answers a wish you heard.
 		condition("wish_to_share", ArgSpec.none("wish_to_share"), (tale, args, cmp) -> PonyWishes.toShare(tale.speaker(), tale.player()));
 		condition("granting_wish", ArgSpec.none("granting_wish"),
@@ -240,7 +240,7 @@ public final class CimTaleVocabulary {
 		};
 	}
 
-	/** {@code mood(grief[, strong])}: the pony feels it at least that strongly now (README: The mood system). */
+	/** {@code mood(grief[, strong])}: the pony feels it at least that strongly now (design doc: The mood system). */
 	private static boolean mood(TaleContext tale, List<String> args, Optional<String> comparison) {
 		return feels(tale.speaker(), args);
 	}
@@ -323,7 +323,7 @@ public final class CimTaleVocabulary {
 
 	private static void registerEffects() {
 		// Warmth in conversation is an everyday habit: tapered within a day and as the feeling grows,
-		// paced by personality (README: friendship pacing). The big jumps come from experiences -
+		// paced by personality (design doc: friendship pacing). The big jumps come from experiences -
 		// ~ memory - not from bigger numbers here.
 		for (Feeling feeling : Feeling.values()) {
 			String name = feeling.name().toLowerCase(Locale.ROOT);

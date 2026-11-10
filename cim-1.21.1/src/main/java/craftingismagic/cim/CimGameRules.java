@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.world.GameRules;
 
 /**
- * Per-world story settings, as vanilla gamerules (README: Performance, configurability, and
+ * Per-world story settings, as vanilla gamerules (design doc: Performance, configurability, and
  * compatibility) - these belong to a world rather than a player or a server, so they're saved with
  * the world and changed with {@code /gamerule} like any vanilla setting. Scaffolding for now: the
  * systems that read them (threads, the Mane Six, the Crystal Empire Rescue) aren't built yet.
@@ -19,17 +19,17 @@ public final class CimGameRules {
 	private static final CustomGameRuleCategory CATEGORY = new CustomGameRuleCategory(
 			Identifier.of(Cim.MOD_ID, "story"), Text.literal("Crafting is Magic: Story").formatted(Formatting.YELLOW, Formatting.BOLD));
 
-	/** How story villains move when no player has engaged them (README: Progression, world-wait). */
+	/** How story villains move when no player has engaged them (design doc: Progression, world-wait). */
 	public static final GameRules.Key<EnumRule<WorldWait>> WORLD_WAIT = GameRuleRegistry.register(
 			"cimWorldWait", CATEGORY, GameRuleFactory.createEnumRule(WorldWait.MIDDLE_PATH));
 
-	/** Whether the show's Mane Six exist in this world - opt-in, so off by default (README: The Mane
+	/** Whether the show's Mane Six exist in this world - opt-in, so off by default (design doc: The Mane
 	 * Six are opt-in). */
 	public static final GameRules.Key<GameRules.BooleanRule> MANE_SIX = GameRuleRegistry.register(
 			"cimManeSix", CATEGORY, GameRuleFactory.createBooleanRule(false));
 
 	/** Lets crystal ponies and the Crystal Empire exist without first completing the Crystal Empire
-	 * Rescue (README: Crystal heritage, the proposed config option). */
+	 * Rescue (design doc: Crystal heritage, the proposed config option). */
 	public static final GameRules.Key<GameRules.BooleanRule> SKIP_CRYSTAL_LOCK = GameRuleRegistry.register(
 			"cimSkipCrystalLock", CATEGORY, GameRuleFactory.createBooleanRule(false));
 

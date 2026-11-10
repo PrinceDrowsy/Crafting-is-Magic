@@ -14,7 +14,7 @@ import craftingismagic.cim.stamina.StaminaAttachment.Stamina;
 /**
  * The shared drain/regen coordinator every Stamina-spending ability calls into, so nothing has to
  * reinvent this bookkeeping per-ability - Levitation/Teleport/Herding/Cultivation all eventually
- * spend from the same pool (see the README's Magic System overview), this is where that pool lives.
+ * spend from the same pool (see the design doc's Magic System overview), this is where that pool lives.
  * <p>
  * Regeneration only ever happens through {@link #tick}, which skips anyone drained this same tick
  * (tracked in {@link #drainedThisTick}) - an ability's own tick handler just needs to be registered

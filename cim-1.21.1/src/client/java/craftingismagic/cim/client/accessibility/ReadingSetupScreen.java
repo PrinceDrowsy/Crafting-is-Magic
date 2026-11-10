@@ -18,7 +18,7 @@ import craftingismagic.cim.client.accessibility.AccessibilityConfig.ReadingFont;
 
 /**
  * The reading options, offered the first time one of the mod's reading screens opens rather than left in a
- * settings menu to be found (README: Accessibility): font - each button in its own font - size, line and
+ * settings menu to be found (design doc: Accessibility): font - each button in its own font - size, line and
  * letter spacing, and a backdrop, with a sample that changes as they do. The full set, visual comfort
  * included, stays in the mod's settings.
  */

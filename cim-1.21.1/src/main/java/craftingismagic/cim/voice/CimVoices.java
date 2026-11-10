@@ -30,9 +30,9 @@ import craftingismagic.cim.villager.PersonalityAttachment;
 
 /**
  * The game's inner voices for the narrative runtime: how strong each is ({@link VoiceLeanings}), and
- * how a voice reply rolls (README: Inner voices in conversation - Voice options can fail; Dice).
+ * how a voice reply rolls (design doc: Inner voices in conversation - Voice options can fail; Dice).
  * <p>
- * <b>Odds</b> start from the voice's strength (30-60%) and move with every odds shaper the README
+ * <b>Odds</b> start from the voice's strength (30-60%) and move with every odds shaper the design doc
  * lists: the pony valuing that Element (+15), the feeling the reply names (none -10 up to devoted
  * +22), the pony's mood (a grieving pony is more open to Kindness and less to Laughter), and what
  * they remember about the player (good memories help, bad ones hurt). Always between 5% and 95% -
@@ -40,7 +40,7 @@ import craftingismagic.cim.villager.PersonalityAttachment;
  * <p>
  * <b>The roll is seeded</b> by the player, the pony, the reply, and the state that shapes the odds -
  * so retrying right away gives the same answer, and only a real change (a stronger voice, more
- * Trust, a new memory) brings a fresh roll. That's the README's retry rule and its protection
+ * Trust, a new memory) brings a fresh roll. That's the design doc's retry rule and its protection
  * against save-scumming in one.
  */
 public final class CimVoices implements TaleVocabulary.Voices {
@@ -153,7 +153,7 @@ public final class CimVoices implements TaleVocabulary.Voices {
 		return Identifier.of("cim", "relationship/tried/" + node.id().getNamespace() + "/" + node.id().getPath() + "/" + reply.line());
 	}
 
-	/** Emotions the pony feels at least clearly right now (README: The mood system). */
+	/** Emotions the pony feels at least clearly right now (design doc: The mood system). */
 	private static Set<Emotion> moodOf(Entity pony) {
 		Set<Emotion> mood = EnumSet.noneOf(Emotion.class);
 		Mood.of(pony).forEach((emotion, strength) -> {

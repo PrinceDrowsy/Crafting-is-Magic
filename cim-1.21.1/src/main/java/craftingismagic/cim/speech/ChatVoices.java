@@ -11,7 +11,7 @@ import craftingismagic.cim.network.ChatVoiceS2CPayload;
 
 /**
  * When a player chats, everyone nearby (them included) hears a quiet murmur in their speaking voice,
- * from where they stand (README: Speaking voices). Only the "who and how much" crosses the network -
+ * from where they stand (design doc: Speaking voices). Only the "who and how much" crosses the network -
  * each client plays it, so anyone can switch player voices off for themselves.
  */
 public final class ChatVoices {

@@ -16,7 +16,7 @@ import craftingismagic.cim.villager.FriendGroupAttachment.FriendGroup;
 
 /**
  * Assigns each freshly-loaded villager a place in a real friend circle (see Friend groups in the
- * README - "a pony can belong to an existing circle of friends, mirroring the show's Mane
+ * design doc - "a pony can belong to an existing circle of friends, mirroring the show's Mane
  * Six-style groups"), the same proximity-based, per-villager, no-batch-signal approach
  * {@link VillagerFamilyHandler} already uses for families (see that class's own doc comment for why
  * there's no "these villagers spawned together" event to hook instead).
@@ -33,7 +33,7 @@ import craftingismagic.cim.villager.FriendGroupAttachment.FriendGroup;
  */
 public final class VillagerFriendGroupHandler {
 	/** Mane Six - the show's own reference point for "a friend circle", named directly in the
-	 * README's Friend groups bullet. */
+	 * design doc's Friend groups bullet. */
 	private static final int MAX_GROUP_SIZE = 6;
 	private static final double FRIEND_GROUP_SEARCH_RADIUS = 28.0;
 

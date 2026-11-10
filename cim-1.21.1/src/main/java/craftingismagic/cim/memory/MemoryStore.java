@@ -15,12 +15,12 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * Where a pony's - or a player's - memories live (README: The memory system; docs/implementation-plan.md
+ * Where a pony's - or a player's - memories live (design doc: The memory system; design/implementation-plan.md
  * phase 1). One entity attachment serves both: it loads and unloads with the entity, survives death
  * and conversion ({@code copyOnDeath} - curing a zombie villager doesn't wipe what it remembered), and
  * is never synced, so one player's history with a pony never reaches another player's client.
  * <p>
- * Kept small and fast, per the README:
+ * Kept small and fast, per the design doc:
  * <ul>
  * <li><b>Capped</b> at {@link #NPC_CAP} memories for a pony and {@link #PLAYER_CAP} for a player.</li>
  * <li><b>Trivial memories fade</b> after {@link #TRIVIAL_LIFETIME_TICKS}, checked whenever a new memory

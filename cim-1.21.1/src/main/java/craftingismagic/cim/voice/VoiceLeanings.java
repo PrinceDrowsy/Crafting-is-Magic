@@ -15,7 +15,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * How strongly a player leans toward each Element - their inner voices (README: Inner voices in
+ * How strongly a player leans toward each Element - their inner voices (design doc: Inner voices in
  * conversation). Points per voice on the player, saved and surviving death, never synced (what the
  * client needs arrives with each conversation beat).
  * <ul>

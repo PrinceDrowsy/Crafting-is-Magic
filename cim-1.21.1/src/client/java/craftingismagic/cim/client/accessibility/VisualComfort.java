@@ -8,7 +8,7 @@ import foundry.veil.api.client.render.VeilRenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
 
 /**
- * What every visual effect asks before it flashes, flickers or scatters particles (README: Accessibility):
+ * What every visual effect asks before it flashes, flickers or scatters particles (design doc: Accessibility):
  * the chosen flash intensity, particle amount and steadiness, and - for everyone, whatever the settings - a
  * cap of three bright flashes a second from all sources together, the line the photosensitivity guidelines
  * draw, which a crowd of casters on a server could otherwise cross.

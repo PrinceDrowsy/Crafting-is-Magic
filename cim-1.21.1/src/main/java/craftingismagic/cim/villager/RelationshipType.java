@@ -16,14 +16,14 @@ import net.minecraft.network.codec.PacketCodecs;
  * distinct from {@link PonyFamilyAttachment}, which is strictly NPC-to-NPC lineage and never
  * involves the player, but meant to read as real kinship, not a metaphor. {@code MENTOR}/{@code
  * MENTEE} is the "found family" pairing instead (the Rainbow Dash/Scootaloo dynamic already
- * described in the README's Mentor/mentee section) - deliberately the opposite framing from
+ * described in the design doc's Mentor/mentee section) - deliberately the opposite framing from
  * Parent/Child, not a synonym for it. {@code FRENEMIES} is for villain-leaning players who've
  * befriended a hostile NPC instead of fighting it - a direct reference to the MLP Season 9 episode
  * of the same name, and the mechanical hook that makes a befriended {@code RoguePonyEntity} stop
  * targeting that player.
  * <p>
  * Not yet auto-assigned by any real gameplay trigger for villagers - today {@code FRIEND}/etc. on
- * a villager is only ever set directly through the Creative-only villager debug editor. The README
+ * a villager is only ever set directly through the Creative-only villager debug editor. The design doc
  * already has real, still-tentative candidates for wiring some of these up for real (the
  * Friendship Bracelet for {@code FRIEND}, an affection threshold for {@code MENTOR}/{@code
  * MENTEE}) - this enum exists ahead of that automatic-assignment work, not instead of it.

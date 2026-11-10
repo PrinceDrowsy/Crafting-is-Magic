@@ -26,7 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Plans a pony village in one go, from the heart out (README: Village identity - the ring layout):
+ * Plans a pony village in one go, from the heart out (design doc: Village identity - the ring layout):
  * <ol>
  * <li>its size, from the seed ({@link PonyVillageSite}) - a hamlet (a smaller plaza ring and one more), or
  * the full core (the plaza ring and two more); anything bigger grows districts round the core, since one

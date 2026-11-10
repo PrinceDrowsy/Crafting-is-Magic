@@ -6,7 +6,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 
 /**
- * The cute-and-bubbly look shared by the mod's storytelling screens (docs/implementation-plan.md:
+ * The cute-and-bubbly look shared by the mod's storytelling screens (design/implementation-plan.md:
  * Dialogue screen rework) - rounded panels with soft vertical gradients, pills, and twinkling
  * sparkles, all drawn in code so there are no textures to keep in sync. Colors come from the Mane Six
  * rainbow ({@link VoiceStyle}).

@@ -17,7 +17,7 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 
 /**
- * Paint on a wall (README: Village identity - interiors): a flat layer lying against the face of each
+ * Paint on a wall (design doc: Village identity - interiors): a flat layer lying against the face of each
  * wall it touches, showing a concrete texture, with no thickness to speak of - so a room keeps its full
  * size, and you walk right through it. Laid down by the interior generation in a color that suits the
  * residents; furniture can stand where it is.

@@ -19,7 +19,7 @@ import craftingismagic.cim.mixin.client.SoundSystemAccessor;
 import craftingismagic.cim.mixin.client.SourceAccessor;
 
 /**
- * Real muffling for scene-setting moments (README: The mood system - "muffled, pulled-back sound puts
+ * Real muffling for scene-setting moments (design doc: The mood system - "muffled, pulled-back sound puts
  * you inside a character", as in *Sound of Metal*): a low-pass filter on every playing world sound,
  * cutting the high frequencies so the world sounds dull and far away rather than merely quieter. Uses
  * OpenAL's effects extension (EFX); where it isn't available, moments simply don't muffle.

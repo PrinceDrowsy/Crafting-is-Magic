@@ -1,5 +1,5 @@
 {
-  "_comment": "Verse keywords in English (README: Verse). Each word or phrase maps to what the spell hears; every other word is poetry. Other languages and mods add their own files here; phrases match longest first, so 'comes near' wins over 'near'.",
+  "_comment": "Verse keywords in English (design doc: Verse). Each word or phrase maps to what the spell hears; every other word is poetry. Other languages and mods add their own files here; phrases match longest first, so 'comes near' wins over 'near'.",
   "effects": {
     "cim:move": {
       "lift": "lift", "raise": "lift", "rise": "lift", "hoist": "lift",

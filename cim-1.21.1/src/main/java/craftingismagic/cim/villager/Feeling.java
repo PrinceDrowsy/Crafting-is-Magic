@@ -9,7 +9,7 @@ import net.minecraft.network.codec.PacketCodecs;
 
 /**
  * The three feelings a pony holds toward a player, replacing the old single affection number
- * (README: Friendship, deepened - "Three feelings instead of one meter"). What separates "a co-worker
+ * (design doc: Friendship, deepened - "Three feelings instead of one meter"). What separates "a co-worker
  * I like" (Respect without much Fondness) from "a work friend" (Fondness without much Trust) from a
  * true best friend (all three).
  */

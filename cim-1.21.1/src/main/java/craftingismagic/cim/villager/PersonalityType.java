@@ -11,9 +11,9 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
 
 /**
- * The 8 personality base types (README: Personality system). {@link #toneAffinity()} is the
+ * The 8 personality base types (design doc: Personality system). {@link #toneAffinity()} is the
  * concrete mechanical hook - the {@link ReplyTone} an Idle Chatter reply-tone pick matches for a
- * bonus, per the README's exact mapping (Lazy leans toward none, "doesn't care either way").
+ * bonus, per the design doc's exact mapping (Lazy leans toward none, "doesn't care either way").
  */
 public enum PersonalityType {
 	PEPPY(ReplyTone.FRIENDLY),
@@ -36,7 +36,7 @@ public enum PersonalityType {
 	}
 
 	/**
-	 * The Elements this kind of pony cares about most, as voice names (README: Friendship, deepened -
+	 * The Elements this kind of pony cares about most, as voice names (design doc: Friendship, deepened -
 	 * "examples, not final"). Voice replies in a valued Element roll better with them. Daring's
 	 * "courage" and Cranky's "usefulness" aren't voices, so only their Element counts.
 	 */

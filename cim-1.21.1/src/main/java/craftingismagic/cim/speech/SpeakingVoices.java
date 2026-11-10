@@ -21,7 +21,7 @@ import craftingismagic.cim.villager.PonyFamilyAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment.PonyFamily;
 
 /**
- * Who sounds like what (README: Speaking voices). Every pony and player gets a voice the first time
+ * Who sounds like what (design doc: Speaking voices). Every pony and player gets a voice the first time
  * one is needed, and keeps it for life:
  * <ul>
  * <li>A foal takes after their parents - one parent's instrument, a pitch between theirs, with a

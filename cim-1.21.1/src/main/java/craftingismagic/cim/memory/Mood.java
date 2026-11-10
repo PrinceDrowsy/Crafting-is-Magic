@@ -7,7 +7,7 @@ import java.util.Optional;
 import net.minecraft.entity.Entity;
 
 /**
- * What a pony (or player) is feeling right now, read from the emotions on their memories (README:
+ * What a pony (or player) is feeling right now, read from the emotions on their memories (design doc:
  * The mood system - "mood is carried as emotional memories ... queried when needed, no new stat, the
  * same for players and NPCs"). Nothing ticks: it's worked out when something asks.
  * <p>

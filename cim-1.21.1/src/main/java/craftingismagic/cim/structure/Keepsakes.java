@@ -27,7 +27,7 @@ import craftingismagic.cim.villager.FriendshipBonds;
 
 /**
  * Little things that appear in your friends' homes, standing for what you've shared - a gift you gave
- * them on a shelf, the bracelet that made you friends (README: Village identity - keepsakes). They appear at the keepsake spots builders put in room sets, only in friends' homes, and
+ * them on a shelf, the bracelet that made you friends (design doc: Village identity - keepsakes). They appear at the keepsake spots builders put in room sets, only in friends' homes, and
  * only sometimes - so noticing one is a small surprise. A new resident's redecorating clears them.
  */
 public final class Keepsakes {

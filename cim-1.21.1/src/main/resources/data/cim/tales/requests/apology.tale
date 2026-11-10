@@ -1,4 +1,4 @@
-// Apologizing (README: Harm & forgiveness): the player said "I'm sorry about before."
+// Apologizing (design doc: Harm & forgiveness): the player said "I'm sorry about before."
 // owes_apology - something between you is still unforgiven; apology_too_soon - they need time first
 // (a Cranky pony a day, a Grudge Holder longer); apology_believed - a sorry still means something
 // (each one counts for less, and cruelty for less again). "~ forgive" is the repair.

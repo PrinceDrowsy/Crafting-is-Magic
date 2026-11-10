@@ -17,7 +17,7 @@ import net.minecraft.util.Uuids;
 import craftingismagic.cim.Cim;
 
 /**
- * Story facts - named flags that record what has happened (README: How threads work; story facts
+ * Story facts - named flags that record what has happened (design doc: How threads work; story facts
  * as flags), at three scopes:
  * <ul>
  * <li><b>World</b> - saved with the world, shared by everyone (e.g. {@code cim:world/crystal_empire_restored});

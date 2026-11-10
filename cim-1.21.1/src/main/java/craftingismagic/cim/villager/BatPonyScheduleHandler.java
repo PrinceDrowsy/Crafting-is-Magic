@@ -10,7 +10,7 @@ import craftingismagic.cim.species.Species;
 import craftingismagic.cim.species.SpeciesAttachment;
 
 /**
- * Bat Ponies are nocturnal (see Bat pony villagers in the README - "only sleep during the day") -
+ * Bat Ponies are nocturnal (see Bat pony villagers in the design doc - "only sleep during the day") -
  * every vanilla schedule anchor shifted by 12000 ticks (half a day), so {@code REST} covers
  * dawn-to-dusk instead of dusk-to-dawn. Only the SCHEDULE (which {@link Activity} is active at which
  * time) changes - the actual task lists behind each {@code Activity} (path to a claimed bed, sleep

@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * How each kind of memory travels as gossip (README: The memory system, Gossip). Loaded from
+ * How each kind of memory travels as gossip (design doc: The memory system, Gossip). Loaded from
  * {@code data/<ns>/gossip/<path>.json}, where the file's ID is the memory type it describes -
  * {@code data/cim/gossip/loss.json} is the rule for {@code cim:loss}. Every field is optional:
  * <pre>{@code

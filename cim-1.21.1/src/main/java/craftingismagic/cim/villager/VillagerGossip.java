@@ -26,7 +26,7 @@ import craftingismagic.cim.story.StoryFacts;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 
 /**
- * Gossip that actually travels (README: The memory system). When two ponies stop to chat - vanilla's
+ * Gossip that actually travels (design doc: The memory system). When two ponies stop to chat - vanilla's
  * own moment for villager gossip, so it happens at the village's natural pace, between ponies who are
  * really together, and never by scanning - one may tell the other what they've seen or heard.
  * <ul>

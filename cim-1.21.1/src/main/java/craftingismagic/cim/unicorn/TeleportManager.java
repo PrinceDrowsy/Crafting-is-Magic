@@ -35,7 +35,7 @@ import craftingismagic.cim.unicorn.TeleportShortcutAttachment.TeleportShortcuts;
 /**
  * Unicorn Teleport: holding the activation key while looking at a destination charges up a blink
  * there, mirroring {@code PegasusRainboomCharge}'s own hold-to-charge shape - both the charge time
- * and its Stamina cost scale up with distance (README: "a high-cost spell with a charge time...
+ * and its Stamina cost scale up with distance (design doc: "a high-cost spell with a charge time...
  * Both the charge time and the Stamina cost scale up with the distance to the target location").
  * Releasing early, or running out of Stamina before the charge completes, fizzles the spell -
  * whatever Stamina was already spent stays spent, same as an incomplete Rainboom charge.
@@ -44,7 +44,7 @@ import craftingismagic.cim.unicorn.TeleportShortcutAttachment.TeleportShortcuts;
  * instant the charge starts, from a single raycast - not re-aimed every tick, so a charge doesn't
  * change its own required time/cost partway through just because the player looked somewhere else.
  * A shortcut ({@link #useShortcut}) skips that raycast entirely and charges toward the saved
- * position by straight-line distance instead, per the README's own shortcut spec.
+ * position by straight-line distance instead, per the design doc's own shortcut spec.
  */
 public final class TeleportManager {
 	private static final double MAX_TELEPORT_RANGE = 100.0;
@@ -55,7 +55,7 @@ public final class TeleportManager {
 	private static final double STAMINA_PER_DISTANCE = 0.3;
 	private static final double TICKS_PER_DISTANCE = 2.0;
 	/** However short/close a teleport is, or however much Stamina progression has compressed the
-	 * charge curve, it never drops below this - "gradually becomes instant" per the README, not
+	 * charge curve, it never drops below this - "gradually becomes instant" per the design doc, not
 	 * literally zero-tick. */
 	private static final int MIN_CHARGE_TICKS = 2;
 	/** How far off a teleport's departure or arrival can be seen, in blocks. */

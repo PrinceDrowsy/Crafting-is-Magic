@@ -9,7 +9,7 @@ import net.minecraft.network.codec.PacketCodecs;
 
 /**
  * Four stages - {@code BABY}, {@code CHILD}, {@code TEENAGER}, {@code ADULT} - replacing vanilla
- * Minecraft's plain baby/adult split (see README, Life Stages). Baby maps onto vanilla's own real
+ * Minecraft's plain baby/adult split (see design doc, Life Stages). Baby maps onto vanilla's own real
  * baby-villager state; Child and Teenager are new stages this mod layers on top once vanilla's own
  * growth timer would otherwise have made a baby a full adult (see {@link VillagerFamilyHandler} and
  * the growth mixin). Only Adult reads {@link PonyGeneticsAttachment.PonyGenetics#bodyType} for its

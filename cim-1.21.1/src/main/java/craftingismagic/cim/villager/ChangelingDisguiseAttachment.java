@@ -17,7 +17,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.species.Species;
 
 /**
- * A Changeling's disguise (see Village changelings in the README) - a purely additive layer on top
+ * A Changeling's disguise (see Village changelings in the design doc) - a purely additive layer on top
  * of {@link craftingismagic.cim.species.SpeciesAttachment}, which stays the single source of truth
  * for the REAL species ({@link Species#CHANGELING}) and is never overwritten by this. {@code
  * trueName}/{@code disguiseName} are two genuinely separate identities, not "whichever one vanilla's

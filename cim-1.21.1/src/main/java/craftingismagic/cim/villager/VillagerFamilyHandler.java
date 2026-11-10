@@ -24,7 +24,7 @@ import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
 
 /**
  * Assigns each freshly-loaded villager a real {@link LifeStage} and, unless it's a Changeling (see
- * Village Changelings in the README - excluded from families, the hive fills that role instead), a
+ * Village Changelings in the design doc - excluded from families, the hive fills that role instead), a
  * place in a real family: either it joins an existing nearby one as a child (inheriting genetics via
  * {@link PonyGenetics#combine}) or it becomes an unattached Adult, optionally pairing up with
  * another nearby unpaired Adult as a co-parent for the next child that comes along.
@@ -163,7 +163,7 @@ public final class VillagerFamilyHandler {
 	}
 
 	/**
-	 * Species/profession-weighted per the README's Personality assignment-bias rules, except
+	 * Species/profession-weighted per the design doc's Personality assignment-bias rules, except
 	 * Changelings (fully uniform - their outward persona is a performed mask, not innate). Profession
 	 * is usually still {@code NONE} at this exact moment ({@code ENTITY_LOAD}, before vanilla assigns
 	 * a job site) - the profession half of the bias is therefore best-effort only, a known limitation
@@ -177,7 +177,7 @@ public final class VillagerFamilyHandler {
 	}
 
 	/** Changelings still get life-stage variety, just never attach to a family - their persona is a
-	 * performed mask, and the hive fills the "family" role thematically instead (see README). */
+	 * performed mask, and the hive fills the "family" role thematically instead (see design doc). */
 	private static void assignChangeling(VillagerEntity villager, Random random) {
 		LifeStage lifeStage = random.nextFloat() < CHILD_ROLE_CHANCE ? randomChildLifeStage(random) : LifeStage.ADULT;
 		setGenetics(villager, PonyGenetics.randomize(random), random);
@@ -223,7 +223,7 @@ public final class VillagerFamilyHandler {
 	 * {@code VillagerBreedingMixin} before the baby spawns, so its own {@code ENTITY_LOAD} sees a
 	 * family already present and only fills in personality. Species is still rolled independently
 	 * by {@link VillagerSpeciesHandler} for now - how species passes down a bloodline is an open
-	 * design question (README: Pony Genetics), deliberately not decided here.
+	 * design question (design doc: Pony Genetics), deliberately not decided here.
 	 */
 	public static void assignBredChild(VillagerEntity child, VillagerEntity parent, PassiveEntity partner) {
 		Random random = child.getRandom();

@@ -45,7 +45,7 @@ import craftingismagic.cim.villager.PersonalityAttachment;
 import craftingismagic.cim.villager.PonyFamilyAttachment;
 
 /**
- * Furnishes a home for whoever lives there (README: Village identity - interiors).
+ * Furnishes a home for whoever lives there (design doc: Village identity - interiors).
  * A village is generated before anyone lives in it, so a house shell's rooms start bare, each holding
  * a room marker; when a pony moves in - claims a bed there - each marked room is furnished with a
  * room set that suits them ({@link RoomSets}). New residents redecorate at once: the furnishing a

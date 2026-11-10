@@ -17,7 +17,7 @@ import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
- * How friendships unfold (README: Affection, reworked - friendship pacing): there's
+ * How friendships unfold (design doc: Affection, reworked - friendship pacing): there's
  * no fixed timeline - it depends on the pony and on what you go through together. <b>Habits build
  * acquaintance; experiences build friendship.</b>
  * <ul>
@@ -164,7 +164,7 @@ public final class FriendshipPace {
 	}
 
 	/**
-	 * Arriving through someone a pony loves (README: Friendship, deepened - Introductions): "Oh, you're
+	 * Arriving through someone a pony loves (design doc: Friendship, deepened - Introductions): "Oh, you're
 	 * Petunia's friend!" Their family and friends who are already the player's friends warm them up;
 	 * good things they've heard about the player through gossip earn a little Respect.
 	 */

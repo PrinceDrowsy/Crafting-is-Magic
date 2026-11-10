@@ -25,7 +25,7 @@ import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.story.PlayerNews;
 
 /**
- * When a pony dies, those close to them grieve (README: The mood system - "a close friend dies").
+ * When a pony dies, those close to them grieve (design doc: The mood system - "a close friend dies").
  * Who counts as close:
  * <ul>
  * <li><b>Ponies:</b> their family (parents, partner, children) grieve strongly; their friend group

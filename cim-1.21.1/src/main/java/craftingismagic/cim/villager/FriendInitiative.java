@@ -22,7 +22,7 @@ import craftingismagic.cim.speech.ChatVoices;
 import craftingismagic.cim.story.CimTaleVocabulary;
 
 /**
- * Ponies take initiative (README: Friendship, deepened - "close friends seek the player out on their
+ * Ponies take initiative (design doc: Friendship, deepened - "close friends seek the player out on their
  * own"): a friend who spots the player nearby, and hasn't seen them yet today, comes over to say hello
  * - in chat, in their own voice, from a {@code start: seek} line that fits. Once a day per friend; a
  * friend who's asleep, already busy talking, or too far off doesn't come.

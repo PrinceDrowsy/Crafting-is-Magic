@@ -43,7 +43,7 @@ import craftingismagic.cim.villager.ConversationRequests;
 import craftingismagic.cim.stamina.StaminaColorAttachment;
 
 /**
- * The conversation screen (docs/implementation-plan.md: Dialogue screen rework) - a scrolling log in
+ * The conversation screen (design/implementation-plan.md: Dialogue screen rework) - a scrolling log in
  * the spirit of Disco Elysium, in the mod's cute-and-bubbly Mane Six style. The live pony portrait
  * sits on the left; on the right, a tall panel keeps the whole conversation so far, each line under a
  * little name tag (the pony, you, or an inner voice in its rainbow color and symbol), with the replies
@@ -99,7 +99,7 @@ public class DialogueScreen extends Screen {
 	private final List<Hit> hits = new ArrayList<>();
 	private List<OptionData> options = List.of();
 	private boolean ended;
-	/** The things you can bring up (README: Conversations replace the interact menu). */
+	/** The things you can bring up (design doc: Conversations replace the interact menu). */
 	private List<RequestData> requests = List.of();
 	private Mode mode = Mode.REPLIES;
 	private RequestData picking;
@@ -110,7 +110,7 @@ public class DialogueScreen extends Screen {
 	private float followUpTimer;
 	private static final float FOLLOW_UP_DELAY = 0.9f;
 	private static final float CLOSE_DELAY = 1.6f;
-	/** How the pony and you sound (README: Speaking voices); null until the first beat arrives. */
+	/** How the pony and you sound (design doc: Speaking voices); null until the first beat arrives. */
 	private SpeakingVoice partnerVoice;
 	private SpeakingVoice yourVoice;
 	/** Your reply's quick murmur: blips still to play, and time until the next. */
@@ -582,7 +582,7 @@ public class DialogueScreen extends Screen {
 
 	/**
 	 * One spoken blip, wobbling a touch in pitch so it sounds like talking. Each pony speaks in their
-	 * own voice (README: Speaking voices) and each inner voice with its instrument; your own reply
+	 * own voice (design doc: Speaking voices) and each inner voice with its instrument; your own reply
 	 * gets a quick murmur in your voice instead ({@link #speakYourLine}).
 	 */
 	private void blip(Entry entry) {

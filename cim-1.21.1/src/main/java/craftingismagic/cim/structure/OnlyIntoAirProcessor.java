@@ -17,7 +17,7 @@ import craftingismagic.cim.block.RoomMarkerBlock;
 
 /**
  * A room set only fills empty space: anything already there - the shell's bed, a wall it brushes,
- * a lamp the builder put in the shell - stays as it is (README: Village identity - interiors).
+ * a lamp the builder put in the shell - stays as it is (design doc: Village identity - interiors).
  */
 public final class OnlyIntoAirProcessor extends StructureProcessor {
 	public static final OnlyIntoAirProcessor INSTANCE = new OnlyIntoAirProcessor();

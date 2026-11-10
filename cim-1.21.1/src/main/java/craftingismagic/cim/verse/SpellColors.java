@@ -20,7 +20,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * Colors a Change verse has laid over a pony (README: Verse, Change): "your mane is now green". Kept
+ * Colors a Change verse has laid over a pony (design doc: Verse, Change): "your mane is now green". Kept
  * apart from their genetics on purpose - the spell changes how they look, not who they are, so their
  * foals still inherit their real colors, and undoing it ("as it was") simply lifts the change.
  * <p>

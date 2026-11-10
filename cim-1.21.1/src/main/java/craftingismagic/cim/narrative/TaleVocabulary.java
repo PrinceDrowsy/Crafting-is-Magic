@@ -18,7 +18,7 @@ import net.minecraft.util.Identifier;
  * tones, and feelings replies can use. The library itself knows none of these: the game registers
  * its own (see {@code CimTaleVocabulary}), and any other mod can register more with the same calls,
  * under its own namespace. That keeps the narrative library free of the rest of the mod
- * (docs/implementation-plan.md: the narrative library talks to the mod through small interfaces) and
+ * (design/implementation-plan.md: the narrative library talks to the mod through small interfaces) and
  * open to datapacks and other mods.
  * <p>
  * Each condition and effect comes in two halves: an {@link ArgumentCheck} the validator runs at load
@@ -72,7 +72,7 @@ public final class TaleVocabulary {
 	}
 
 	/**
-	 * The player's inner voices, as the runtime needs them (README: Inner voices in conversation).
+	 * The player's inner voices, as the runtime needs them (design doc: Inner voices in conversation).
 	 * The game supplies one ({@link #setVoices}); until then every voice is silent, so interjections
 	 * and voice replies simply don't show.
 	 */

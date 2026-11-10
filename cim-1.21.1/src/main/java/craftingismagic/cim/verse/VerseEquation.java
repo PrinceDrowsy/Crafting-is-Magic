@@ -6,7 +6,7 @@ import java.util.Optional;
 import net.minecraft.util.Identifier;
 
 /**
- * What a verse means, with the poetry stripped away (README: Verse): a language-neutral equation, the
+ * What a verse means, with the poetry stripped away (design doc: Verse): a language-neutral equation, the
  * same whatever words wrote it. Steps happen in order ({@code then}); each step's actions happen
  * together ({@code and}); a step can wait for a trigger ({@code when}).
  *
@@ -52,7 +52,7 @@ public record VerseEquation(int version, List<Step> steps) {
 	}
 
 	/**
-	 * A live binding (README: Verse, live binding with "as"): a property of the effect follows a quantity
+	 * A live binding (design doc: Verse, live binding with "as"): a property of the effect follows a quantity
 	 * the spell measures.
 	 *
 	 * @param property {@code amount}, {@code brightness}, {@code color} or {@code duration}

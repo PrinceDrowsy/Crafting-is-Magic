@@ -21,7 +21,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.block.CimBlocks;
 
 /**
- * The mod's own villager professions (README: Village identity - new villager professions). The
+ * The mod's own villager professions (design doc: Village identity - new villager professions). The
  * Teacher works at a chalkboard, at the village Schoolhouse; the tutorial they run comes with the
  * Schoolhouse's thread. More (the Mayor, Guards) join as their buildings do.
  */

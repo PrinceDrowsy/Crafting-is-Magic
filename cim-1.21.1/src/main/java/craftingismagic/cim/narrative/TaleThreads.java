@@ -17,7 +17,7 @@ import craftingismagic.cim.narrative.TaleAst.Stage;
 import craftingismagic.cim.narrative.TaleAst.Trigger;
 
 /**
- * How threads move (docs/narrative-reference.md: Threads). Pure rules - given a thread, where a
+ * How threads move (design/narrative-reference.md: Threads). Pure rules - given a thread, where a
  * player is in it, and something that just happened, work out what changes. Saving progress and
  * noticing events is the mod's job.
  * <ul>

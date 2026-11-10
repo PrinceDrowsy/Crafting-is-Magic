@@ -52,7 +52,7 @@ public final class PonyGeneticsSkins {
 
 	// Calibrated against real HSV stats, not the ported FCA colormap targets (those
 	// were calibrated to an artist-authored palette image's own non-linear axis, not raw HSV, and
-	// produced neon-looking coats when plugged straight into saturation - see README/PonyGenetics).
+	// produced neon-looking coats when plugged straight into saturation - see design doc: Pony Genetics).
 	// Sampled Fill hex (never Outline/Shadow) from 17 canon coats and 13 canon manes via
 	// mlpvector.club/cg/pony and converted to real HSV: coats average ~0.95 value / ~0.39 saturation
 	// (excluding Rarity/Sweetie-Belle/Svengallop-style near-white coats, which read as the deferred

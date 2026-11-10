@@ -37,7 +37,7 @@ import craftingismagic.cim.mixin.SinglePoolElementAccessor;
 import craftingismagic.cim.mixin.StructurePoolAccessor;
 
 /**
- * The mod's buildings, generated as part of villages (README: Village identity; docs/building-guide.md).
+ * The mod's buildings, generated as part of villages (design doc: Village identity; docs/building-guide.md).
  * Each {@code data/<ns>/village_additions/*.json} adds one structure to one of vanilla's village pools:
  * <pre>{@code
  * {

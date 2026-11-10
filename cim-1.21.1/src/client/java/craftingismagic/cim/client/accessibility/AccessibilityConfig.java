@@ -16,7 +16,7 @@ import craftingismagic.cim.Cim;
 /**
  * Client-only accessibility settings, stored per player's game since they're about how one person reads
  * and sees, never about the world or server. Each is grounded in what people with the disability say
- * helps (README: Accessibility); the descriptions say exactly what changes and promise no outcome.
+ * helps (design doc: Accessibility); the descriptions say exactly what changes and promise no outcome.
  */
 public final class AccessibilityConfig {
 	public static final float MIN_TEXT_SCALE = 0.75f;

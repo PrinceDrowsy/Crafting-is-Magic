@@ -59,7 +59,7 @@ loom {
 		}
 	}
 
-	// A second dev client for multiplayer testing (docs/implementation-plan.md: Debug and testing
+	// A second dev client for multiplayer testing (design/implementation-plan.md: Debug and testing
 	// tools): run `runClient`, open the world to LAN, then run `runClient2` and join it. Its own run
 	// directory and username keep the two clients' saves and identities apart.
 	runs {
@@ -95,7 +95,7 @@ dependencies {
 	modImplementation "foundry.imguimc:imguimc-fabric-${project.minecraft_version}:${project.imguimc_version}"
 
 	// Mine Little Pony - optional compatibility dependency (see the Compatibility section of the
-	// README). Compile-only: the mod is never required at runtime, only used if the player has it
+	// design doc). Compile-only: the mod is never required at runtime, only used if the player has it
 	// installed themselves, guarded behind FabricLoader.isModLoaded("minelittlepony") checks.
 	modCompileOnly "maven.modrinth:mine-little-pony:${project.minelp_version}"
 	// Mson - MineLP's own JSON-model/entity-renderer library. MineLP bundles it internally (jar-in-jar),

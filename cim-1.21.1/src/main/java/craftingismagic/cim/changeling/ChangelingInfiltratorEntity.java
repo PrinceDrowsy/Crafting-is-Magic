@@ -25,7 +25,7 @@ import craftingismagic.cim.villager.ChangelingAppearanceAttachment;
 import craftingismagic.cim.villager.ChangelingAppearanceAttachment.ChangelingAppearance;
 
 /**
- * A standalone test Changeling (README's Village Changelings are a separate, villager-based
+ * A standalone test Changeling (the design doc's Village Changelings are a separate, villager-based
  * system - not touched by this pass, see the Changeling Voice Mimicry plan's note on a future hive/
  * infiltration rework) - proves out shapeshifting into a specific real player plus voice mimicry,
  * inspired by studying the "SkinWalker" mob from SpacePotatoee's MinecraftFoundFootage mod.

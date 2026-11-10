@@ -8,7 +8,7 @@ how the mod's current levitation aura compares and the fixes it needs.
 
 Drawn together from every reference below (show and movie, magenta and cyan). This is what the
 mod's magic visuals follow - **every unicorn magic effect, and nearly every Verse spell**, whose
-verbs all draw in this style by default (see Every verse looks like magic, in the README) - and
+verbs all draw in this style by default (see Every verse looks like magic, in the design doc) - and
 the references are the evidence.
 
 ### The idea behind it
@@ -120,7 +120,7 @@ look in-game: "it looks bad") - plus the movie's wisps, shards and flash for lif
 
 - **A reduced-effects setting:** releases and teleports flash white, which can bother
   photosensitive players, so a client option softens the flashes (and stills the edge wave), the
-  same magic otherwise. Built as the Visual Comfort options (README: Accessibility, grounded in what
+  same magic otherwise. Built as the Visual Comfort options (design doc: Accessibility, grounded in what
   photosensitive and migraine players say): Flash Intensity, Flashes in Magic's Color, Steady Effects
   and Particle Amount - and, for everyone, never more than three bright flashes a second.
 - **Cheap at every scale:** effects are drawn on each viewer's own game, simplified with distance
@@ -211,7 +211,7 @@ magic before casting, mostly while running. Stills, so no timings - only the ord
 
 **Her color isn't her mane's:** Luna's magic is a bright **cyan-blue**, measured `#6cccfc` rising to
 `#6cfcfc` at its brightest - nothing like her royal-blue mane, and closest to her teal eyes. A
-second color confirming the README's rule (an aura often matches the eyes or mane, never
+second color confirming the design doc's rule (an aura often matches the eyes or mane, never
 necessarily the mane), and a check that the layering works away from Twilight's magenta.
 
 **Lighting up, step by step:**

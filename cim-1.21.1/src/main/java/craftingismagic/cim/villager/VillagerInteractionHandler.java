@@ -20,7 +20,7 @@ import craftingismagic.cim.rogue.RoguePonyEntity;
 
 /**
  * Right-clicking a villager starts a conversation directly, instead of vanilla's trade screen - the
- * pony greets you, and gifts and trades are brought up from inside the conversation (README:
+ * pony greets you, and gifts and trades are brought up from inside the conversation (design doc:
  * Conversations replace the interact menu). Only intercepts {@code Hand.MAIN_HAND} since Minecraft
  * dispatches this callback for both hands on a single right-click, which would otherwise start it twice.
  * <p>
@@ -46,7 +46,7 @@ public final class VillagerInteractionHandler {
 	// data/cim/tales/chatter/idle_chatter.tale, run by VillagerDialogue.
 	private static final int FAVORITE_GIFT_FONDNESS_BOOST = 20;
 	/** A favorite gift answers something the pony told you in conversation (Idle Chatter's closing
-	 * line reveals it) - a gift that shows you listened builds Trust, not just Fondness (README:
+	 * line reveals it) - a gift that shows you listened builds Trust, not just Fondness (design doc:
 	 * Friendship, deepened - "Gifts reward thoughtfulness over value"). */
 	private static final int FAVORITE_GIFT_TRUST_BOOST = 3;
 	private static final int GENERIC_GIFT_FONDNESS_BOOST = 5;
@@ -86,7 +86,7 @@ public final class VillagerInteractionHandler {
 
 			if (entity instanceof VillagerEntity villager) {
 				// No menu: the pony greets you and the conversation starts; gifts and trades are
-				// brought up from there (README: Conversations replace the interact menu).
+				// brought up from there (design doc: Conversations replace the interact menu).
 				freeze(villager, serverPlayer);
 				VillagerDialogue.startChatter(serverPlayer, villager.getId());
 				return ActionResult.SUCCESS;
@@ -158,7 +158,7 @@ public final class VillagerInteractionHandler {
 		if (pony instanceof VillagerEntity villager) {
 			craftingismagic.cim.structure.Keepsakes.offer(villager, player, keepsake, isFavorite ? 0.8f : 0.5f);
 		}
-		// A habit, tapered by the gifts already given today (README: friendship pacing).
+		// A habit, tapered by the gifts already given today (design doc: friendship pacing).
 		FriendshipAttachment.RelationshipData data = FriendshipAttachment.get(pony, player.getUuid());
 		int giftsBefore = data.lastGiftDay() == today ? data.giftsGivenThatDay() : 0;
 		FriendshipPace.habit(pony, player, Feeling.FONDNESS, isFavorite ? FAVORITE_GIFT_FONDNESS_BOOST : GENERIC_GIFT_FONDNESS_BOOST, giftsBefore);

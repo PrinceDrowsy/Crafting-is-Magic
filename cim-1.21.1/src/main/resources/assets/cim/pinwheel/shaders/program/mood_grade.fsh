@@ -1,4 +1,4 @@
-// The mood grade (README: The mood system - each feeling's look): one set of dials every
+// The mood grade (design doc: The mood system - each feeling's look): one set of dials every
 // scene-setting moment uses. Neutral values leave the picture untouched:
 // Saturation 1, Tint (1,1,1), Contrast 1, Brightness 0, Glow 0.
 

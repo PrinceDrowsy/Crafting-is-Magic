@@ -8,12 +8,12 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.speech.SpeakingVoice.Layer;
 
 /**
- * The princesses' voices (README: Speaking voices, Princess voice motifs) - melodic and layered, so
+ * The princesses' voices (design doc: Speaking voices, Princess voice motifs) - melodic and layered, so
  * they sound musical and ethereal. Layers sit at consonant intervals from each note and the notes walk
  * a scale, so nothing clashes. Roots sit low (around 0.6) so the highest layer still fits under the
  * game's 2.0 pitch ceiling.
  * <p>
- * Each is built from the motif research (README): day is major, bright and rising with a full,
+ * Each is built from the motif research (design doc): day is major, bright and rising with a full,
  * doubled sound; night is minor, falling, and alone - one voice and its own echo; love is warm with
  * sweet consonances; magic walks the Lydian scale film scores use for wonder.
  * <p>

@@ -26,7 +26,7 @@ import craftingismagic.cim.narrative.TaleAst.Trigger;
 /**
  * Checks parsed {@code .tale} files against each other and against the {@link TaleVocabulary}: jumps
  * that land nowhere, voice replies missing a branch, unknown voices/tiers/feelings/tones, conditions
- * and effects nobody registered, and pieces nothing reaches (docs/narrative-reference.md: What the
+ * and effects nobody registered, and pieces nothing reaches (design/narrative-reference.md: What the
  * validator will catch). Works on every loaded file at once, because a jump may cross files.
  */
 public final class TaleValidator {

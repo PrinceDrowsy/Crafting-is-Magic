@@ -23,7 +23,7 @@ public final class DialogueConfig {
 
 	private static DialogueConfig instance;
 
-	/** How many inner-voice lines may speak up in one beat (README: quiet/normal/chatty). */
+	/** How many inner-voice lines may speak up in one beat (design doc: quiet/normal/chatty). */
 	public enum VoiceLines {
 		QUIET(1),
 		NORMAL(2),
@@ -50,7 +50,7 @@ public final class DialogueConfig {
 		}
 	}
 
-	/** How much ponies hum around town (README: Humming): off, the occasional soft hum, or lively and frequent. */
+	/** How much ponies hum around town (design doc: Humming): off, the occasional soft hum, or lively and frequent. */
 	public enum Humming {
 		OFF(0f),
 		// Under one's breath - humming, not performing.

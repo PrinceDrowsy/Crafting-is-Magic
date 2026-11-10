@@ -14,7 +14,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * Stamina - "the cross-species resource shared by all species' abilities" (see the README's Magic
+ * Stamina - "the cross-species resource shared by all species' abilities" (see the design doc's Magic
  * System overview). {@code Entity}-typed like {@link craftingismagic.cim.species.SpeciesAttachment},
  * but not gated behind an explicit "has chosen" flag the way species is - every player simply has
  * Stamina by default, no opt-in step. {@link #getStamina} returns a full default value when nothing's

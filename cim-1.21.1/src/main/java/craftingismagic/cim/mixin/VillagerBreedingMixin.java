@@ -72,7 +72,7 @@ public abstract class VillagerBreedingMixin {
 		VillagerEntity child = cir.getReturnValue();
 		if (child != null) {
 			VillagerFamilyHandler.assignBredChild(child, (VillagerEntity) (Object) this, partner);
-			// Both parents are right here, so the foal's voice takes after them now (README: Speaking voices).
+			// Both parents are right here, so the foal's voice takes after them now (design doc: Speaking voices).
 			SpeakingVoices.inheritAtBirth(child, (VillagerEntity) (Object) this, partner);
 		}
 	}

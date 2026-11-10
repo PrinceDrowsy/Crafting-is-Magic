@@ -19,7 +19,7 @@ import craftingismagic.cim.speech.SpeakingVoice;
 import net.minecraft.particle.ParticleTypes;
 
 /**
- * Plays speaking voices (README: Speaking voices): one blip in the dialogue screen, or a short murmur
+ * Plays speaking voices (design doc: Speaking voices): one blip in the dialogue screen, or a short murmur
  * from a player who just chatted. Any sound ID works - a resource pack's own sounds too, since the
  * sound manager looks them up by ID.
  * <p>
@@ -32,7 +32,7 @@ public final class SpeechSounds {
 	private static final int MAX_MURMUR_BLIPS = 12;
 	private static final int TICKS_BETWEEN_BLIPS = 2;
 	/**
-	 * The scales a melodic voice can walk (README: Princess voice motifs), as pitch ratios from the root.
+	 * The scales a melodic voice can walk (design doc: Princess voice motifs), as pitch ratios from the root.
 	 * The pentatonics leave out the notes that rub, so nothing sounds sour; Lydian keeps its raised
 	 * fourth on purpose - that note is what film scores use for magic and wonder.
 	 */
@@ -180,7 +180,7 @@ public final class SpeechSounds {
 		return scale[Math.floorMod(degree, scale.length)] * (float) Math.pow(2, octave);
 	}
 
-	// ---- Humming (README: Humming) ----
+	// ---- Humming (design doc: Humming) ----
 
 	/** A soft breath before each phrase - a pony's, so the horse breath, high and very quiet. */
 	private static final Identifier BREATH = Identifier.ofVanilla("entity.horse.breathe");

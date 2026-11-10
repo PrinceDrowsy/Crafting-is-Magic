@@ -34,7 +34,7 @@ import craftingismagic.cim.narrative.TaleThreads.Event;
 import craftingismagic.cim.narrative.TaleThreads.Progress;
 
 /**
- * Runs {@code .tale} threads for each player (README: How threads work): keeps where they are in
+ * Runs {@code .tale} threads for each player (design doc: How threads work): keeps where they are in
  * each one, notices the events threads listen for, and starts threads by themselves once their
  * {@code requires:} fits - unless they're {@code starts: on cue}, which only {@code ~ thread start}
  * begins. A thread starts listening from the event after the one that started it.

@@ -73,7 +73,7 @@ import craftingismagic.cim.voice.CimVoices;
 import craftingismagic.cim.voice.VoiceLeanings;
 
 /**
- * The {@code /cim debug ...} root every debug command hangs off (docs/implementation-plan.md: Debug
+ * The {@code /cim debug ...} root every debug command hangs off (design/implementation-plan.md: Debug
  * and testing tools). Gated by {@link CimDebug#allowed(ServerCommandSource)} - op level 2 plus the
  * server's debug switch. Each later phase adds its own branch here.
  * <ul>
@@ -602,7 +602,7 @@ public final class DebugCommand {
 	}
 
 	/**
-	 * Speaking voices (README: Speaking voices) - how a pony or player sounds when they talk.
+	 * Speaking voices (design doc: Speaking voices) - how a pony or player sounds when they talk.
 	 * {@code speech show <target>}; {@code speech set <target> <sound> [pitch]} takes any sound ID
 	 * (what the character creator will offer players); {@code speech roll <target>} forgets the voice
 	 * so a new one is rolled or inherited.
@@ -654,7 +654,7 @@ public final class DebugCommand {
 	}
 
 	/**
-	 * {@code verse read <verse>} - reads a verse the way the Journal will (README: Verse): the words the
+	 * {@code verse read <verse>} - reads a verse the way the Journal will (design doc: Verse): the words the
 	 * spell hears, colored by what they mean; the notation preview; scholarly notes; cost and tier.
 	 */
 	private static LiteralArgumentBuilder<ServerCommandSource> verseBranch() {
@@ -723,7 +723,7 @@ public final class DebugCommand {
 		return out;
 	}
 
-	/** {@code hum <pony> [tune]} - the pony hums now (README: Humming), a tune that fits or the one named. */
+	/** {@code hum <pony> [tune]} - the pony hums now (design doc: Humming), a tune that fits or the one named. */
 	private static LiteralArgumentBuilder<ServerCommandSource> humBranch() {
 		return CommandManager.literal("hum").then(CommandManager.argument("pony", EntityArgumentType.entity())
 				.executes(context -> hum(context, java.util.Optional.empty()))

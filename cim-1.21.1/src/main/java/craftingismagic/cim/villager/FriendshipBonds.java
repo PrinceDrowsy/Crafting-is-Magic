@@ -20,7 +20,7 @@ import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.villager.PonyGeneticsAttachment.PonyGenetics;
 
 /**
- * Friend and best friend as real statuses on top of the three feelings (README: Becoming friends,
+ * Friend and best friend as real statuses on top of the three feelings (design doc: Becoming friends,
  * concretely; Affection, reworked).
  * <ul>
  * <li><b>Friend:</b> the player gives a Friendship Bracelet, and it's only taken once the pony is close

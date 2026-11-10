@@ -10,7 +10,7 @@ import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
 
 /**
- * A spot in a room set where a keepsake can appear - on a shelf, a table, a windowsill (README: Village
+ * A spot in a room set where a keepsake can appear - on a shelf, a table, a windowsill (design doc: Village
  * identity - keepsakes). Invisible and walk-through; it only shows while you hold one.
  */
 public class KeepsakeSpotBlock extends Block {

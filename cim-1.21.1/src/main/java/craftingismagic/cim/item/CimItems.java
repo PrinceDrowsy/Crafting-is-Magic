@@ -27,7 +27,7 @@ public final class CimItems {
 			Identifier.of(Cim.MOD_ID, "villager_debug_wand"),
 			new VillagerDebugWandItem(new Item.Settings().maxCount(1)));
 
-	/** Given to a pony you're close to; you get one back in their colors (README: Becoming friends, concretely). */
+	/** Given to a pony you're close to; you get one back in their colors (design doc: Becoming friends, concretely). */
 	public static final Item FRIENDSHIP_BRACELET = Registry.register(Registries.ITEM,
 			Identifier.of(Cim.MOD_ID, "friendship_bracelet"),
 			new FriendshipBraceletItem(new Item.Settings().maxCount(1)));

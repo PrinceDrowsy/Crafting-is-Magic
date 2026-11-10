@@ -11,7 +11,7 @@ import net.minecraft.util.Identifier;
 
 import craftingismagic.cim.Cim;
 
-/** The mod's debug-tools creative tab (docs/implementation-plan.md: Debug and testing tools). It's
+/** The mod's debug-tools creative tab (design/implementation-plan.md: Debug and testing tools). It's
  * the only tab for now, since none of the mod's real content is an item yet - a separate main tab
  * arrives with the first real items, so debug tools never mix with them. */
 public final class CimItemGroups {

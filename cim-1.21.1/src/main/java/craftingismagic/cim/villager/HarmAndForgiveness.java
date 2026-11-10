@@ -30,7 +30,7 @@ import craftingismagic.cim.memory.MemoryStore;
 import craftingismagic.cim.villager.PersonalityAttachment.Personality;
 
 /**
- * Hurting a pony matters - how much depends on whether it was an accident or cruelty (README: Harm &
+ * Hurting a pony matters - how much depends on whether it was an accident or cruelty (design doc: Harm &
  * forgiveness). Built to lean forgiving: clumsy players shouldn't be branded villains for bad aim.
  * <ul>
  * <li><b>An accident:</b> a single stray hit, or harm the player only caused indirectly. A little lost.</li>

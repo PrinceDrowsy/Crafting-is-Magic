@@ -189,7 +189,7 @@ public class CimVillagerPonyRenderer extends PonyRenderer<VillagerEntity, Client
 	}
 
 	/**
-	 * No gender system exists anywhere in this mod yet (see the README's Gender identity thread) -
+	 * No gender system exists anywhere in this mod yet (see the design doc's Gender identity thread) -
 	 * this is purely a technical stand-in since {@code PonyData} requires a non-null {@code Gender}
 	 * and MineLP's body model shape/animation reads it, not a real trait: stable per-villager (so a
 	 * given villager doesn't visibly flip every frame) but not persisted, synced, or otherwise
@@ -200,7 +200,7 @@ public class CimVillagerPonyRenderer extends PonyRenderer<VillagerEntity, Client
 	}
 
 	/** Baby and Child share MineLP's Foal preset (see {@link #resolveSize}) and need to read as
-	 * visually distinct anyway (README: "Baby... scaled down further than Child") - this extra
+	 * visually distinct anyway (design doc: "Baby... scaled down further than Child") - this extra
 	 * scale is what does that, layered on top of whatever Foal's own transform already applies. */
 	private static final float BABY_EXTRA_SCALE = 0.65f;
 

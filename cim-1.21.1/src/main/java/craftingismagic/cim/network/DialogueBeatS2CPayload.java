@@ -59,7 +59,7 @@ public record DialogueBeatS2CPayload(int entityId, String partnerName, List<Line
 	}
 
 	/**
-	 * Something the player can bring up in conversation (README: Conversations replace the interact menu).
+	 * Something the player can bring up in conversation (design doc: Conversations replace the interact menu).
 	 *
 	 * @param id        the request, e.g. {@code cim:gift}; its words are {@code request.<namespace>.<path>}
 	 * @param needsItem whether the player picks an item from their inventory first (a gift)
@@ -72,7 +72,7 @@ public record DialogueBeatS2CPayload(int entityId, String partnerName, List<Line
 	}
 
 	/**
-	 * Everything around the lines: how the pony and the player sound (README: Speaking voices), what
+	 * Everything around the lines: how the pony and the player sound (design doc: Speaking voices), what
 	 * the player can bring up, and what happens once the lines are read.
 	 *
 	 * @param followUp "" for nothing; {@code action} for something the screen asks the server to do once

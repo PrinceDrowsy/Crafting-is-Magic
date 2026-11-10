@@ -11,7 +11,7 @@ import net.minecraft.sound.SoundCategory;
 import craftingismagic.cim.client.mood.MomentDirector;
 
 /**
- * Lets a scene-setting moment hush the world (README: The mood system - "muffling"): every sound's
+ * Lets a scene-setting moment hush the world (design doc: The mood system - "muffling"): every sound's
  * volume passes through here, so a moment can dip world sounds smoothly while music, voices, and the
  * interface stay untouched. A no-op whenever no moment is playing.
  */

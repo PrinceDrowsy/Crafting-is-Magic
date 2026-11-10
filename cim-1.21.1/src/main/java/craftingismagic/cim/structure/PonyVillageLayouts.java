@@ -24,7 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * What a pony village is built from (README: Village identity - the ring layout), one file per village kind,
+ * What a pony village is built from (design doc: Village identity - the ring layout), one file per village kind,
  * {@code data/<ns>/pony_village/<name>.json}:
  * <pre>{@code
  * {

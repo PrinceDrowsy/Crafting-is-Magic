@@ -1,5 +1,5 @@
 // Syntax highlighting for .tale files - a line-oriented tokenizer, since the format itself is
-// line-oriented (docs/narrative-reference.md). Colors come from the Mane Six palette.
+// line-oriented (design/narrative-reference.md). Colors come from the Mane Six palette.
 
 import { HighlightStyle, StreamLanguage, type StringStream, syntaxHighlighting } from "@codemirror/language";
 import { tags } from "@lezer/highlight";

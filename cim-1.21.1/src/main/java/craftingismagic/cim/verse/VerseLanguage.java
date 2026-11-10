@@ -23,7 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The words Verse hears (README: Verse - spells as poetic equations). Loaded from datapacks:
+ * The words Verse hears (design doc: Verse - spells as poetic equations). Loaded from datapacks:
  * <ul>
  * <li>{@code data/<ns>/verse/words/<language>.json} - keywords and phrases by what they mean: effects
  * (by piece and mode), targets, logic, senses, durations, modifiers, "like a" for sound colors, the

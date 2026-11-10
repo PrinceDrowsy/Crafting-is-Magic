@@ -32,7 +32,7 @@ import craftingismagic.cim.villager.FriendshipAttachment.RelationshipData;
 import craftingismagic.cim.villager.VillagerFamilyHandler;
 
 /**
- * Server side of the debug HUD overlay (docs/implementation-plan.md: Debug and testing tools). A
+ * Server side of the debug HUD overlay (design/implementation-plan.md: Debug and testing tools). A
  * player who toggles the overlay on is subscribed; once a second, every registered provider writes
  * its lines for that player and the lot is sent as one packet. Nothing is built or sent for anyone
  * not subscribed. Each phase adds a provider via {@link #addProvider} for whatever it's testing.

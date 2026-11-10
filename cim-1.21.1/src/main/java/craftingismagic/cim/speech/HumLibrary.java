@@ -27,7 +27,7 @@ import craftingismagic.cim.narrative.TaleProblem;
 import craftingismagic.cim.narrative.TaleVocabulary;
 
 /**
- * The tunes ponies hum as they go about their day (README: Humming), loaded from
+ * The tunes ponies hum as they go about their day (design doc: Humming), loaded from
  * {@code data/<namespace>/hums/<name>.json}:
  * <pre>
  * {

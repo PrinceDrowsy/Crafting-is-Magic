@@ -32,7 +32,7 @@ import org.slf4j.LoggerFactory;
 import craftingismagic.cim.Cim;
 
 /**
- * A pony village, laid out in rings round its heart (README: Village identity - the ring layout): a
+ * A pony village, laid out in rings round its heart (design doc: Village identity - the ring layout): a
  * centerpiece on an open plaza, ring roads round it, eight roads out through every ring, and buildings on
  * plots along them - planned whole by {@link PonyVillagePlanner} instead of grown street by street like a
  * vanilla village. It takes over {@code minecraft:village_plains} (data/minecraft/worldgen/structure), so

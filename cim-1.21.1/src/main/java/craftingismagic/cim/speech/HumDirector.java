@@ -29,7 +29,7 @@ import craftingismagic.cim.villager.PersonalityType;
 import craftingismagic.cim.villager.VillagerInteractionHandler;
 
 /**
- * Ponies hum as they go about their day (README: Humming): a short tune in their own speaking voice,
+ * Ponies hum as they go about their day (design doc: Humming): a short tune in their own speaking voice,
  * note particles rising from them. Once a second, ponies near players get a chance to start one -
  * <ul>
  * <li>by personality: Peppy ponies hum often, most others now and then, Cranky ones almost never;</li>

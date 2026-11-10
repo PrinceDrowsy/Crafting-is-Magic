@@ -9,7 +9,7 @@ import net.minecraft.util.Identifier;
 import craftingismagic.cim.Cim;
 
 /**
- * The player brings something up in conversation - a gift, a trade (README: Conversations replace the
+ * The player brings something up in conversation - a gift, a trade (design doc: Conversations replace the
  * interact menu).
  *
  * @param slot for a request that needs an item, the inventory slot of the one picked; -1 otherwise

@@ -9,7 +9,7 @@ import net.minecraft.util.math.Vec3d;
 import craftingismagic.cim.Cim;
 
 /**
- * A Verse light begins (README: Verse, Light): each client nearby makes it real with Veil's dynamic
+ * A Verse light begins (design doc: Verse, Light): each client nearby makes it real with Veil's dynamic
  * lights - a glow that actually lights the world around it.
  *
  * @param entityId   the creature it follows, or -1 for a fixed place

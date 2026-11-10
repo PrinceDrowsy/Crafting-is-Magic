@@ -15,7 +15,7 @@ import craftingismagic.cim.Cim;
 import craftingismagic.cim.structure.VillageBuildingPiece;
 
 /**
- * Relocates a fresh world's spawn point into the nearest village (README-requested default, with
+ * Relocates a fresh world's spawn point into the nearest village (requested default, with
  * {@link VillageSpawnConfig#spawnInVillage} to turn it off), in two steps:
  * <ol>
  * <li>{@link #relocate}, at the end of vanilla's own {@code MinecraftServer.setupSpawn} (see {@code

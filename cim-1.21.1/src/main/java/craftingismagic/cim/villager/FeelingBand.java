@@ -2,7 +2,7 @@ package craftingismagic.cim.villager;
 
 /**
  * The named bands a feeling falls into - what dialogue checks against ({@code trust >= medium} in
- * docs/narrative-reference.md) and what players ever see described, since the friendship system never
+ * design/narrative-reference.md) and what players ever see described, since the friendship system never
  * shows numbers. {@code DEVOTED} is the rare, ride-or-die top tier.
  * <p>
  * Thresholds are first-pass values to tune once more ways of earning each feeling exist.

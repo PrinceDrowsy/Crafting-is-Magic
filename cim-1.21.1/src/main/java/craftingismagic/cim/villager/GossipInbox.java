@@ -22,7 +22,7 @@ import craftingismagic.cim.memory.Memory;
 import craftingismagic.cim.memory.MemoryStore;
 
 /**
- * News waiting for a pony who wasn't loaded when it came (README: The memory system - "unloaded ponies
+ * News waiting for a pony who wasn't loaded when it came (design doc: The memory system - "unloaded ponies
  * get an inbox"): word sent to family far away, delivered the moment they load. Saved with the world,
  * like the world facts; a few letters each, and old ones dropped.
  */

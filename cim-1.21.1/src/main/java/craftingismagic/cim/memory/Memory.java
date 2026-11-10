@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 
 /**
- * One memory (README: The memory system). Every memory answers the same questions - what happened,
+ * One memory (design doc: The memory system). Every memory answers the same questions - what happened,
  * who it's about, how the holder knows it, how much it matters, how it felt, and when - so one shape
  * serves Shared Memories, gossip, heritage, mood, and Changeling suspicion alike.
  *
@@ -23,7 +23,7 @@ import net.minecraft.util.Uuids;
  * @param intensity how strongly; only meaningful with an emotion
  * @param time      the world time (total game ticks) it was formed, for "last spring" and for fading
  * @param hops      how many retellings away from what happened: 0 for whoever saw it, 1 for their
- *                  friend, 2 for a friend of a friend... (gossip; README: The memory system)
+ *                  friend, 2 for a friend of a friend... (gossip; design doc: The memory system)
  * @param source    who told them, if they heard it - so a story never echoes back to its teller, and
  *                  dialogue can say "Petunia told me"
  */

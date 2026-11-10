@@ -25,7 +25,7 @@ import craftingismagic.cim.narrative.TaleAst.Trigger;
 import craftingismagic.cim.narrative.TaleAst.WeightBonus;
 
 /**
- * Turns the text of a {@code .tale} file into a {@link TaleFile} (docs/narrative-reference.md). It
+ * Turns the text of a {@code .tale} file into a {@link TaleFile} (design/narrative-reference.md). It
  * reads one line at a time; indentation decides what belongs to a reply or a thread stage. It never
  * throws on bad input - every problem is recorded with its line and parsing carries on, so one
  * mistake doesn't hide the rest. Whether names and references actually exist is the

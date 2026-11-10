@@ -12,7 +12,7 @@ import net.minecraft.util.Identifier;
 
 /**
  * How someone sounds when they talk, Undertale-style: a sound played per letter, at a pitch
- * (README: Speaking voices). Ponies speak with note block instruments; players may pick any sound
+ * (design doc: Speaking voices). Ponies speak with note block instruments; players may pick any sound
  * the game knows - a note block, a mob, a resource pack's own - by its ID.
  * <p>
  * A voice can also be <i>layered</i> and <i>melodic</i> - the princesses': extra sounds ring with each
@@ -25,7 +25,7 @@ import net.minecraft.util.Identifier;
  * @param scale  "" for an ordinary voice (it wobbles around its pitch); otherwise the scale its blips
  *               walk from {@code pitch} - {@code major} (bright, open: day), {@code minor} (melancholy,
  *               introspective: night), {@code dorian} (noble, bittersweet: a regal night), {@code lydian}
- *               (dreamy wonder: magic). See README: Princess
+ *               (dreamy wonder: magic). See design doc: Princess
  *               voice motifs.
  * @param drift  -1 to 1: how much its melody tends to fall (lonely, settling) or rise (hopeful, rising)
  * @param leap   the most scale steps one note moves from the last: 1 flows like a sung line (smooth,

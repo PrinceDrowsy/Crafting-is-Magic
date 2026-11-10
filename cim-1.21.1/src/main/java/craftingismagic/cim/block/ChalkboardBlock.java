@@ -14,7 +14,7 @@ import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 
 /**
- * A chalkboard - the Teacher's job site (README: Progression - the Schoolhouse). A slim board in a
+ * A chalkboard - the Teacher's job site (design doc: Progression - the Schoolhouse). A slim board in a
  * wooden frame, standing against whatever is behind it. Placeholder look for now.
  */
 public class ChalkboardBlock extends HorizontalFacingBlock {

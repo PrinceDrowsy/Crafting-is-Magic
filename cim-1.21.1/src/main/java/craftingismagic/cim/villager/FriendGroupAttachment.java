@@ -22,7 +22,7 @@ import net.minecraft.util.Uuids;
 import craftingismagic.cim.Cim;
 
 /**
- * A villager's friend circle (see Friend groups in the README) - a decentralized peer list, not a
+ * A villager's friend circle (see Friend groups in the design doc) - a decentralized peer list, not a
  * central group-id/registry, matching how the rest of this codebase always models NPC-to-NPC links
  * (see {@link PonyFamilyAttachment}'s own doc comment on why villages have no "this batch belongs
  * together" signal to hang a group id off of). {@code members} is every OTHER villager in this

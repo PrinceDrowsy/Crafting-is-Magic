@@ -22,7 +22,7 @@ import craftingismagic.cim.network.VerseLightS2CPayload;
 import craftingismagic.cim.verse.VerseRuntime;
 
 /**
- * Verse's Light made real (README: Verse): Veil dynamic lights that actually light the world - one glow
+ * Verse's Light made real (design doc: Verse): Veil dynamic lights that actually light the world - one glow
  * for "shine" and for a glowing or twinkling creature, and for a crown, several small lights circling
  * above the head with the sparkles, lighting the face beneath.
  * <p>

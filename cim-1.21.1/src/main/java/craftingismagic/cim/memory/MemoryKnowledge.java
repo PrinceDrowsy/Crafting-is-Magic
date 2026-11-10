@@ -3,7 +3,7 @@ package craftingismagic.cim.memory;
 import com.mojang.serialization.Codec;
 
 /**
- * How the holder knows what they remember (README: The memory system). Gossip turns one into the
+ * How the holder knows what they remember (design doc: The memory system). Gossip turns one into the
  * next: a pony who witnessed something tells friends, who hold it as heard; retold over generations
  * it becomes legend - and may drift.
  */

@@ -6,7 +6,7 @@ import java.util.Optional;
 import net.minecraft.util.Identifier;
 
 /**
- * What a parsed {@code .tale} file looks like (docs/narrative-reference.md). Every piece remembers
+ * What a parsed {@code .tale} file looks like (design/narrative-reference.md). Every piece remembers
  * the line it came from, so the validator and the runtime can report problems as {@code file:line}.
  * Plain data, no behavior - parsing lives in {@link TaleParser}, checking in {@link TaleValidator},
  * playing in {@link TaleRuntime}.
