@@ -5,3 +5,6 @@ runclient_out.log
 runclient_err.log
 
 __pycache__/
+
+# Design docs: their own private repo, kept out of this one to avoid spoilers
+/design/
